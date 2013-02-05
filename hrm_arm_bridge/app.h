@@ -31,6 +31,8 @@ private:
   irs::mxnet_t m_mxnet_server;
   cfg_t::pins_t* mp_pins;
   
+  irs::adc_ad7799_t m_adc;
+  
   irs::loop_timer_t m_eth_timer;
   irs::loop_timer_t m_blink_timer;
   bool m_blink;

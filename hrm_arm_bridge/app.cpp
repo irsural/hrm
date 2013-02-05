@@ -13,6 +13,14 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
     *mp_cfg->hardflow(), 
     m_eth_data.connect(&m_mxnet_server, 0) / sizeof(irs_u32)),
   mp_pins(mp_cfg->pins()),
+  m_adc(
+    mp_cfg->spi(), 
+    mp_pins->p_adc_cs,
+    mp_pins->p_dac_cs,
+    mp_pins->p_dac_reset,
+    mp_pins->p_dac_ldac,
+    mp_pins->p_vben,
+    true),
   m_eth_timer(irs::make_cnt_ms(100)),
   m_blink_timer(irs::make_cnt_ms(100)),
   m_blink(false)
@@ -32,6 +40,7 @@ void hrm::app_t::tick()
 { 
   mp_cfg->tick();
   m_mxnet_server.tick();
+  m_adc.tick();
   
   if (m_eth_timer.check()) {
     m_eth_data.counter++;

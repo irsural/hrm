@@ -18,6 +18,7 @@ hrm::cfg_t::pins_t::pins_t(
   irs::gpio_pin_t* ap_relay_1g,
   irs::gpio_pin_t* ap_relay_eton,
   irs::gpio_pin_t* ap_relay_chon,
+  irs::gpio_pin_t* ap_relay_prot,
   irs::gpio_pin_t* ap_relay_zero_on,
   irs::gpio_pin_t* ap_relay_zero_off,
   irs::gpio_pin_t* ap_relay_etpol_on,
@@ -39,6 +40,7 @@ hrm::cfg_t::pins_t::pins_t(
   p_relay_1g(ap_relay_1g),
   p_relay_eton(ap_relay_eton),
   p_relay_chon(ap_relay_chon),
+  p_relay_prot(ap_relay_prot),
   p_relay_zero_on(ap_relay_zero_on),
   p_relay_zero_off(ap_relay_zero_off),
   p_relay_etpol_on(ap_relay_etpol_on),
@@ -67,9 +69,9 @@ hrm::cfg_t::cfg_t():
   m_vben(GPIO_PORTG, 4, irs::io_t::dir_out, irs::io_pin_off),
   m_adc_cs(GPIO_PORTE, 0, irs::io_t::dir_out, irs::io_pin_on),
   m_dac_cs(GPIO_PORTA, 6, irs::io_t::dir_out, irs::io_pin_on),
-  m_dac_ldac(GPIO_PORTD, 3, irs::io_t::dir_out, irs::io_pin_on),
-  m_dac_clr(GPIO_PORTC, 6, irs::io_t::dir_out, irs::io_pin_on),
-  m_dac_reset(GPIO_PORTC, 7, irs::io_t::dir_out, irs::io_pin_on),
+  m_dac_ldac(GPIO_PORTD, 3, irs::io_t::dir_out, irs::io_pin_off),
+  m_dac_clr(GPIO_PORTC, 6, irs::io_t::dir_out, irs::io_pin_off),
+  m_dac_reset(GPIO_PORTC, 7, irs::io_t::dir_out, irs::io_pin_off),
   m_relay_100k(GPIO_PORTE, 6, irs::io_t::dir_out, irs::io_pin_off),
   m_relay_1m(GPIO_PORTE, 5, irs::io_t::dir_out, irs::io_pin_off),
   m_relay_10m(GPIO_PORTD, 2, irs::io_t::dir_out, irs::io_pin_off),
@@ -77,10 +79,11 @@ hrm::cfg_t::cfg_t():
   m_relay_1g(GPIO_PORTG, 15, irs::io_t::dir_out, irs::io_pin_off),
   m_relay_eton(GPIO_PORTG, 12, irs::io_t::dir_out, irs::io_pin_off),
   m_relay_chon(GPIO_PORTB, 6, irs::io_t::dir_out, irs::io_pin_off),
-  m_relay_zero_on(GPIO_PORTG, 11, irs::io_t::dir_out, irs::io_pin_off),
-  m_relay_zero_off(GPIO_PORTA, 4, irs::io_t::dir_out, irs::io_pin_on),
-  m_relay_etpol_on(GPIO_PORTE, 1, irs::io_t::dir_out, irs::io_pin_off),
-  m_relay_etpol_off(GPIO_PORTE, 4, irs::io_t::dir_out, irs::io_pin_on),
+  m_relay_prot(GPIO_PORTG, 10, irs::io_t::dir_out, irs::io_pin_on),
+  m_relay_zero_on(GPIO_PORTG, 11, irs::io_t::dir_out, irs::io_pin_on),
+  m_relay_zero_off(GPIO_PORTA, 4, irs::io_t::dir_out, irs::io_pin_off),
+  m_relay_etpol_on(GPIO_PORTE, 1, irs::io_t::dir_out, irs::io_pin_on),
+  m_relay_etpol_off(GPIO_PORTE, 4, irs::io_t::dir_out, irs::io_pin_off),
   m_led_blink(GPIO_PORTB, 9, irs::io_t::dir_out, irs::io_pin_off),
   m_led_hf(GPIO_PORTF, 6, irs::io_t::dir_out, irs::io_pin_off),
   m_led_pon(GPIO_PORTB, 8, irs::io_t::dir_out, irs::io_pin_off),
@@ -99,6 +102,7 @@ hrm::cfg_t::cfg_t():
     &m_relay_1g,
     &m_relay_eton,
     &m_relay_chon,
+    &m_relay_prot,
     &m_relay_zero_on,
     &m_relay_zero_off,
     &m_relay_etpol_on,
@@ -114,7 +118,7 @@ irs::hardflow::simple_udp_flow_t* hrm::cfg_t::hardflow()
   return &m_simple_hardflow;
 }
 
-irs::arm::arm_spi_t* hrm::cfg_t::spi()
+irs::spi_t* hrm::cfg_t::spi()
 {
   return &m_spi;
 }

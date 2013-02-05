@@ -62,6 +62,7 @@ public:
       irs::gpio_pin_t* ap_relay_1g,
       irs::gpio_pin_t* ap_relay_eton,
       irs::gpio_pin_t* ap_relay_chon,
+      irs::gpio_pin_t* ap_relay_prot,
       irs::gpio_pin_t* ap_relay_zero_on,
       irs::gpio_pin_t* ap_relay_zero_off,
       irs::gpio_pin_t* ap_relay_etpol_on,
@@ -83,6 +84,7 @@ public:
     irs::gpio_pin_t* p_relay_1g;
     irs::gpio_pin_t* p_relay_eton;
     irs::gpio_pin_t* p_relay_chon;
+    irs::gpio_pin_t* p_relay_prot;
     irs::gpio_pin_t* p_relay_zero_on;
     irs::gpio_pin_t* p_relay_zero_off;
     irs::gpio_pin_t* p_relay_etpol_on;
@@ -93,7 +95,7 @@ public:
   };
   cfg_t();
   irs::hardflow::simple_udp_flow_t* hardflow();
-  irs::arm::arm_spi_t* spi();
+  irs::spi_t* spi();
   pins_t* pins();
   void tick();
   
@@ -124,6 +126,7 @@ private:
   irs::arm::io_pin_t m_relay_1g;
   irs::arm::io_pin_t m_relay_eton;
   irs::arm::io_pin_t m_relay_chon;
+  irs::arm::io_pin_t m_relay_prot;
   irs::arm::io_pin_t m_relay_zero_on;
   irs::arm::io_pin_t m_relay_zero_off;
   irs::arm::io_pin_t m_relay_etpol_on;

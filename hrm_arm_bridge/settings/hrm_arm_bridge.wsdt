@@ -12,7 +12,7 @@
           
           
           
-        <Column0>187</Column0><Column1>27</Column1><Column2>27</Column2><Column3>27</Column3></ColumnWidths>
+        <Column0>202</Column0><Column1>27</Column1><Column2>27</Column2><Column3>27</Column3></ColumnWidths>
       </Workspace>
       <Build>
         
@@ -32,7 +32,7 @@
             <Factory>Workspace</Factory>
             <Session>
               
-            <NodeDict><ExpandedNode>hrm_arm_bridge</ExpandedNode><ExpandedNode>hrm_arm_bridge/mxsrclib</ExpandedNode><ExpandedNode>hrm_arm_bridge/mxsrclib/arch</ExpandedNode></NodeDict></Session>
+            <NodeDict><ExpandedNode>hrm_arm_bridge</ExpandedNode></NodeDict></Session>
           </Tab>
         </Tabs>
         
@@ -52,14 +52,14 @@
       
       
       
-    <Pane><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\main.cpp</Filename><XPos>0</XPos><YPos>0</YPos><SelStart>934</SelStart><SelEnd>934</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\cfg.h</Filename><XPos>0</XPos><YPos>40</YPos><SelStart>3754</SelStart><SelEnd>3754</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\cfg.cpp</Filename><XPos>0</XPos><YPos>49</YPos><SelStart>2950</SelStart><SelEnd>2950</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\app.h</Filename><XPos>0</XPos><YPos>0</YPos><SelStart>541</SelStart><SelEnd>541</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\app.cpp</Filename><XPos>0</XPos><YPos>0</YPos><SelStart>322</SelStart><SelEnd>322</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\general\hrm_bridge_data.h</Filename><XPos>0</XPos><YPos>0</YPos><SelStart>1124</SelStart><SelEnd>1124</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\mxsrclib\irsadc.h</Filename><XPos>0</XPos><YPos>1236</YPos><SelStart>42457</SelStart><SelEnd>42457</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\mxsrclib\irsadc.cpp</Filename><XPos>0</XPos><YPos>2238</YPos><SelStart>63888</SelStart><SelEnd>63888</SelEnd></Tab><ActiveTab>7</ActiveTab></Pane><ActivePane>0</ActivePane><Sizes><Pane><X>1000000</X><Y>1000000</Y></Pane></Sizes><SplitMode>1</SplitMode></Editor>
+    <Pane><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\cfg.h</Filename><XPos>0</XPos><YPos>54</YPos><SelStart>2747</SelStart><SelEnd>2747</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\app.h</Filename><XPos>0</XPos><YPos>0</YPos><SelStart>475</SelStart><SelEnd>475</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\mxsrclib\timer.cpp</Filename><XPos>0</XPos><YPos>176</YPos><SelStart>3671</SelStart><SelEnd>3671</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\mxsrclib\arch\arm\armcfg.h</Filename><XPos>0</XPos><YPos>104</YPos><SelStart>3378</SelStart><SelEnd>3398</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\mxsrclib\irstcpip.cpp</Filename><XPos>0</XPos><YPos>2087</YPos><SelStart>68938</SelStart><SelEnd>68938</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\app.cpp</Filename><XPos>0</XPos><YPos>0</YPos><SelStart>433</SelStart><SelEnd>433</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\mxsrclib\irsspi.h</Filename><XPos>0</XPos><YPos>0</YPos><SelStart>0</SelStart><SelEnd>0</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\mxsrclib\hardflowg.cpp</Filename><XPos>0</XPos><YPos>2421</YPos><SelStart>79515</SelStart><SelEnd>79515</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\mxsrclib\arch\arm\armregs_stm32.h</Filename><XPos>0</XPos><YPos>254</YPos><SelStart>8916</SelStart><SelEnd>8919</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\mxsrclib\arch\arm\armregs_stm32f2xx.h</Filename><XPos>0</XPos><YPos>2554</YPos><SelStart>87366</SelStart><SelEnd>87366</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\mxsrclib\irsadc.cpp</Filename><XPos>0</XPos><YPos>2293</YPos><SelStart>65601</SelStart><SelEnd>65601</SelEnd></Tab><ActiveTab>10</ActiveTab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\mxsrclib\arch\arm\armspi.cpp</Filename><XPos>0</XPos><YPos>598</YPos><SelStart>14990</SelStart><SelEnd>14990</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\mxsrclib\irsadc.h</Filename><XPos>0</XPos><YPos>1137</YPos><SelStart>39469</SelStart><SelEnd>39469</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\main.cpp</Filename><XPos>0</XPos><YPos>0</YPos><SelStart>251</SelStart><SelEnd>251</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\mxsrclib\arch\arm\armcfg.cpp</Filename><XPos>0</XPos><YPos>101</YPos><SelStart>5443</SelStart><SelEnd>5443</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\cfg.cpp</Filename><XPos>0</XPos><YPos>41</YPos><SelStart>1970</SelStart><SelEnd>1970</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\mxsrclib\irsgpio.cpp</Filename><XPos>0</XPos><YPos>265</YPos><SelStart>5930</SelStart><SelEnd>5930</SelEnd></Tab></Pane><ActivePane>0</ActivePane><Sizes><Pane><X>1000000</X><Y>1000000</Y></Pane></Sizes><SplitMode>1</SplitMode></Editor>
     <Positions>
       
       
       
       
       
-    <Top><Row0><Sizes><Toolbar-0134a698><key>iaridepm.enu1</key></Toolbar-0134a698></Sizes></Row0></Top><Left><Row0><Sizes><Wnd0><Rect><Top>-2</Top><Left>-2</Left><Bottom>970</Bottom><Right>278</Right><x>-2</x><y>-2</y><xscreen>200</xscreen><yscreen>200</yscreen><sizeHorzCX>125000</sizeHorzCX><sizeHorzCY>182815</sizeHorzCY><sizeVertCX>175000</sizeVertCX><sizeVertCY>888483</sizeVertCY></Rect></Wnd0></Sizes></Row0></Left><Right><Row0><Sizes/></Row0></Right><Bottom><Row0><Sizes><Wnd1><Rect><Top>-2</Top><Left>-2</Left><Bottom>80</Bottom><Right>1602</Right><x>-2</x><y>-2</y><xscreen>1604</xscreen><yscreen>82</yscreen><sizeHorzCX>1002500</sizeHorzCX><sizeHorzCY>74954</sizeHorzCY><sizeVertCX>125000</sizeVertCX><sizeVertCY>182815</sizeVertCY></Rect></Wnd1></Sizes></Row0></Bottom><Float><Sizes/></Float></Positions>
+    <Top><Row0><Sizes><Toolbar-0134aa08><key>iaridepm.enu1</key></Toolbar-0134aa08></Sizes></Row0><Row1><Sizes/></Row1></Top><Left><Row0><Sizes><Wnd0><Rect><Top>-2</Top><Left>-2</Left><Bottom>887</Bottom><Right>276</Right><x>-2</x><y>-2</y><xscreen>149</xscreen><yscreen>142</yscreen><sizeHorzCX>93125</sizeHorzCX><sizeHorzCY>129799</sizeHorzCY><sizeVertCX>173750</sizeVertCX><sizeVertCY>812614</sizeVertCY></Rect></Wnd0></Sizes></Row0></Left><Right><Row0><Sizes/></Row0></Right><Bottom><Row0><Sizes><Wnd1><Rect><Top>-2</Top><Left>-2</Left><Bottom>163</Bottom><Right>1602</Right><x>-2</x><y>-2</y><xscreen>1604</xscreen><yscreen>165</yscreen><sizeHorzCX>1002500</sizeHorzCX><sizeHorzCY>150823</sizeHorzCY><sizeVertCX>93125</sizeVertCX><sizeVertCY>129799</sizeVertCY></Rect></Wnd1></Sizes></Row0></Bottom><Float><Sizes/></Float></Positions>
   </Desktop>
 </Workspace>
 
