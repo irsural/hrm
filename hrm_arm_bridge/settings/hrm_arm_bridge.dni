@@ -28,7 +28,7 @@ ActionState=1
 Enabled=0
 ShowSource=1
 [DebugChecksum]
-Checksum=-1714841301
+Checksum=-1943148467
 [Exceptions]
 StopOnUncaught=_ 0
 StopOnThrow=_ 0
@@ -36,14 +36,15 @@ StopOnThrow=_ 0
 ShowArgs=0
 [Disassembly]
 MixedMode=1
+[watch_formats]
+Fmt0={W}0:m_freq	3	0
 [Disassemble mode]
 mode=0
 [Breakpoints2]
-Bp0=_ 1 "EMUL_CODE" "{$PROJ_DIR$\..\mxsrclib\irsadc.cpp}.2266.9" 0 0 1 "" 0 "" 0
-Bp1=_ 1 "EMUL_CODE" "{$PROJ_DIR$\..\mxsrclib\irsadc.cpp}.2212.7" 0 0 1 "" 0 "" 0
-Bp2=_ 1 "EMUL_CODE" "{$PROJ_DIR$\..\mxsrclib\irsadc.cpp}.2221.9" 0 0 1 "" 0 "" 0
-Bp3=_ 1 "EMUL_CODE" "{$PROJ_DIR$\..\mxsrclib\irsadc.cpp}.2240.7" 0 0 1 "" 0 "" 0
-Count=4
+Bp0=_ 0 "EMUL_CODE" "{$PROJ_DIR$\..\mxsrclib\irsadc.cpp}.2243.12" 0 0 1 "" 0 "" 0
+Bp1=_ 0 "EMUL_CODE" "{$PROJ_DIR$\..\mxsrclib\irsadc.cpp}.2264.7" 0 0 1 "" 0 "" 0
+Bp2=_ 1 "EMUL_CODE" "{$PROJ_DIR$\..\mxsrclib\irsadc.cpp}.2178.1" 0 0 1 "" 0 "" 0
+Count=3
 [Log file]
 LoggingEnabled=_ 0
 LogFile=_ ""

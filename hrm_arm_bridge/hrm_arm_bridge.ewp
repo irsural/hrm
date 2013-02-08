@@ -2380,10 +2380,16 @@
     <name>$PROJ_DIR$\cfg.h</name>
   </file>
   <file>
-    <name>$PROJ_DIR$\..\general\hrm_bridge_data.h</name>
+    <name>$PROJ_DIR$\..\hrm_general\hrm_bridge_data.h</name>
   </file>
   <file>
     <name>$PROJ_DIR$\main.cpp</name>
+  </file>
+  <file>
+    <name>$PROJ_DIR$\utils.cpp</name>
+  </file>
+  <file>
+    <name>$PROJ_DIR$\utils.h</name>
   </file>
 </project>
 

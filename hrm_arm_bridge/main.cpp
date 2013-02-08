@@ -18,7 +18,7 @@ void main()
 {
   pll_on();
 
-  static hard_fault_event_t hard_fault_event(GPIO_PORTD, 0);
+  static hard_fault_event_t hard_fault_event(GPIO_PORTF, 6);
   
   static irs::arm::com_buf log_buf(1, 10, 115200);
   irs::mlog().rdbuf(&log_buf);
