@@ -59,6 +59,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_mode(md_free),
   m_free_status(fs_prepare),
   m_balance_status(bs_prepare),
+  m_balance_target_status(bs_prepare),
   m_current_iteration(0),
   m_iteration_count(20),
   m_dac_code(0),
@@ -75,6 +76,16 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_etalon(0.),
   m_result(0.),
   m_result_error(0.),
+  m_adc_gain(m_min_adc_gain),
+  m_adc_channel(0),
+  m_adc_ch_2_value(0),
+  m_adc_ch_3_value(0),
+  m_adc_offset(0),
+  m_adc_fullscale(0),
+  m_adc_gain_inc_limit(m_adc_midscale / 2),
+  m_adc_gain_dec_limit(m_adc_midscale / 4),
+  m_relay_after_pause(irs::make_cnt_ms(500)),
+  m_dac_after_pause(irs::make_cnt_ms(100)),
   m_manual_status(ms_prepare)
 {
   mxip_t ip = mxip_t::zero_ip();
@@ -92,6 +103,17 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_range.add_relay(&m_relay_10m);
   m_range.add_relay(&m_relay_100m);
   m_range.add_relay(&m_relay_1g);
+  
+  m_relay_1g.set_after_pause(m_relay_after_pause);
+  m_relay_100m.set_after_pause(m_relay_after_pause);
+  m_relay_10m.set_after_pause(m_relay_after_pause);
+  m_relay_1m.set_after_pause(m_relay_after_pause);
+  m_relay_100k.set_after_pause(m_relay_after_pause);
+  m_relay_chon.set_after_pause(m_relay_after_pause);
+  m_relay_eton.set_after_pause(m_relay_after_pause);
+  m_relay_prot.set_after_pause(m_relay_after_pause);
+  m_relay_zero.set_after_pause(m_relay_after_pause);
+  m_relay_etpol.set_after_pause(m_relay_after_pause);
 }
 
 void hrm::app_t::tick()
@@ -162,7 +184,10 @@ void hrm::app_t::tick()
           //m_adc.set_gain(ag_1);
           //m_adc.set_channel(ac_1);
           //m_adc.set_freq(af_4Hz);
-          m_dac.off();
+          m_adc_gain = m_min_adc_gain;
+          m_adc_channel = 0;
+          //m_dac.off();
+          m_dac.on();
           m_dac.set_code(0);
           m_service_timer.start();
           //
@@ -247,9 +272,11 @@ void hrm::app_t::tick()
           //  eton = 0
           //  chon = 0
           //  zero off
+          m_adc_gain = m_min_adc_gain;
+          m_adc_offset = 0;
           m_etalon = m_eth_data.etalon;
           m_checked = m_eth_data.checked;
-          m_dac.set_after_pause(irs::make_cnt_ms(2000));
+          m_dac.set_after_pause(m_dac_after_pause);
           m_relay_prot = 1;
           m_balancing_coil = bc_checked;
           m_balance_status = bs_set_etpol;
@@ -296,27 +323,88 @@ void hrm::app_t::tick()
         case bs_coils_on_wait: {
           if (m_relay_chon.status() == irs_st_ready 
             && m_relay_eton.status() == irs_st_ready) {
-            m_balance_status = bs_dac_prepare;
+            //m_balance_status = bs_zero_relay_on;
+            m_balance_status = bs_zero_adc_set_channel;
+            m_balance_target_status = bs_dac_prepare;
           }
           break;
         }
         case bs_zero_relay_on: {
-          m_zero_relay = 1;
-          m_balance_status = bs_zero_relay_wait;
-          break;
-        }
-        case bs_zero_relay_wait: {
-          if (m_zero_relay.status() == irs_st_ready) {
-            m_balance_status = bs_zero_adc_start;
+          if (m_relay_zero.status() == irs_st_ready) {
+            m_relay_zero = 1;
+            m_balance_status = bs_zero_relay_wait;
           }
           break;
         }
-        case bs_zero_adc_start: {
-          //
+        case bs_zero_relay_wait: {
+          if (m_relay_zero.status() == irs_st_ready) {
+            m_balance_status = bs_zero_adc_set_channel;
+          }
+          break;
+        }
+        case bs_zero_adc_set_channel: {
+          if (m_adc.status() == meas_status_success) {
+            m_adc.set_channel(m_adc_channel);
+            irs::mlog() << irsm("Канал АЦП = ") << (m_adc_channel + 1) << endl;
+            m_balance_status = bs_zero_adc_set_gain;
+          }
+          break;
+        }
+        case bs_zero_adc_set_gain: {
+          if (m_adc.status() == meas_status_success) {
+            m_adc.set_gain(m_adc_gain);
+            irs::mlog() << irsm("Усиление АЦП = ") << (1 << m_adc_gain) << endl;
+            m_balance_status = bs_zero_adc_set_mode_offset;
+          }
+          break;
+        }
+        case bs_zero_adc_set_mode_offset: {
+          if (m_adc.status() == meas_status_success) {
+            m_adc.set_mode(am_offset);
+            irs::mlog() << irsm("Режим АЦП = System Zero") << endl;
+            m_balance_status = bs_zero_adc_start_offset;
+          }
+          break;
+        }
+        case bs_zero_adc_start_offset: {
+          if (m_adc.status() == meas_status_success) {
+            //m_adc.start();
+            m_adc_offset = m_adc.get_value();
+            irs::mlog() << irsm("System Zero = ") << m_adc_offset << endl;
+            m_balance_status = bs_zero_adc_set_mode_fullscale;
+          }
+          break;
+        }
+        case bs_zero_adc_set_mode_fullscale: {
+          if (m_adc.status() == meas_status_success) {
+            m_adc.set_mode(am_offset);
+            irs::mlog() << irsm("Режим АЦП = Int FullScale") << endl;
+            m_balance_status = bs_zero_adc_start_fullscale;
+          }
+          break;
+        }
+        case bs_zero_adc_start_fullscale: {
+          if (m_adc.status() == meas_status_success) {
+            //m_adc.start();
+            m_adc_fullscale = m_adc.get_value();
+            irs::mlog() << irsm("Int FullScale = ") << m_adc_offset << endl;
+            m_balance_status = bs_zero_adc_set_mode_single;
+          }
+          break;
+        }
+        case bs_zero_adc_set_mode_single: {
+          if (m_adc.status() == meas_status_success) {
+//            m_adc_offset = m_adc.get_value();
+//            irs::mlog() << irsm("Смещение АЦП = ") << m_adc_offset << endl;
+            m_adc.set_mode(am_single_conversion);
+            m_balance_status = bs_zero_adc_wait;
+          }
           break;
         }
         case bs_zero_adc_wait: {
-          //
+          if (m_adc.status() == meas_status_success) {
+            m_balance_status = m_balance_target_status;
+          }
           break;
         }
         case bs_dac_prepare: {
@@ -341,7 +429,19 @@ void hrm::app_t::tick()
           if (m_adc.status() == meas_status_success) {
             m_adc_value = convert_adc(m_adc.get_value());
             irs::mlog() << irsm("АЦП = ") << m_adc_value << endl;
-            m_balance_status = bs_balance;
+            if (can_dec_gain()) {
+              m_adc_gain--;
+              m_balance_status = bs_zero_relay_on;
+              m_balance_target_status = bs_adc_start;
+              irs::mlog() << irsm("Усиление АЦП уменьшено") << endl;
+            } else if (can_inc_gain()) {
+              m_adc_gain++;
+              m_balance_status = bs_zero_relay_on;
+              m_balance_target_status = bs_adc_start;
+              irs::mlog() << irsm("Усиление АЦП увеличено") << endl;
+            } else {
+              m_balance_status = bs_balance;
+            }
           }
           break;
         }

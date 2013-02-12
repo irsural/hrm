@@ -54,7 +54,13 @@ private:
     bs_coils_on_wait,
     bs_zero_relay_on,
     bs_zero_relay_wait,
-    bs_zero_adc_start,
+    bs_zero_adc_set_channel,
+    bs_zero_adc_set_gain,
+    bs_zero_adc_set_mode_offset,
+    bs_zero_adc_start_offset,
+    bs_zero_adc_set_mode_fullscale,
+    bs_zero_adc_start_fullscale,
+    bs_zero_adc_set_mode_single,
     bs_zero_adc_wait,
     bs_dac_prepare,
     bs_adc_start,
@@ -68,7 +74,9 @@ private:
     ms_prepare
   };
   enum adc_mode_t {
-    am_single_conversion = 1
+    am_single_conversion = 1,
+    am_offset = 6,
+    am_fullscale = 5
   };
   enum adc_filter_t {
     af_4Hz = 15
@@ -77,7 +85,8 @@ private:
     ac_1 = 0
   };
   enum adc_gain_t {
-    ag_1 = 0
+    m_min_adc_gain = 0,
+    m_max_adc_gain = 7
   };
   cfg_t* mp_cfg;
   eth_data_t m_eth_data;
@@ -112,6 +121,7 @@ private:
   free_status_t m_free_status;
   
   balance_status_t m_balance_status;
+  balance_status_t m_balance_target_status;
   size_t m_current_iteration;
   size_t m_iteration_count;
   irs_i32 m_dac_code;
@@ -128,8 +138,29 @@ private:
   double m_etalon;
   double m_result;
   double m_result_error;
+  irs_u8 m_adc_gain;
+  irs_u8 m_adc_channel;
+  irs_i32 m_adc_ch_2_value;
+  irs_i32 m_adc_ch_3_value;
+  irs_i32 m_adc_offset;
+  irs_i32 m_adc_fullscale;
+  irs_i32 m_adc_gain_inc_limit;
+  irs_i32 m_adc_gain_dec_limit;
+  counter_t m_relay_after_pause;
+  counter_t m_dac_after_pause;
   
   manual_status_t m_manual_status;
+  
+  inline bool can_dec_gain()
+  {
+    //return (m_adc_value > m_adc_gain_dec_limit && m_adc_gain > m_min_adc_gain);
+    return false;
+  }
+  inline bool can_inc_gain()
+  {
+    //return (m_adc_value < m_adc_gain_inc_limit && m_adc_gain < m_max_adc_gain);
+    return false;
+  }
 };
 
 } //  hrm

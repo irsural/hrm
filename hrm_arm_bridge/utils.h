@@ -15,6 +15,10 @@
 
 namespace hrm {
   
+enum const_t {
+  m_adc_midscale = (2 << 22)
+};
+  
 class adc_dac_request_t
 {
 public:
@@ -164,7 +168,7 @@ private:
 inline irs_i32 convert_adc(irs_u32 a_in_value)
 {
   irs_i32 adc_value = a_in_value;
-  irs_i32 adc_mid = (2 << 22);
+  irs_i32 adc_mid = m_adc_midscale;
   return adc_value - adc_mid;
 }
 

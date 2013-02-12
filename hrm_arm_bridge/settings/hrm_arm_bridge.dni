@@ -28,7 +28,7 @@ ActionState=1
 Enabled=0
 ShowSource=1
 [DebugChecksum]
-Checksum=-1943148467
+Checksum=1549286686
 [Exceptions]
 StopOnUncaught=_ 0
 StopOnThrow=_ 0
@@ -37,7 +37,8 @@ ShowArgs=0
 [Disassembly]
 MixedMode=1
 [watch_formats]
-Fmt0={W}0:m_freq	3	0
+Fmt0={W}0:m_adc_value	4	0
+Fmt1={W}0:m_freq	3	0
 [Disassemble mode]
 mode=0
 [Breakpoints2]
