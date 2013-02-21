@@ -143,6 +143,7 @@ hrm::mono_relay_t::mono_relay_t(
   irs::gpio_pin_t* ap_pin, 
   const irs::string_t& a_caption, 
   relay_t::bit_t a_default_value):
+  m_pin(a_default_value),
   mp_pin(ap_pin),
   m_after_pause(0),
   m_status(irs_st_ready),
@@ -165,6 +166,7 @@ hrm::relay_t::bit_t hrm::mono_relay_t::operator=(const hrm::relay_t::bit_t
 hrm::mono_relay_t::operator bit_t()
 {
   return mp_pin->pin();
+  //return m_pin;
 }
 
 irs_status_t hrm::mono_relay_t::status()
@@ -182,8 +184,10 @@ void hrm::mono_relay_t::set(const hrm::relay_t::bit_t a_value)
   if (m_status != irs_st_error) {
     if (a_value) {
       mp_pin->set();
+      m_pin = true;
     } else {
       mp_pin->clear();
+      m_pin= false;
     }
     m_status = irs_st_busy;
     m_timer.set(m_after_pause);
@@ -370,11 +374,14 @@ hrm::dac_t::dac_t(irs::mxdata_t* ap_raw_dac):
   m_timer(m_after_pause)
 {
   m_dac_data.rbuf_bit = 1;
-  m_dac_data.opgnd_bit = 1;
-  m_dac_data.dactri_bit = 1;
+  m_dac_data.opgnd_bit = 0;
+  m_dac_data.dactri_bit = 0;
   m_dac_data.bin2sc_bit = 0;
   m_dac_data.sdodis_bit = 1;
   m_dac_data.lin_comp = 0xC;
+  m_dac_data.signed_voltage_code = 0;
+  irs::mlog() << irsm("ÖÀÏ: âêëþ÷¸í") << endl;
+  irs::mlog() << irsm("ÖÀÏ: êîä = 0") << endl;
 }
 
 void hrm::dac_t::on()
@@ -395,12 +402,40 @@ void hrm::dac_t::off()
   irs::mlog() << irsm("ÖÀÏ: âûêëþ÷åí") << endl;
 }
 
-void hrm::dac_t::set_code(irs_i32 a_code)
+irs_bool hrm::dac_t::is_on()
 {
-  m_dac_data.signed_voltage_code = a_code;
+  return (m_dac_data.opgnd_bit == 0 && m_dac_data.dactri_bit == 0);
+}
+
+void hrm::dac_t::set_code(hrm::dac_value_t a_code)
+{
+  dac_value_t code = irs::bound(a_code, -1., 1.);
+  m_dac_data.signed_voltage_code = 
+    static_cast<irs_i32>(code * pow(2., 31));
   m_status = st_wait;
   m_timer.set(m_after_pause);
-  irs::mlog() << irsm("ÖÀÏ: êîä = ") << a_code << endl;
+  irs::mlog() << irsm("ÖÀÏ: êîä = ") << code << irsm(" / ") 
+    << (m_dac_data.signed_voltage_code >> 12) << endl;
+}
+
+
+void hrm::dac_t::set_int_code(irs_i32 a_int_code)
+{
+  m_dac_data.signed_voltage_code = a_int_code << 12;
+  m_status = st_wait;
+  irs::mlog() << irsm("ÖÀÏ: êîä = ") 
+    << static_cast<dac_value_t>(a_int_code) / pow(2., 19) << irsm(" / ") 
+    << a_int_code << endl;
+}
+
+hrm::dac_value_t hrm::dac_t::get_code()
+{
+  return static_cast<dac_value_t>(m_dac_data.signed_voltage_code) / pow(2., 31);
+}
+
+irs_i32 hrm::dac_t::get_int_code()
+{
+  return m_dac_data.signed_voltage_code >> 12;
 }
 
 void hrm::dac_t::set_after_pause(counter_t a_after_pause)
@@ -438,3 +473,205 @@ void hrm::dac_t::tick()
     }
   }
 }
+
+//------------------------------------------------------------------------------
+
+hrm::adc_t::adc_t(
+  irs::adc_request_t* ap_raw_adc, 
+  irs_u8 a_default_gain, 
+  irs_u8 a_default_channel, 
+  irs_u8 a_default_mode, 
+  irs_u8 a_default_filter
+):
+  mp_raw_adc(ap_raw_adc),
+  m_status(st_set_gain),
+  m_return_status(irs_st_busy),
+  m_need_set_gain(true),
+  m_need_set_channel(true),
+  m_need_set_mode(true),
+  m_need_set_filter(true),
+  m_need_meas_zero(false),
+  m_need_meas_voltage(false),
+  m_current_gain(a_default_gain),
+  m_current_channel(a_default_channel),
+  m_current_mode(a_default_mode),
+  m_current_filter(a_default_filter),
+  m_adc_value(0),
+  m_zero(0.),
+  m_voltage(0.),
+  m_show(false)
+{
+}
+
+void hrm::adc_t::set_gain(irs_u8 a_gain)
+{
+  m_current_gain = a_gain;
+  m_need_set_gain = true;
+  m_return_status = irs_st_busy;
+}
+
+void hrm::adc_t::set_channel(irs_u8 a_channel)
+{
+  m_current_channel = a_channel;
+  m_need_set_channel = true;
+  m_return_status = irs_st_busy;
+}
+
+void hrm::adc_t::set_mode(irs_u8 a_mode)
+{
+  m_current_mode = a_mode;
+  m_need_set_mode = true;
+  m_return_status = irs_st_busy;
+}
+
+void hrm::adc_t::set_filter(irs_u8 a_filter)
+{
+  m_current_filter = a_filter;
+  m_need_set_filter = true;
+  m_return_status = irs_st_busy;
+}
+
+void hrm::adc_t::tick()
+{
+  mp_raw_adc->tick();
+  switch (m_status) {
+  case st_set_gain:
+    if (mp_raw_adc->status() == meas_status_success) {
+      m_need_set_gain = false;
+      mp_raw_adc->set_param(irs::adc_gain, m_current_gain);
+      m_status = st_wait_param;
+      if (m_show) {
+        irs::mlog() << irsm("Óñèëåíèå ÀÖÏ = ") << (1 << m_current_gain) << endl;
+      }
+    }
+    break;
+  case st_set_channel:
+    if (mp_raw_adc->status() == meas_status_success) {
+      m_need_set_channel = false;
+      mp_raw_adc->set_param(irs::adc_channel, m_current_channel);
+      m_status = st_wait_param;
+      if (m_show) {
+        irs::mlog() << irsm("Êàíàë ÀÖÏ = ") << (m_current_channel + 1) << endl;
+      }
+    }
+    break;
+  case st_set_mode:
+    if (mp_raw_adc->status() == meas_status_success) {
+      m_need_set_mode = false;
+      mp_raw_adc->set_param(irs::adc_mode, m_current_mode);
+      m_status = st_wait_param;
+      if (m_show) {
+        irs::mlog() << irsm("Ðåæèì ÀÖÏ = ") 
+          << static_cast<int>(m_current_mode) << endl;
+      }
+    }
+    break;
+  case st_set_filter:
+    if (mp_raw_adc->status() == meas_status_success) {
+      m_need_set_filter = false;
+      mp_raw_adc->set_param(irs::adc_freq, m_current_filter);
+      m_status = st_wait_param;
+      if (m_show) {
+        irs::mlog() << irsm("Ôèëüòð ÀÖÏ = ") 
+          << static_cast<int>(m_current_filter) << endl;
+      }
+    }
+    break;
+  case st_wait_param:
+    if (mp_raw_adc->status() == meas_status_success) {
+      m_status = st_free;
+    }
+    break;
+  case st_set_mode_zero:
+    if (mp_raw_adc->status() == meas_status_success) {
+      m_current_mode = irs::adc_mode_system_zero_scale;
+      mp_raw_adc->set_param(irs::adc_mode, m_current_mode);
+      m_status = st_start_meas_zero;
+    }
+    break;
+  case st_start_meas_zero:
+    if (mp_raw_adc->status() == meas_status_success) {
+      mp_raw_adc->start();
+      m_status = st_get_zero;
+    }
+    break;
+  case st_get_zero:
+    if (mp_raw_adc->status() == meas_status_success) {
+      mp_raw_adc->get_param(irs::adc_offset, &m_adc_value);
+      m_status = st_wait_zero;
+    }
+    break;
+  case st_wait_zero:
+    if (mp_raw_adc->status() == meas_status_success) {
+      m_need_meas_zero = false;
+      m_status = st_free;
+      m_zero = convert_adc(m_adc_value);
+      if (m_show) {
+        irs::mlog() << irsm("Íîëü ÀÖÏ = ") << (m_zero * 1.e6) 
+          << irsm(" ìêÂ") << endl;
+      }
+    }
+    break;
+  case st_set_mode_single:
+    if (mp_raw_adc->status() == meas_status_success) {
+      if (m_current_mode != irs::adc_mode_single_conversion) {
+        m_current_mode = irs::adc_mode_single_conversion;
+        mp_raw_adc->set_param(irs::adc_mode, m_current_mode);
+        m_status = st_wait_set_mode_single;
+      } else {
+        m_status = st_start_convertion;
+      }
+    }
+    break;
+  case st_wait_set_mode_single:
+    if (mp_raw_adc->status() == meas_status_success) {
+      m_status = st_start_convertion;
+    }
+    break;  
+  case st_start_convertion:
+    if (mp_raw_adc->status() == meas_status_success) {
+      mp_raw_adc->start();
+      m_status = st_get_value;
+    }
+    break;
+  case st_get_value:
+    if (mp_raw_adc->status() == meas_status_success) {
+      m_adc_value = mp_raw_adc->get_value();
+      m_need_meas_voltage = false;
+      m_status = st_free;
+      m_voltage = convert_adc(m_adc_value);
+      if (m_show) {
+        irs::mlog() << irsm("Íàïðÿæåíèå ÀÖÏ = ");
+        if (abs(m_voltage) < 1.1e-3) {
+          irs::mlog() << (m_voltage * 1.e6) << irsm(" ìêÂ");
+        } else if (abs(m_voltage < 1.1)) {
+          irs::mlog() << (m_voltage * 1.e3) << irsm(" ìÂ");
+        } else {
+          irs::mlog() << m_voltage << irsm(" Â");
+        }
+        irs::mlog() << endl;
+      }
+    }
+    break;
+  case st_free:
+    if (m_return_status == irs_st_busy) {
+      if (m_need_set_gain) {
+        m_status = st_set_gain;
+      } else if (m_need_set_channel) {
+        m_status = st_set_channel;
+      } else if (m_need_set_mode) {
+        m_status = st_set_mode;
+      } else if (m_need_set_filter) {
+        m_status = st_set_filter;
+      } else if (m_need_meas_zero) {
+        m_status = st_set_mode_zero;
+      } else if (m_need_meas_voltage) {
+        m_status = st_set_mode_single;
+      } else {
+        m_return_status = irs_st_ready;
+      }
+    }
+    break;
+  }
+}
+

@@ -10,6 +10,7 @@
 #include <mxdata.h>
 #include <irsadc.h>
 #include <irsdsp.h>
+#include <hrm_bridge_data.h>
 
 #include <irsfinal.h>
 
@@ -85,6 +86,7 @@ public:
   virtual void set_after_pause(counter_t a_after_pause);
   virtual void tick();
 private:
+  bool m_pin;
   irs::gpio_pin_t* mp_pin;
   counter_t m_after_pause;
   irs_status_t m_status;
@@ -149,7 +151,11 @@ public:
   ~dac_t() {};
   void on();
   void off();
-  void set_code(irs_i32 a_code);
+  irs_bool is_on();
+  void set_code(dac_value_t a_code);
+  void set_int_code(irs_i32 a_int_code);
+  dac_value_t get_code();
+  irs_i32 get_int_code();
   void set_after_pause(counter_t a_after_pause);
   irs_status_t ready();
   void tick();
@@ -165,11 +171,79 @@ private:
   irs::timer_t m_timer;
 };
 
-inline irs_i32 convert_adc(irs_u32 a_in_value)
+class adc_t
 {
-  irs_i32 adc_value = a_in_value;
-  irs_i32 adc_mid = m_adc_midscale;
-  return adc_value - adc_mid;
+public:
+  adc_t(
+    irs::adc_request_t* ap_raw_adc, 
+    irs_u8 a_default_gain, 
+    irs_u8 a_default_channel, 
+    irs_u8 a_default_mode, 
+    irs_u8 a_default_filter);
+  ~adc_t() {};
+  inline irs_status_t status() { return m_return_status; }
+  void set_gain(irs_u8 a_gain);
+  void set_channel(irs_u8 a_channel);
+  void set_mode(irs_u8 a_mode);
+  void set_filter(irs_u8 a_filter);
+  inline irs_u8 gain() { return m_current_gain; }
+  inline irs_u8 channel() { return m_current_channel; }
+  inline irs_u8 mode() { return m_current_mode; }
+  inline irs_u8 filter() { return m_current_filter; }
+  inline adc_value_t zero() { return m_zero; }
+  inline adc_value_t voltage() { return m_voltage; }
+  inline void show() { m_show = true; }
+  inline void hide() { m_show = false; }
+  inline void meas_zero() { m_need_meas_zero = true; }
+  inline void meas_voltage() { m_need_meas_voltage = true; }
+  void tick();
+private:
+  enum status_t {
+    st_set_gain,
+    st_set_channel,
+    st_set_mode,
+    st_set_filter,
+    st_wait_param,
+    st_set_mode_zero,
+    st_start_meas_zero,
+    st_get_zero,
+    st_wait_zero,
+    st_set_mode_single,
+    st_wait_set_mode_single,
+    st_start_convertion,
+    st_get_value,
+    st_free
+  };
+  irs::adc_request_t* mp_raw_adc;
+  status_t m_status;
+  irs_status_t m_return_status;
+  bool m_need_set_gain;
+  bool m_need_set_channel;
+  bool m_need_set_mode;
+  bool m_need_set_filter;
+  bool m_need_meas_zero;
+  bool m_need_meas_voltage;
+  irs_u8 m_current_gain;
+  irs_u8 m_current_channel;
+  irs_u8 m_current_mode;
+  irs_u8 m_current_filter;
+  int m_adc_value;
+  adc_value_t m_zero;
+  adc_value_t m_voltage;
+  bool m_show;
+};
+
+//inline irs_i32 convert_adc(irs_i32 a_in_value)
+//{
+//  irs_i32 adc_value = a_in_value;
+//  irs_i32 adc_mid = m_adc_midscale;
+//  return adc_value - adc_mid;
+//}
+
+inline hrm::adc_value_t convert_adc(irs_i32 a_in_value)
+{
+  return (static_cast<adc_value_t>(a_in_value) 
+    / static_cast<adc_value_t>(1 << 31)) * (4.096*3.*2./(11.*3.));
 }
 
 }

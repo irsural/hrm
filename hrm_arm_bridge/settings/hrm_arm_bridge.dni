@@ -28,7 +28,7 @@ ActionState=1
 Enabled=0
 ShowSource=1
 [DebugChecksum]
-Checksum=1549286686
+Checksum=1345207229
 [Exceptions]
 StopOnUncaught=_ 0
 StopOnThrow=_ 0
@@ -39,13 +39,7 @@ MixedMode=1
 [watch_formats]
 Fmt0={W}0:m_adc_value	4	0
 Fmt1={W}0:m_freq	3	0
-[Disassemble mode]
-mode=0
-[Breakpoints2]
-Bp0=_ 0 "EMUL_CODE" "{$PROJ_DIR$\..\mxsrclib\irsadc.cpp}.2243.12" 0 0 1 "" 0 "" 0
-Bp1=_ 0 "EMUL_CODE" "{$PROJ_DIR$\..\mxsrclib\irsadc.cpp}.2264.7" 0 0 1 "" 0 "" 0
-Bp2=_ 1 "EMUL_CODE" "{$PROJ_DIR$\..\mxsrclib\irsadc.cpp}.2178.1" 0 0 1 "" 0 "" 0
-Count=3
+Fmt2={W}0:voltage_code	4	0
 [Log file]
 LoggingEnabled=_ 0
 LogFile=_ ""
@@ -53,9 +47,6 @@ Category=_ 0
 [TermIOLog]
 LoggingEnabled=_ 0
 LogFile=_ ""
-[Aliases]
-Count=0
-SuppressDialog=0
 [CallStackLog]
 Enabled=0
 [DriverProfiling]
@@ -64,3 +55,10 @@ Mode=0
 Graph=0
 Symbiont=0
 Exclusions=
+[Disassemble mode]
+mode=0
+[Breakpoints2]
+Count=0
+[Aliases]
+Count=0
+SuppressDialog=0
