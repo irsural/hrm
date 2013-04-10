@@ -5,6 +5,7 @@
 #include <irsinit.h>
 #include <armcfg.h>
 #include <irserror.h>
+#include <irslocale.h>
 
 #include "app.h"
 
@@ -21,6 +22,7 @@ void main()
   static hard_fault_event_t hard_fault_event(GPIO_PORTF, 6);
   
   static irs::arm::com_buf log_buf(1, 10, 115200);
+  irs::loc();
   irs::mlog().rdbuf(&log_buf);
   #ifdef HRM_DEBUG
   static irs::mc_error_handler_t error_handler(GPIO_PORTD, 0, &irs::mlog());

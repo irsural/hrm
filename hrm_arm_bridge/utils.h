@@ -154,8 +154,10 @@ public:
   irs_bool is_on();
   void set_code(dac_value_t a_code);
   void set_int_code(irs_i32 a_int_code);
+  void set_lin(irs_u8 a_lin);
   dac_value_t get_code();
   irs_i32 get_int_code();
+  irs_u8 get_lin();
   void set_after_pause(counter_t a_after_pause);
   irs_status_t ready();
   void tick();
@@ -194,8 +196,8 @@ public:
   inline adc_value_t voltage() { return m_voltage; }
   inline void show() { m_show = true; }
   inline void hide() { m_show = false; }
-  inline void meas_zero() { m_need_meas_zero = true; }
-  inline void meas_voltage() { m_need_meas_voltage = true; }
+  void meas_zero();
+  void meas_voltage();
   void tick();
 private:
   enum status_t {

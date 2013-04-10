@@ -32,8 +32,8 @@ private:
     dt_pos = irs_true
   };
   enum etalon_polarity_t {
-    ep_neg,
-    ep_pos
+    ep_neg = 0,
+    ep_pos = 1
   };
   enum balancing_coil_t {
     bc_etalon,
@@ -42,81 +42,41 @@ private:
   enum free_status_t {
     fs_prepare,
     fs_wait,
-    fs_adc_set_default_filter,
-    fs_adc_set_default_channel,
-    fs_adc_set_default_gain,
-    fs_adc_set_default_mode,
-    fs_adc_wait,
     fs_idle
   };
   enum balance_status_t {
     bs_prepare,
     bs_set_etpol,
-    bs_set_etpol_wait,
-    bs_set_range,
-    bs_set_range_wait,
-    bs_coils_on,
-    bs_coils_on_wait,
-    bs_zero_dac_on,
-    bs_zero_set_adc_channel_2,
-    bs_zero_start_adc_channel_2,
-    bs_zero_wait_adc_channel_2,
-    bs_zero_set_adc_channel_3,
-    bs_zero_start_adc_channel_3,
-    bs_zero_wait_adc_channel_3,
-    bs_zero_relay_on,
-    bs_zero_relay_wait,
-    bs_zero_adc_set_channel,
-    bs_zero_adc_set_gain,
-    bs_zero_adc_set_mode_offset,
-    bs_zero_adc_start_offset,
-    bs_zero_adc_read_offset,
-    bs_zero_adc_wait_offset,
-    bs_zero_adc_set_mode_fullscale,
-    bs_zero_adc_start_fullscale,
-    bs_zero_adc_read_fullscale,
-    bs_zero_adc_wait_fullscale,
-    bs_zero_adc_set_mode_single,
-    bs_zero_adc_wait,
+    bs_set_zero_relay,
+    bs_start_meas_zero,
+    bs_wait_meas_zero,
+    bs_set_neg_coils,
+    bs_set_pos_coils,
+    bs_coils_wait,
     bs_dac_prepare,
     bs_adc_start,
     bs_adc_wait,
     bs_balance,
-    bs_coil_change_prepare,
-    bs_coil_change,
     bs_dac_set,
     bs_dac_wait,
     bs_elab_prepare,
-    bs_elab_set_adc_channel_2,
-    bs_elab_start_adc_channel_2,
-    bs_elab_wait_adc_channel_2,
-    bs_elab_set_adc_channel_3,
-    bs_elab_start_adc_channel_3,
-    bs_elab_wait_adc_channel_3,
-    bs_elab_set_adc_channel_1,
-    bs_elab_wait_adc_channel_1,
     bs_elab_relay_on,
     bs_elab_relay_wait,
-    bs_elab_adc_set_mode_offset,
-    bs_elab_adc_start_offset,
-    bs_elab_adc_read_offset,
-    bs_elab_adc_wait_offset,
-    bs_elab_adc_set_mode_single,
+    bs_elab_meas_zero,
+    bs_elab_wait_zero,
     bs_elab_dac_prepare,
     bs_elab_dac_set,
     bs_elab_adc_start,
     bs_elab_adc_wait,
-    bs_report
+    bs_coils_off,
+    bs_wait_relays,
+    bs_report,
+    bs_next_exp,
+    bs_final_report
   };
   enum manual_status_t {
     ms_prepare,
-    ms_check_user_changes,
-    ms_adc_set_filter,
-    ms_adc_set_mode,
-    ms_adc_set_channel,
-    ms_adc_set_gain,
-    ms_adc_start,
-    ms_adc_get_value
+    ms_check_user_changes
   };
   enum adc_mode_t {
     am_single_conversion = 1,
@@ -133,9 +93,21 @@ private:
     m_min_adc_gain = 0,
     m_max_adc_gain = 7
   };
+  enum default_params_t {
+    m_default_mode = 1,
+    m_default_channel = 0,
+    m_default_gain = 0,
+    m_default_filter = 15
+  };
   struct elab_point_t {
     double dac;
     double adc;
+  };
+  struct exp_t {
+    double result;
+    double error;
+    double et_code;
+    double ch_code;
   };
   
   cfg_t* mp_cfg;
@@ -145,14 +117,13 @@ private:
   
   irs::dac_ad5791_t m_raw_dac;
   dac_t m_dac;
-  irs::adc_ad7799_t m_adc;
+  irs::adc_ad7799_t m_raw_adc;
+  adc_t m_adc;
   
   irs::loop_timer_t m_eth_timer;
   irs::loop_timer_t m_blink_timer;
   irs::timer_t m_service_timer;
   bool m_blink;
-  dac_test_t m_dac_test;
-  irs::loop_timer_t m_dac_timer;
   mono_relay_t m_relay_1g;
   mono_relay_t m_relay_100m;
   mono_relay_t m_relay_10m;
@@ -169,37 +140,32 @@ private:
   free_status_t m_free_status;
   
   balance_status_t m_balance_status;
-  balance_status_t m_balance_target_status;
   size_t m_current_iteration;
   size_t m_iteration_count;
+  size_t m_elab_iteration_count;
   dac_value_t m_dac_code;
   dac_value_t m_dac_step;
   irs_i32 m_int_dac_code;
-  double m_checked_dac_code;
-  double m_etalon_dac_code;
   double m_initial_dac_code;
   double m_initial_dac_step;
-  adc_value_t m_adc_value;
-  adc_value_t m_adc_value_ch2;
-  adc_value_t m_adc_value_ch3;
   range_t m_range;
-  irs_bool m_etalon_polarity;
+  etalon_polarity_t m_etalon_polarity;
   balancing_coil_t m_balancing_coil;
   double m_checked;
   double m_etalon;
   double m_result;
   double m_result_error;
-  irs_u8 m_adc_gain;
-  irs_u8 m_adc_channel;
-  irs_u8 m_adc_mode;
-  irs_u8 m_adc_filter;
-  int m_adc_offset;
-  int m_adc_fullscale;
-  irs_i32 m_adc_gain_inc_limit;
-  irs_i32 m_adc_gain_dec_limit;
+  double m_checked_code;
+  double m_etalon_code;
   counter_t m_relay_after_pause;
   counter_t m_dac_after_pause;
   vector<elab_point_t> m_elab_vector;
+  irs_u8 m_exp_cnt;
+  vector<exp_t> m_exp_vector;
+  bool m_change_coils_polarity;
+  etalon_polarity_t m_current_polarity;
+  bool m_no_zero_balance;
+  bool m_no_zero_elab;
   
   manual_status_t m_manual_status;
   manual_status_t m_manual_target_status;
@@ -214,6 +180,8 @@ private:
     //return (m_adc_value < m_adc_gain_inc_limit && m_adc_gain < m_max_adc_gain);
     return false;
   }
+  double calc_elab_code(vector<elab_point_t>* ap_elab_vector, 
+    balancing_coil_t a_balancing_coil, etalon_polarity_t a_etpol = ep_neg);
 };
 
 } //  hrm

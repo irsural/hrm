@@ -415,17 +415,24 @@ void hrm::dac_t::set_code(hrm::dac_value_t a_code)
   m_status = st_wait;
   m_timer.set(m_after_pause);
   irs::mlog() << irsm("ÖÀÏ: êîä = ") << code << irsm(" / ") 
-    << (m_dac_data.signed_voltage_code >> 12) << endl;
+    << (m_dac_data.unsigned_voltage_code >> 12) << endl;
 }
-
 
 void hrm::dac_t::set_int_code(irs_i32 a_int_code)
 {
-  m_dac_data.signed_voltage_code = a_int_code << 12;
+  m_dac_data.unsigned_voltage_code = a_int_code << 12;
   m_status = st_wait;
   irs::mlog() << irsm("ÖÀÏ: êîä = ") 
     << static_cast<dac_value_t>(a_int_code) / pow(2., 19) << irsm(" / ") 
     << a_int_code << endl;
+}
+
+void hrm::dac_t::set_lin(irs_u8 a_lin)
+{
+  m_dac_data.lin_comp = a_lin;
+  m_status = st_wait;
+  irs::mlog() << irsm("ÖÀÏ: lin = 0x") << hex << static_cast<int>(a_lin);
+  irs::mlog() << dec << endl;
 }
 
 hrm::dac_value_t hrm::dac_t::get_code()
@@ -436,6 +443,11 @@ hrm::dac_value_t hrm::dac_t::get_code()
 irs_i32 hrm::dac_t::get_int_code()
 {
   return m_dac_data.signed_voltage_code >> 12;
+}
+
+irs_u8 hrm::dac_t::get_lin()
+{
+  return m_dac_data.lin_comp;
 }
 
 void hrm::dac_t::set_after_pause(counter_t a_after_pause)
@@ -528,6 +540,18 @@ void hrm::adc_t::set_filter(irs_u8 a_filter)
 {
   m_current_filter = a_filter;
   m_need_set_filter = true;
+  m_return_status = irs_st_busy;
+}
+
+void hrm::adc_t::meas_zero()
+{
+  m_need_meas_zero = true; 
+  m_return_status = irs_st_busy;
+}
+
+void hrm::adc_t::meas_voltage()
+{
+  m_need_meas_voltage = true; 
   m_return_status = irs_st_busy;
 }
 
