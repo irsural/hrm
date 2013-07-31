@@ -55,18 +55,16 @@ public:
       irs::gpio_pin_t* ap_dac_ldac,
       irs::gpio_pin_t* ap_dac_clr,
       irs::gpio_pin_t* ap_dac_reset,
-      irs::gpio_pin_t* ap_relay_100k,
-      irs::gpio_pin_t* ap_relay_1m,
-      irs::gpio_pin_t* ap_relay_10m,
-      irs::gpio_pin_t* ap_relay_100m,
-      irs::gpio_pin_t* ap_relay_1g,
-      irs::gpio_pin_t* ap_relay_eton,
-      irs::gpio_pin_t* ap_relay_chon,
+      irs::gpio_pin_t* ap_dac_ti_cs,
+      irs::gpio_pin_t* ap_relay_bridge_pos_on,
+      irs::gpio_pin_t* ap_relay_bridge_pos_off,
+      irs::gpio_pin_t* ap_relay_bridge_neg_on,
+      irs::gpio_pin_t* ap_relay_bridge_neg_off,
+      irs::gpio_pin_t* ap_relay_gain_high,
+      irs::gpio_pin_t* ap_relay_gain_low,
+      irs::gpio_pin_t* ap_relay_voltage_high,
+      irs::gpio_pin_t* ap_relay_voltage_low,
       irs::gpio_pin_t* ap_relay_prot,
-      irs::gpio_pin_t* ap_relay_zero_on,
-      irs::gpio_pin_t* ap_relay_zero_off,
-      irs::gpio_pin_t* ap_relay_etpol_on,
-      irs::gpio_pin_t* ap_relay_etpol_off,
       irs::gpio_pin_t* ap_led_blink,
       irs::gpio_pin_t* ap_led_hf,
       irs::gpio_pin_t* ap_led_pon);
@@ -77,18 +75,16 @@ public:
     irs::gpio_pin_t* p_dac_ldac;
     irs::gpio_pin_t* p_dac_clr;
     irs::gpio_pin_t* p_dac_reset;
-    irs::gpio_pin_t* p_relay_100k;
-    irs::gpio_pin_t* p_relay_1m;
-    irs::gpio_pin_t* p_relay_10m;
-    irs::gpio_pin_t* p_relay_100m;
-    irs::gpio_pin_t* p_relay_1g;
-    irs::gpio_pin_t* p_relay_eton;
-    irs::gpio_pin_t* p_relay_chon;
+    irs::gpio_pin_t* p_dac_ti_cs;
+    irs::gpio_pin_t* p_relay_bridge_pos_on;
+    irs::gpio_pin_t* p_relay_bridge_pos_off;
+    irs::gpio_pin_t* p_relay_bridge_neg_on;
+    irs::gpio_pin_t* p_relay_bridge_neg_off;
+    irs::gpio_pin_t* p_relay_gain_high;
+    irs::gpio_pin_t* p_relay_gain_low;
+    irs::gpio_pin_t* p_relay_voltage_high;
+    irs::gpio_pin_t* p_relay_voltage_low;
     irs::gpio_pin_t* p_relay_prot;
-    irs::gpio_pin_t* p_relay_zero_on;
-    irs::gpio_pin_t* p_relay_zero_off;
-    irs::gpio_pin_t* p_relay_etpol_on;
-    irs::gpio_pin_t* p_relay_etpol_off;
     irs::gpio_pin_t* p_led_blink;
     irs::gpio_pin_t* p_led_hf;
     irs::gpio_pin_t* p_led_pon;
@@ -96,6 +92,7 @@ public:
   cfg_t();
   irs::hardflow::simple_udp_flow_t* hardflow();
   irs::spi_t* spi();
+  irs::spi_t* spi_2();
   pins_t* pins();
   void tick();
   
@@ -112,6 +109,7 @@ private:
   
   irs_u32 m_spi_bitrate;
   irs::arm::arm_spi_t m_spi;
+  irs::arm::arm_spi_t m_spi_2;
   
   irs::arm::io_pin_t m_vben;
   irs::arm::io_pin_t m_adc_cs;
@@ -119,18 +117,16 @@ private:
   irs::arm::io_pin_t m_dac_ldac;
   irs::arm::io_pin_t m_dac_clr;
   irs::arm::io_pin_t m_dac_reset;
-  irs::arm::io_pin_t m_relay_100k;
-  irs::arm::io_pin_t m_relay_1m;
-  irs::arm::io_pin_t m_relay_10m;
-  irs::arm::io_pin_t m_relay_100m;
-  irs::arm::io_pin_t m_relay_1g;
-  irs::arm::io_pin_t m_relay_eton;
-  irs::arm::io_pin_t m_relay_chon;
+  irs::arm::io_pin_t m_dac_ti_cs;
+  irs::arm::io_pin_t m_relay_bridge_pos_on;
+  irs::arm::io_pin_t m_relay_bridge_pos_off;
+  irs::arm::io_pin_t m_relay_bridge_neg_on;
+  irs::arm::io_pin_t m_relay_bridge_neg_off;
+  irs::arm::io_pin_t m_relay_gain_high;
+  irs::arm::io_pin_t m_relay_gain_low;
+  irs::arm::io_pin_t m_relay_voltage_high;
+  irs::arm::io_pin_t m_relay_voltage_low;
   irs::arm::io_pin_t m_relay_prot;
-  irs::arm::io_pin_t m_relay_zero_on;
-  irs::arm::io_pin_t m_relay_zero_off;
-  irs::arm::io_pin_t m_relay_etpol_on;
-  irs::arm::io_pin_t m_relay_etpol_off;
   irs::arm::io_pin_t m_led_blink;
   irs::arm::io_pin_t m_led_hf;
   irs::arm::io_pin_t m_led_pon;

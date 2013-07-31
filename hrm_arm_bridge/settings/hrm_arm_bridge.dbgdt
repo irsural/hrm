@@ -19,7 +19,7 @@
           
           
           
-        <Column0>212</Column0><Column1>4</Column1><Column2>27</Column2><Column3>0</Column3></ColumnWidths>
+        <Column0>176</Column0><Column1>4</Column1><Column2>27</Column2><Column3>0</Column3></ColumnWidths>
       </Workspace>
       <Disassembly>
         <col-names>
@@ -33,13 +33,13 @@
         <DisasmHistory/>
         
         
-      <ShowCodeCoverage>0</ShowCodeCoverage><ShowInstrProfiling>0</ShowInstrProfiling></Disassembly>
-    <WATCH_1><expressions><item>mp_write_buf</item><item>mp_buf</item><item>a_index</item><item>m_status</item><item>m_target_status</item><item>m_dac_data</item><item>m_dac_data.signed_voltage_code</item><item>code</item><item>m_dac.get_int_code()</item><item/></expressions><col-names><item>Expression</item><item>Location</item><item>Type</item><item>Value</item></col-names><col-widths><item>205</item><item>150</item><item>100</item><item>212</item></col-widths></WATCH_1><Register/><QuickWatch><col-names><item>Expression</item><item>Location</item><item>Type</item><item>Value</item></col-names><col-widths><item>145</item><item>150</item><item>100</item><item>100</item></col-widths><QWatchHistory><item>IRS_I32_MIN + 2*d</item><item>d</item><item>IRS_I32_MIN</item></QWatchHistory></QuickWatch></Static>
+      <PreferedWindows><Position>1</Position><ScreenPosX>0</ScreenPosX><ScreenPosY>0</ScreenPosY><Windows/></PreferedWindows><ShowCodeCoverage>0</ShowCodeCoverage><ShowInstrProfiling>0</ShowInstrProfiling></Disassembly>
+    <WATCH_1><expressions><item>mp_write_buf</item><item>mp_buf</item><item>a_index</item><item>m_status</item><item>m_target_status</item><item>m_dac_data</item><item>m_dac_data.signed_voltage_code</item><item>code</item><item>m_dac.get_int_code()</item><item></item></expressions><col-names><item>Expression</item><item>Location</item><item>Type</item><item>Value</item></col-names><col-widths><item>205</item><item>150</item><item>100</item><item>212</item></col-widths></WATCH_1><Register/><QuickWatch><col-names><item>Expression</item><item>Location</item><item>Type</item><item>Value</item></col-names><col-widths><item>145</item><item>150</item><item>100</item><item>100</item></col-widths><QWatchHistory><item>IRS_I32_MIN + 2*d</item><item>d</item><item>IRS_I32_MIN</item></QWatchHistory></QuickWatch><Find-in-Files><ColumnWidth0>552</ColumnWidth0><ColumnWidth1>78</ColumnWidth1><ColumnWidth2>946</ColumnWidth2></Find-in-Files></Static>
     <Windows>
       
       
       
-    <Wnd0>
+    <Wnd2>
         <Tabs>
           <Tab>
             <Identity>TabID-21310-10829</Identity>
@@ -53,9 +53,9 @@
             <Factory>Build</Factory>
             <Session/>
           </Tab>
-        </Tabs>
+        <Tab><Identity>TabID-25699-8139</Identity><TabName>Find in Files</TabName><Factory>Find-in-Files</Factory><Session/></Tab></Tabs>
         
-      <SelectedTab>0</SelectedTab></Wnd0><Wnd1>
+      <SelectedTab>0</SelectedTab></Wnd2><Wnd3>
         <Tabs>
           <Tab>
             <Identity>TabID-32058-10832</Identity>
@@ -63,34 +63,24 @@
             <Factory>Workspace</Factory>
             <Session>
               
-            <NodeDict><ExpandedNode>hrm_arm_bridge</ExpandedNode><ExpandedNode>hrm_arm_bridge/mxsrclib</ExpandedNode><ExpandedNode>hrm_arm_bridge/mxsrclib/arch</ExpandedNode></NodeDict></Session>
+            <NodeDict><ExpandedNode>hrm_arm_bridge</ExpandedNode></NodeDict></Session>
           </Tab>
         </Tabs>
         
-      <SelectedTab>0</SelectedTab></Wnd1><Wnd3>
-        <Tabs>
-          <Tab>
-            <Identity>TabID-10039-10836</Identity>
-            <TabName>Disassembly</TabName>
-            <Factory>Disassembly</Factory>
-            <Session/>
-          </Tab>
-        </Tabs>
-        
-      <SelectedTab>0</SelectedTab></Wnd3><Wnd4><Tabs><Tab><Identity>TabID-5306-21803</Identity><TabName>Watch 1</TabName><Factory>WATCH_1</Factory></Tab><Tab><Identity>TabID-11321-29353</Identity><TabName>Quick Watch</TabName><Factory>QuickWatch</Factory></Tab></Tabs><SelectedTab>0</SelectedTab></Wnd4><Wnd5><Tabs><Tab><Identity>TabID-15887-22423</Identity><TabName>Register</TabName><Factory>Register</Factory><Session><REG1>0</REG1><REG2>0</REG2><Group>43</Group><States>2</States><State0>SPI3_CR1</State0><State1>SPI3_CR2</State1></Session></Tab></Tabs><SelectedTab>0</SelectedTab></Wnd5></Windows>
+      <SelectedTab>0</SelectedTab></Wnd3><Wnd6><Tabs><Tab><Identity>TabID-5306-21803</Identity><TabName>Watch 1</TabName><Factory>WATCH_1</Factory></Tab><Tab><Identity>TabID-11321-29353</Identity><TabName>Quick Watch</TabName><Factory>QuickWatch</Factory></Tab></Tabs><SelectedTab>0</SelectedTab></Wnd6><Wnd7><Tabs><Tab><Identity>TabID-15887-22423</Identity><TabName>Register</TabName><Factory>Register</Factory><Session><REG1>0</REG1><REG2>0</REG2><Group>43</Group><States>2</States><State0>SPI3_CR1</State0><State1>SPI3_CR2</State1></Session></Tab></Tabs><SelectedTab>0</SelectedTab></Wnd7></Windows>
     <Editor>
       
       
       
       
-    <Pane><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\cfg.h</Filename><XPos>0</XPos><YPos>54</YPos><SelStart>2374</SelStart><SelEnd>2386</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\cfg.cpp</Filename><XPos>0</XPos><YPos>55</YPos><SelStart>2835</SelStart><SelEnd>2835</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\app.h</Filename><XPos>0</XPos><YPos>105</YPos><SelStart>2655</SelStart><SelEnd>2655</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\app.cpp</Filename><XPos>0</XPos><YPos>18</YPos><SelStart>2079</SelStart><SelEnd>2079</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\utils.h</Filename><XPos>0</XPos><YPos>129</YPos><SelStart>3376</SelStart><SelEnd>3403</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\utils.cpp</Filename><XPos>0</XPos><YPos>328</YPos><SelStart>9131</SelStart><SelEnd>9131</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\hrm_general\hrm_bridge_data.h</Filename><XPos>0</XPos><YPos>36</YPos><SelStart>2489</SelStart><SelEnd>2489</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\mxsrclib\measdef.h</Filename><XPos>0</XPos><YPos>0</YPos><SelStart>231</SelStart><SelEnd>250</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\mxsrclib\irsadc.cpp</Filename><XPos>0</XPos><YPos>2009</YPos><SelStart>56579</SelStart><SelEnd>56579</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\mxsrclib\irsadc.h</Filename><XPos>0</XPos><YPos>1035</YPos><SelStart>35677</SelStart><SelEnd>35677</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\mxsrclib\irsadcabs.h</Filename><XPos>0</XPos><YPos>21</YPos><SelStart>932</SelStart><SelEnd>932</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\main.cpp</Filename><XPos>0</XPos><YPos>3</YPos><SelStart>274</SelStart><SelEnd>274</SelEnd></Tab><ActiveTab>11</ActiveTab></Pane><ActivePane>0</ActivePane><Sizes><Pane><X>1000000</X><Y>1000000</Y></Pane></Sizes><SplitMode>1</SplitMode></Editor>
+    <Pane><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\cfg.h</Filename><XPos>0</XPos><YPos>64</YPos><SelStart>3148</SelStart><SelEnd>3148</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\utils.h</Filename><XPos>0</XPos><YPos>221</YPos><SelStart>6166</SelStart><SelEnd>6177</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\cfg.cpp</Filename><XPos>0</XPos><YPos>30</YPos><SelStart>3405</SelStart><SelEnd>3405</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\mxsrclib\irsadc.h</Filename><XPos>0</XPos><YPos>1329</YPos><SelStart>43875</SelStart><SelEnd>43875</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\mxsrclib\irsadc.cpp</Filename><XPos>0</XPos><YPos>1884</YPos><SelStart>52898</SelStart><SelEnd>52898</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\app.h</Filename><XPos>0</XPos><YPos>134</YPos><SelStart>2681</SelStart><SelEnd>2692</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\utils.cpp</Filename><XPos>0</XPos><YPos>613</YPos><SelStart>15696</SelStart><SelEnd>15707</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\hrm_general\hrm_bridge_data.h</Filename><XPos>0</XPos><YPos>12</YPos><SelStart>239</SelStart><SelEnd>250</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\app.cpp</Filename><XPos>0</XPos><YPos>640</YPos><SelStart>22009</SelStart><SelEnd>22009</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\main.cpp</Filename><XPos>0</XPos><YPos>3</YPos><SelStart>274</SelStart><SelEnd>274</SelEnd></Tab><ActiveTab>9</ActiveTab></Pane><ActivePane>0</ActivePane><Sizes><Pane><X>1000000</X><Y>1000000</Y></Pane></Sizes><SplitMode>1</SplitMode></Editor>
     <Positions>
       
       
       
       
       
-    <Top><Row0><Sizes><Toolbar-0134aa08><key>iaridepm.enu1</key></Toolbar-0134aa08><Toolbar-127e47e8><key>debuggergui.enu1</key></Toolbar-127e47e8></Sizes></Row0></Top><Left><Row0><Sizes><Wnd1><Rect><Top>-2</Top><Left>-2</Left><Bottom>844</Bottom><Right>280</Right><x>-2</x><y>-2</y><xscreen>268</xscreen><yscreen>281</yscreen><sizeHorzCX>167500</sizeHorzCX><sizeHorzCY>256856</sizeHorzCY><sizeVertCX>176250</sizeVertCX><sizeVertCY>773309</sizeVertCY></Rect></Wnd1></Sizes></Row0></Left><Right><Row0><Sizes><Wnd3><Rect><Top>-2</Top><Left>-2</Left><Bottom>311</Bottom><Right>488</Right><x>-2</x><y>-2</y><xscreen>268</xscreen><yscreen>281</yscreen><sizeHorzCX>167500</sizeHorzCX><sizeHorzCY>256856</sizeHorzCY><sizeVertCX>306250</sizeVertCX><sizeVertCY>286106</sizeVertCY></Rect></Wnd3><Wnd5><Rect><Top>0</Top><Left>0</Left><Bottom>0</Bottom><Right>1929397504</Right><x>-2</x><y>309</y><xscreen>268</xscreen><yscreen>281</yscreen><sizeHorzCX>167500</sizeHorzCX><sizeHorzCY>256856</sizeHorzCY><sizeVertCX>306250</sizeVertCX><sizeVertCY>119744</sizeVertCY></Rect></Wnd5><Wnd4><Rect><Top>0</Top><Left>0</Left><Bottom>0</Bottom><Right>0</Right><x>-2</x><y>438</y><xscreen>268</xscreen><yscreen>281</yscreen><sizeHorzCX>167500</sizeHorzCX><sizeHorzCY>256856</sizeHorzCY><sizeVertCX>306250</sizeVertCX><sizeVertCY>371115</sizeVertCY></Rect></Wnd4></Sizes></Row0></Right><Bottom><Row0><Sizes><Wnd0><Rect><Top>-2</Top><Left>-2</Left><Bottom>206</Bottom><Right>1602</Right><x>-2</x><y>-2</y><xscreen>1604</xscreen><yscreen>208</yscreen><sizeHorzCX>1002500</sizeHorzCX><sizeHorzCY>190128</sizeHorzCY><sizeVertCX>167500</sizeVertCX><sizeVertCY>256856</sizeVertCY></Rect></Wnd0></Sizes></Row0></Bottom><Float><Sizes/></Float></Positions>
+    <Top><Row0><Sizes><Toolbar-0134a6a0><key>iaridepm.enu1</key></Toolbar-0134a6a0></Sizes></Row0><Row1><Sizes><Toolbar-0e504768><key>debuggergui.enu1</key></Toolbar-0e504768></Sizes></Row1></Top><Left><Row0><Sizes><Wnd3><Rect><Top>-2</Top><Left>-2</Left><Bottom>736</Bottom><Right>227</Right><x>-2</x><y>-2</y><xscreen>360</xscreen><yscreen>395</yscreen><sizeHorzCX>225000</sizeHorzCX><sizeHorzCY>361060</sizeHorzCY><sizeVertCX>143125</sizeVertCX><sizeVertCY>674589</sizeVertCY></Rect></Wnd3></Sizes></Row0></Left><Right><Row0><Sizes><Wnd6><Rect><Top>-2</Top><Left>-2</Left><Bottom>368</Bottom><Right>506</Right><x>-2</x><y>-2</y><xscreen>360</xscreen><yscreen>395</yscreen><sizeHorzCX>225000</sizeHorzCX><sizeHorzCY>361060</sizeHorzCY><sizeVertCX>317500</sizeVertCX><sizeVertCY>338208</sizeVertCY></Rect></Wnd6><Wnd7><Rect><Top>0</Top><Left>0</Left><Bottom>2228228</Bottom><Right>33820128</Right><x>-2</x><y>366</y><xscreen>360</xscreen><yscreen>395</yscreen><sizeHorzCX>225000</sizeHorzCX><sizeHorzCY>361060</sizeHorzCY><sizeVertCX>317500</sizeVertCX><sizeVertCY>338208</sizeVertCY></Rect></Wnd7></Sizes></Row0></Right><Bottom><Row0><Sizes><Wnd2><Rect><Top>-2</Top><Left>-2</Left><Bottom>290</Bottom><Right>1602</Right><x>-2</x><y>-2</y><xscreen>1604</xscreen><yscreen>292</yscreen><sizeHorzCX>1002500</sizeHorzCX><sizeHorzCY>266910</sizeHorzCY><sizeVertCX>225000</sizeVertCX><sizeVertCY>361060</sizeVertCY></Rect></Wnd2></Sizes></Row0></Bottom><Float><Sizes/></Float></Positions>
   </Desktop>
 </Project>
 

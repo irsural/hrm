@@ -103,19 +103,26 @@ public:
     irs::gpio_pin_t* ap_pin_1, 
     const irs::string_t& a_caption, 
     relay_t::bit_t a_default_value = 0,
-    counter_t a_energization_time = irs::make_cnt_ms(50));
+    counter_t a_energization_time = irs::make_cnt_ms(50),
+    bool a_wild = false);
   ~bi_relay_t() {};
   virtual bit_t operator=(const bit_t a_elem);
   virtual operator bit_t();
   virtual irs_status_t status();
   virtual void set_after_pause(counter_t a_after_pause);
   virtual void tick();
+  inline void set_wild(bool a_wild) { m_wild = a_wild;}
 private:
   enum status_t {
     st_error,
+    st_wild_energization_off,
+    st_wild_energization_on,
     st_energization,
     st_after_pause,
     st_ready
+  };
+  enum {
+    m_wild_cnt = 10
   };
   irs::gpio_pin_t* mp_pin_0;
   irs::gpio_pin_t* mp_pin_1;
@@ -125,6 +132,8 @@ private:
   irs::timer_t m_timer;
   bit_t m_current_value;
   const irs::string_t m_caption;
+  bool m_wild;
+  irs_u8 m_wild_current_iteration;
   void set(const bit_t a_value);
 };
 
@@ -147,7 +156,7 @@ private:
 class dac_t
 {
 public:
-  dac_t(irs::mxdata_t* ap_raw_dac);
+  dac_t(irs::mxdata_t* ap_raw_dac, irs::dac_1220_t* ap_ti_dac);
   ~dac_t() {};
   void on();
   void off();
@@ -167,7 +176,11 @@ private:
     st_pause,
     st_ready
   };
+  enum {
+    m_ti_dac_mid = 0xFFFFF000 / 2
+  };
   irs::dac_ad5791_data_t m_dac_data;
+  irs::dac_1220_t* mp_ti_dac;
   status_t m_status;
   counter_t m_after_pause;
   irs::timer_t m_timer;
@@ -194,10 +207,12 @@ public:
   inline irs_u8 filter() { return m_current_filter; }
   inline adc_value_t zero() { return m_zero; }
   inline adc_value_t voltage() { return m_voltage; }
+  inline adc_value_t temperature() { return m_temperature; }
   inline void show() { m_show = true; }
   inline void hide() { m_show = false; }
   void meas_zero();
   void meas_voltage();
+  void meas_voltage_and_temperature();
   void tick();
 private:
   enum status_t {
@@ -212,9 +227,19 @@ private:
     st_wait_zero,
     st_set_mode_single,
     st_wait_set_mode_single,
+    st_select_temperature_channel,
+    st_select_temperature_gain,
+    st_start_temperature_conversion,
+    st_get_temperature_value,
+    st_restore_adc_channel,
+    st_restore_adc_gain,
     st_start_convertion,
     st_get_value,
     st_free
+  };
+  enum {
+    m_temperature_channel = 1,
+    m_temperature_gain = 0
   };
   irs::adc_request_t* mp_raw_adc;
   status_t m_status;
@@ -225,14 +250,20 @@ private:
   bool m_need_set_filter;
   bool m_need_meas_zero;
   bool m_need_meas_voltage;
+  bool m_need_meas_temperature;
   irs_u8 m_current_gain;
   irs_u8 m_current_channel;
+  irs_u8 m_cash_channel;
+  irs_u8 m_cash_gain;
   irs_u8 m_current_mode;
   irs_u8 m_current_filter;
   int m_adc_value;
   adc_value_t m_zero;
   adc_value_t m_voltage;
+  adc_value_t m_temperature;
   bool m_show;
+  const adc_value_t m_additional_gain;
+  const adc_value_t m_ref;
 };
 
 //inline irs_i32 convert_adc(irs_i32 a_in_value)
@@ -242,10 +273,13 @@ private:
 //  return adc_value - adc_mid;
 //}
 
-inline hrm::adc_value_t convert_adc(irs_i32 a_in_value)
+inline hrm::adc_value_t convert_adc(irs_i32 a_in_value, irs_u8 a_adc_gain,
+  adc_value_t a_additional_gain, adc_value_t a_ref)
 {
+  adc_value_t gain 
+    = static_cast<adc_value_t>(1 << a_adc_gain) * a_additional_gain;
   return (static_cast<adc_value_t>(a_in_value) 
-    / static_cast<adc_value_t>(1 << 31)) * (4.096*3.*2./(11.*3.));
+    / static_cast<adc_value_t>(1 << 31)) * (a_ref / gain);
 }
 
 }

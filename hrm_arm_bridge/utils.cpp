@@ -219,7 +219,8 @@ hrm::bi_relay_t::bi_relay_t(
   irs::gpio_pin_t* ap_pin_1, 
   const irs::string_t& a_caption, 
   relay_t::bit_t a_default_value,
-  counter_t a_energization_time):
+  counter_t a_energization_time,
+  bool a_wild):
   mp_pin_0(ap_pin_0),
   mp_pin_1(ap_pin_1),
   m_after_pause(0),
@@ -227,7 +228,9 @@ hrm::bi_relay_t::bi_relay_t(
   m_status(st_ready),
   m_timer(m_after_pause),
   m_current_value(a_default_value),
-  m_caption(a_caption)
+  m_caption(a_caption),
+  m_wild(a_wild),
+  m_wild_current_iteration(0)
 {
   if (!mp_pin_0 || !mp_pin_1) {
     m_status = st_error;
@@ -266,13 +269,18 @@ void hrm::bi_relay_t::set_after_pause(counter_t a_after_pause)
 void hrm::bi_relay_t::set(const hrm::relay_t::bit_t a_value)
 {
   if (m_status != st_error) {
-    if (a_value) {
+    m_current_value = a_value;
+    if (m_current_value) {
       mp_pin_1->set();
     } else {
       mp_pin_0->set();
     }
-    m_current_value = a_value;
-    m_status = st_energization;
+    if (m_wild && m_current_value) {
+      m_wild_current_iteration = 0;
+      m_status = st_wild_energization_off;
+    } else {
+      m_status = st_energization;
+    }
     m_timer.set(m_energization_time);
     m_timer.start();
   }
@@ -281,6 +289,41 @@ void hrm::bi_relay_t::set(const hrm::relay_t::bit_t a_value)
 void hrm::bi_relay_t::tick()
 {
   switch (m_status) {
+    case st_wild_energization_off:
+      if (m_timer.check()) {      
+        if (m_current_value) {
+          mp_pin_1->clear();
+          mp_pin_0->set();
+        } else {
+          mp_pin_1->set();
+          mp_pin_0->clear();
+        }
+        if (m_wild_current_iteration < m_wild_cnt) {
+          m_status = st_wild_energization_on;
+        } else {
+          mp_pin_0->clear();
+          mp_pin_1->clear();
+          m_timer.set(m_after_pause);
+          m_timer.start();
+          m_status = st_after_pause;
+        }
+        m_timer.start();
+      }
+      break;
+    case st_wild_energization_on:
+      if (m_timer.check()) {
+        m_wild_current_iteration++;
+        if (m_current_value) {
+          mp_pin_0->clear();
+          mp_pin_1->set();
+        } else {
+          mp_pin_1->clear();
+          mp_pin_0->set();
+        }
+        m_timer.start();
+        m_status = st_wild_energization_off;
+      }
+      break;
     case st_energization: {
       if (m_timer.check()) {
         mp_pin_0->clear();
@@ -367,19 +410,21 @@ bool hrm::range_t::ready()
 
 //------------------------------------------------------------------------------
 
-hrm::dac_t::dac_t(irs::mxdata_t* ap_raw_dac):
+hrm::dac_t::dac_t(irs::mxdata_t* ap_raw_dac, irs::dac_1220_t* ap_ti_dac):
   m_dac_data(ap_raw_dac),
+  mp_ti_dac(ap_ti_dac),
   m_status(st_wait),
   m_after_pause(0),
   m_timer(m_after_pause)
 {
-  m_dac_data.rbuf_bit = 1;
+  m_dac_data.rbuf_bit = 0;//1
   m_dac_data.opgnd_bit = 0;
   m_dac_data.dactri_bit = 0;
   m_dac_data.bin2sc_bit = 0;
   m_dac_data.sdodis_bit = 1;
   m_dac_data.lin_comp = 0xC;
   m_dac_data.signed_voltage_code = 0;
+  mp_ti_dac->set_u32_data(0, m_ti_dac_mid);
   irs::mlog() << irsm("ÖÀÏ: âêëþ÷¸í") << endl;
   irs::mlog() << irsm("ÖÀÏ: êîä = 0") << endl;
 }
@@ -412,6 +457,10 @@ void hrm::dac_t::set_code(hrm::dac_value_t a_code)
   dac_value_t code = irs::bound(a_code, -1., 1.);
   m_dac_data.signed_voltage_code = 
     static_cast<irs_i32>(code * pow(2., 31));
+  
+  mp_ti_dac->set_u32_data(0,
+    static_cast<irs_u32>(static_cast<double>(m_ti_dac_mid) * (code + 1)));
+  
   m_status = st_wait;
   m_timer.set(m_after_pause);
   irs::mlog() << irsm("ÖÀÏ: êîä = ") << code << irsm(" / ") 
@@ -421,6 +470,7 @@ void hrm::dac_t::set_code(hrm::dac_value_t a_code)
 void hrm::dac_t::set_int_code(irs_i32 a_int_code)
 {
   m_dac_data.unsigned_voltage_code = a_int_code << 12;
+  mp_ti_dac->set_u32_data(0, m_ti_dac_mid + (a_int_code << 12));
   m_status = st_wait;
   irs::mlog() << irsm("ÖÀÏ: êîä = ") 
     << static_cast<dac_value_t>(a_int_code) / pow(2., 19) << irsm(" / ") 
@@ -458,7 +508,7 @@ void hrm::dac_t::set_after_pause(counter_t a_after_pause)
 irs_status_t hrm::dac_t::ready()
 {
   irs_status_t return_status = irs_st_busy;
-  if (m_status == st_ready) {
+  if ((m_status == st_ready) && (mp_ti_dac->get_status() == irs_st_ready)) {
     return_status = irs_st_ready;
   }
   return return_status;
@@ -466,6 +516,7 @@ irs_status_t hrm::dac_t::ready()
 
 void hrm::dac_t::tick()
 {
+  mp_ti_dac->tick();
   switch (m_status) {
     case st_wait: {
       if (m_dac_data.ready_bit == 1) {
@@ -504,14 +555,19 @@ hrm::adc_t::adc_t(
   m_need_set_filter(true),
   m_need_meas_zero(false),
   m_need_meas_voltage(false),
+  m_need_meas_temperature(false),
   m_current_gain(a_default_gain),
   m_current_channel(a_default_channel),
+  m_cash_channel(a_default_channel),
+  m_cash_gain(a_default_gain),
   m_current_mode(a_default_mode),
   m_current_filter(a_default_filter),
   m_adc_value(0),
   m_zero(0.),
   m_voltage(0.),
-  m_show(false)
+  m_show(false),
+  m_additional_gain(3.0),
+  m_ref(4.096)
 {
 }
 
@@ -552,6 +608,13 @@ void hrm::adc_t::meas_zero()
 void hrm::adc_t::meas_voltage()
 {
   m_need_meas_voltage = true; 
+  m_return_status = irs_st_busy;
+}
+
+void hrm::adc_t::meas_voltage_and_temperature()
+{
+  m_need_meas_voltage = true; 
+  m_need_meas_temperature = true;
   m_return_status = irs_st_busy;
 }
 
@@ -629,7 +692,8 @@ void hrm::adc_t::tick()
     if (mp_raw_adc->status() == meas_status_success) {
       m_need_meas_zero = false;
       m_status = st_free;
-      m_zero = convert_adc(m_adc_value);
+      m_zero = convert_adc(
+        m_adc_value, m_current_gain, m_additional_gain, m_ref);
       if (m_show) {
         irs::mlog() << irsm("Íîëü ÀÖÏ = ") << (m_zero * 1.e6) 
           << irsm(" ìêÂ") << endl;
@@ -643,15 +707,66 @@ void hrm::adc_t::tick()
         mp_raw_adc->set_param(irs::adc_mode, m_current_mode);
         m_status = st_wait_set_mode_single;
       } else {
-        m_status = st_start_convertion;
+        m_status = st_select_temperature_channel;
       }
     }
     break;
   case st_wait_set_mode_single:
     if (mp_raw_adc->status() == meas_status_success) {
-      m_status = st_start_convertion;
+      m_status = st_select_temperature_channel;
     }
     break;  
+  case st_select_temperature_channel:
+    if (m_need_meas_temperature) {
+      m_need_meas_temperature = false;
+      m_cash_channel = m_current_channel;
+      m_current_channel = m_temperature_channel;
+      mp_raw_adc->set_param(irs::adc_channel, m_current_channel);
+      m_status = st_select_temperature_gain;
+    } else {
+      m_status = st_start_convertion;
+    }
+    break;
+  case st_select_temperature_gain:
+    if (mp_raw_adc->status() == meas_status_success) {
+      m_cash_gain = m_current_gain;
+      m_current_gain = m_temperature_gain;
+      mp_raw_adc->set_param(irs::adc_gain, m_current_gain);
+      m_status = st_start_temperature_conversion;
+    }
+    break;
+  case st_start_temperature_conversion:
+    if (mp_raw_adc->status() == meas_status_success) {
+      mp_raw_adc->start();
+      m_status = st_get_temperature_value;
+    }
+    break;
+  case st_get_temperature_value:
+    if (mp_raw_adc->status() == meas_status_success) {
+      adc_value_t adc_value = convert_adc(
+        mp_raw_adc->get_value(), m_current_gain, 1.0, m_ref);
+      m_temperature = (adc_value - 0.5) / 0.0195;
+      if (m_show) {
+        irs::mlog() << irsm("Òåìïåðàòóðà = ") << m_temperature << irsm(" °C");
+        irs::mlog() << endl;
+      }
+      m_status = st_restore_adc_channel;
+    }
+    break;
+  case st_restore_adc_channel:
+    if (mp_raw_adc->status() == meas_status_success) {
+      m_current_channel = m_cash_channel;
+      mp_raw_adc->set_param(irs::adc_channel, m_current_channel);
+      m_status = st_restore_adc_gain;
+    }
+    break;
+  case st_restore_adc_gain:
+    if (mp_raw_adc->status() == meas_status_success) {
+      m_current_gain = m_cash_gain;
+      mp_raw_adc->set_param(irs::adc_gain, m_current_gain);
+      m_status = st_start_convertion;
+    }
+    break;
   case st_start_convertion:
     if (mp_raw_adc->status() == meas_status_success) {
       mp_raw_adc->start();
@@ -663,7 +778,8 @@ void hrm::adc_t::tick()
       m_adc_value = mp_raw_adc->get_value();
       m_need_meas_voltage = false;
       m_status = st_free;
-      m_voltage = convert_adc(m_adc_value);
+      m_voltage = convert_adc(
+        m_adc_value, m_current_gain, m_additional_gain, m_ref);
       if (m_show) {
         irs::mlog() << irsm("Íàïðÿæåíèå ÀÖÏ = ");
         if (abs(m_voltage) < 1.1e-3) {
