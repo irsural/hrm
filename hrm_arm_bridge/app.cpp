@@ -27,7 +27,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
     irs::make_cnt_ms(50)),
   m_dac(&m_raw_dac, &m_ti_dac),
   m_raw_adc(
-    mp_cfg->spi_2(),
+    mp_cfg->spi(),
     mp_pins->p_adc_cs),
   m_adc(&m_raw_adc, m_default_gain, m_default_channel, 
     m_default_mode, m_default_filter),
@@ -107,6 +107,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_is_exp(false),
   m_exp_timer(irs::make_cnt_ms(1000)),
   m_optimize_balance(false),
+  m_adc_fade(0.0),
   m_relay_pause_timer(m_relay_after_pause)
 {
   mxip_t ip = mxip_t::zero_ip();
@@ -138,6 +139,12 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   mp_pins->p_vben->set();
   
   irs::mlog() << setprecision(8);
+  
+  m_adc_fade_data.x1 = 0.0;
+  m_adc_fade_data.y1 = 0.0;
+  m_adc_fade_data.t = 100.0;  
+  
+  m_eth_data.adc_filter_constant = m_adc_fade_data.t;
 }
 
 void hrm::app_t::tick()
@@ -203,6 +210,18 @@ void hrm::app_t::tick()
     }
     if (m_eth_data.adc_value != m_adc.voltage()) {
       m_eth_data.adc_value = m_adc.voltage();
+      m_adc_fade = fade(&m_adc_fade_data, m_adc.voltage());
+      m_eth_data.adc_filter_value = m_adc_fade;
+    }
+    if (m_eth_data.adc_clear_filter) {
+      m_eth_data.adc_clear_filter = 0;
+      m_adc_fade_data.x1 = m_adc.voltage();
+      m_adc_fade_data.y1 = m_adc.voltage();
+      m_adc_fade = m_adc.voltage();
+      m_eth_data.adc_filter_value = m_adc_fade;
+    }
+    if (m_eth_data.adc_filter_constant != m_adc_fade_data.t) {
+      m_adc_fade_data.t = m_eth_data.adc_filter_constant;
     }
     if (m_eth_data.adc_zero != m_adc.zero()) {
       m_eth_data.adc_zero = m_adc.zero();

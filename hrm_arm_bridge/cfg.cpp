@@ -59,7 +59,7 @@ hrm::cfg_t::cfg_t():
   m_simple_hardflow(&m_tcpip, m_local_ip, m_local_port,
     m_dest_ip, m_dest_port, 10),
   
-  m_spi_bitrate(100000),
+  m_spi_bitrate(1000),
   m_spi(IRS_SPI3_I2S3_BASE, m_spi_bitrate, PC10, PC11, PC12),
   m_spi_2(IRS_SPI2_I2S2_BASE, m_spi_bitrate, PB10, PC2, PC3),
   

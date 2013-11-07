@@ -194,6 +194,9 @@ private:
   irs::loop_timer_t m_exp_timer;
   bool m_optimize_balance;
   
+  irs::fade_data_t m_adc_fade_data;
+  adc_value_t m_adc_fade;
+  
   irs::timer_t m_relay_pause_timer;
   
   inline bool can_dec_gain()
