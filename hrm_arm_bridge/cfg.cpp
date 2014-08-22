@@ -6,6 +6,7 @@
 
 hrm::cfg_t::pins_t::pins_t(
   irs::gpio_pin_t* ap_vben,
+  irs::gpio_pin_t* ap_ee_cs,
   irs::gpio_pin_t* ap_adc_cs,
   irs::gpio_pin_t* ap_dac_cs,
   irs::gpio_pin_t* ap_dac_ldac,
@@ -23,9 +24,11 @@ hrm::cfg_t::pins_t::pins_t(
   irs::gpio_pin_t* ap_relay_prot,
   irs::gpio_pin_t* ap_led_blink,
   irs::gpio_pin_t* ap_led_hf,
-  irs::gpio_pin_t* ap_led_pon):
+  irs::gpio_pin_t* ap_led_pon,
+  irs::gpio_pin_t* ap_buzzer):
   
   p_vben(ap_vben),
+  p_ee_cs(ap_ee_cs),
   p_adc_cs(ap_adc_cs),
   p_dac_cs(ap_dac_cs),
   p_dac_ldac(ap_dac_ldac),
@@ -43,7 +46,8 @@ hrm::cfg_t::pins_t::pins_t(
   p_relay_prot(ap_relay_prot),
   p_led_blink(ap_led_blink),
   p_led_hf(ap_led_hf),
-  p_led_pon(ap_led_pon)
+  p_led_pon(ap_led_pon),
+  p_buzzer(ap_buzzer)
 {
 }
 
@@ -60,31 +64,36 @@ hrm::cfg_t::cfg_t():
     m_dest_ip, m_dest_port, 10),
   
   m_spi_bitrate(1000),
-  m_spi(IRS_SPI3_I2S3_BASE, m_spi_bitrate, PC10, PC11, PC12),
+  m_spi(IRS_SPI1_BASE, m_spi_bitrate, PA5, PA6, PB5, 
+    irs::arm::arm_spi_t::gpio_speed_25mhz),
   m_spi_2(IRS_SPI2_I2S2_BASE, m_spi_bitrate, PB10, PC2, PC3),
   
   m_vben(GPIO_PORTG, 4, irs::io_t::dir_out, irs::io_pin_on),
-  m_adc_cs(GPIO_PORTE, 0, irs::io_t::dir_out, irs::io_pin_on),
-  m_dac_cs(GPIO_PORTA, 6, irs::io_t::dir_out, irs::io_pin_on),
-  m_dac_ldac(GPIO_PORTD, 3, irs::io_t::dir_out, irs::io_pin_off),
-  m_dac_clr(GPIO_PORTG, 15, irs::io_t::dir_out, irs::io_pin_off),
-  m_dac_reset(GPIO_PORTC, 7, irs::io_t::dir_out, irs::io_pin_off),
-  m_dac_ti_cs(GPIO_PORTC, 6, irs::io_t::dir_out, irs::io_pin_on),
-  m_relay_bridge_pos_on(GPIO_PORTA, 4, irs::io_t::dir_out, irs::io_pin_off),
-  m_relay_bridge_pos_off(GPIO_PORTG, 11, irs::io_t::dir_out, irs::io_pin_off),
-  m_relay_bridge_neg_on(GPIO_PORTD, 6, irs::io_t::dir_out, irs::io_pin_off),
-  m_relay_bridge_neg_off(GPIO_PORTE, 6, irs::io_t::dir_out, irs::io_pin_off),
-  m_relay_gain_high(GPIO_PORTE, 1, irs::io_t::dir_out, irs::io_pin_off),
-  m_relay_gain_low(GPIO_PORTE, 4, irs::io_t::dir_out, irs::io_pin_off),
-  m_relay_voltage_high(GPIO_PORTB, 6, irs::io_t::dir_out, irs::io_pin_off),
-  m_relay_voltage_low(GPIO_PORTE, 5, irs::io_t::dir_out, irs::io_pin_off),
-  m_relay_prot(GPIO_PORTG, 10, irs::io_t::dir_out, irs::io_pin_on),
+  m_ee_cs(GPIO_PORTC, 13, irs::io_t::dir_out, irs::io_pin_on),
+  m_adc_cs(GPIO_PORTG, 7, irs::io_t::dir_out, irs::io_pin_on),
+  m_dac_cs(GPIO_PORTG, 8, irs::io_t::dir_out, irs::io_pin_on),
+  m_dac_ldac(GPIO_PORTG, 6, irs::io_t::dir_out, irs::io_pin_off),
+  m_dac_clr(GPIO_PORTF, 8, irs::io_t::dir_out, irs::io_pin_off),
+  m_dac_reset(GPIO_PORTG, 5, irs::io_t::dir_out, irs::io_pin_off),
+  m_dac_ti_cs(GPIO_PORTF, 9, irs::io_t::dir_out, irs::io_pin_on),
+  m_relay_bridge_pos_on(GPIO_PORTB, 2, irs::io_t::dir_out, irs::io_pin_off),
+  m_relay_bridge_pos_off(GPIO_PORTD, 8, irs::io_t::dir_out, irs::io_pin_off),
+  m_relay_bridge_neg_on(GPIO_PORTE, 8, irs::io_t::dir_out, irs::io_pin_off),
+  m_relay_bridge_neg_off(GPIO_PORTF, 11, irs::io_t::dir_out, irs::io_pin_off),
+  m_relay_gain_high(GPIO_PORTF, 9, irs::io_t::dir_out, irs::io_pin_off),
+  m_relay_gain_low(GPIO_PORTF, 9, irs::io_t::dir_out, irs::io_pin_off),
+  m_relay_voltage_high(GPIO_PORTF, 9, irs::io_t::dir_out, irs::io_pin_off),
+  m_relay_voltage_low(GPIO_PORTF, 9, irs::io_t::dir_out, irs::io_pin_off),
+  m_relay_prot(GPIO_PORTD, 9, irs::io_t::dir_out, irs::io_pin_on),
   m_led_blink(GPIO_PORTB, 9, irs::io_t::dir_out, irs::io_pin_off),
   m_led_hf(GPIO_PORTF, 6, irs::io_t::dir_out, irs::io_pin_off),
   m_led_pon(GPIO_PORTB, 8, irs::io_t::dir_out, irs::io_pin_off),
+  m_buzzer(irs::handle_t<irs::pwm_gen_t>(
+    new irs::arm::st_pwm_gen_t(PB6, IRS_TIM4_BASE, 4000, 0.5))),
   
   m_pins(
     &m_vben,
+    &m_ee_cs,
     &m_adc_cs,
     &m_dac_cs,
     &m_dac_ldac,
@@ -102,9 +111,11 @@ hrm::cfg_t::cfg_t():
     &m_relay_prot,
     &m_led_blink,
     &m_led_hf,
-    &m_led_pon)
+    &m_led_pon,
+    &m_buzzer),
+  m_adc_exti()  
 {
-  irs::pause(irs::make_cnt_ms(3000));
+  irs::pause(irs::make_cnt_ms(100));
 }
 
 irs::hardflow::simple_udp_flow_t* hrm::cfg_t::hardflow()

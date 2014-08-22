@@ -44,12 +44,38 @@ namespace hrm {
 
 #define HRM_DELETE_ASSERT(expr) IRS_DELETE_ASSERT(expr)
 
+class adc_exti_t
+{
+public:
+  inline adc_exti_t() 
+  {
+    irs::clock_enable(IRS_PORTG_BASE);
+    irs::gpio_moder_input_enable(PG3);
+    SETENA0_bit.SETENA_EXTI3 = 1; //  exti3 линия 3
+    SYSCFG_EXTICR1_bit.EXTI3 = 6;     //  PORT G
+    EXTI_IMR_bit.MR3 = 0; // Изначально прерывание на линии 3 отключено
+    EXTI_FTSR_bit.TR3 = 1; // Включаем реакцию на задний фронт
+  }
+  inline ~adc_exti_t() 
+  {
+    SETENA0_bit.SETENA_EXTI3 = 0;
+  };
+  inline void add_event(mxfact_event_t *ap_event)
+  {
+    irs::interrupt_array()->int_event_gen(irs::arm::exti3_int)->add(ap_event);
+  }
+  inline void start()   { EXTI_IMR_bit.MR3 = 1; }
+  inline void stop()    { EXTI_IMR_bit.MR3 = 0; }
+  inline bool stopped() { return EXTI_IMR_bit.MR3; }
+};
+  
 class cfg_t
 {
 public:
   struct pins_t {
     pins_t(
       irs::gpio_pin_t* ap_vben,
+      irs::gpio_pin_t* ap_ee_cs,
       irs::gpio_pin_t* ap_adc_cs,
       irs::gpio_pin_t* ap_dac_cs,
       irs::gpio_pin_t* ap_dac_ldac,
@@ -67,9 +93,11 @@ public:
       irs::gpio_pin_t* ap_relay_prot,
       irs::gpio_pin_t* ap_led_blink,
       irs::gpio_pin_t* ap_led_hf,
-      irs::gpio_pin_t* ap_led_pon);
+      irs::gpio_pin_t* ap_led_pon,
+      irs::gpio_pin_t* ap_buzzer);
     
     irs::gpio_pin_t* p_vben;
+    irs::gpio_pin_t* p_ee_cs;
     irs::gpio_pin_t* p_adc_cs;
     irs::gpio_pin_t* p_dac_cs;
     irs::gpio_pin_t* p_dac_ldac;
@@ -88,12 +116,14 @@ public:
     irs::gpio_pin_t* p_led_blink;
     irs::gpio_pin_t* p_led_hf;
     irs::gpio_pin_t* p_led_pon;
+    irs::gpio_pin_t* p_buzzer;
   };
   cfg_t();
   irs::hardflow::simple_udp_flow_t* hardflow();
   irs::spi_t* spi();
   irs::spi_t* spi_2();
   pins_t* pins();
+  inline adc_exti_t* adc_exti() { return &m_adc_exti; }
   void tick();
   
 private:
@@ -112,6 +142,7 @@ private:
   irs::arm::arm_spi_t m_spi_2;
   
   irs::arm::io_pin_t m_vben;
+  irs::arm::io_pin_t m_ee_cs;
   irs::arm::io_pin_t m_adc_cs;
   irs::arm::io_pin_t m_dac_cs;
   irs::arm::io_pin_t m_dac_ldac;
@@ -130,8 +161,10 @@ private:
   irs::arm::io_pin_t m_led_blink;
   irs::arm::io_pin_t m_led_hf;
   irs::arm::io_pin_t m_led_pon;
+  irs::pwm_pin_t m_buzzer;
   
   pins_t m_pins;
+  adc_exti_t m_adc_exti;
 };
 
 } //  hrm

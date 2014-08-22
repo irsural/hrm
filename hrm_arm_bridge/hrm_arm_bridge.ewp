@@ -166,6 +166,7 @@
           <name>CCDefines</name>
           <state>IRS_STM32F4xx</state>
           <state>USE_STDPERIPH_DRIVER</state>
+          <state>STM32F40_41xxx</state>
         </option>
         <option>
           <name>CCPreprocFile</name>
@@ -205,7 +206,7 @@
         </option>
         <option>
           <name>CCDiagSuppress</name>
-          <state>Pa039, Pe261, Pe340, Pa091, Pa089, Go005</state>
+          <state>Pe068, Pa039, Pe261, Pe340, Pa091, Pa089, Go005</state>
         </option>
         <option>
           <name>CCDiagRemark</name>
@@ -525,7 +526,7 @@
         </option>
         <option>
           <name>AOutputFile</name>
-          <state></state>
+          <state>$FILE_BNAME$.o</state>
         </option>
         <option>
           <name>AMultibyteSupport</name>

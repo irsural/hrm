@@ -410,12 +410,14 @@ bool hrm::range_t::ready()
 
 //------------------------------------------------------------------------------
 
-hrm::dac_t::dac_t(irs::mxdata_t* ap_raw_dac, irs::dac_1220_t* ap_ti_dac):
+hrm::dac_t::dac_t(irs::mxdata_t* ap_raw_dac):
   m_dac_data(ap_raw_dac),
-  mp_ti_dac(ap_ti_dac),
   m_status(st_wait),
   m_after_pause(0),
-  m_timer(m_after_pause)
+  m_timer(m_after_pause),
+  m_voltage_pos(12.288),
+  m_voltage_neg(-12.288),
+  m_show(false)
 {
   m_dac_data.rbuf_bit = 0;//1
   m_dac_data.opgnd_bit = 0;
@@ -424,7 +426,6 @@ hrm::dac_t::dac_t(irs::mxdata_t* ap_raw_dac, irs::dac_1220_t* ap_ti_dac):
   m_dac_data.sdodis_bit = 1;
   m_dac_data.lin_comp = 0xC;
   m_dac_data.signed_voltage_code = 0;
-  mp_ti_dac->set_u32_data(0, m_ti_dac_mid);
   irs::mlog() << irsm("ÖÀÏ: âêëþ÷¸í") << endl;
   irs::mlog() << irsm("ÖÀÏ: êîä = 0") << endl;
 }
@@ -435,7 +436,9 @@ void hrm::dac_t::on()
   m_dac_data.dactri_bit = 0;
   m_status = st_wait;
   m_timer.set(m_after_pause);
-  irs::mlog() << irsm("ÖÀÏ: âêëþ÷¸í") << endl;
+  if (m_show) {
+    irs::mlog() << irsm("ÖÀÏ: âêëþ÷¸í") << endl;
+  }
 }
 
 void hrm::dac_t::off()
@@ -444,7 +447,9 @@ void hrm::dac_t::off()
   m_dac_data.dactri_bit = 1;
   m_status = st_wait;
   m_timer.set(m_after_pause);
-  irs::mlog() << irsm("ÖÀÏ: âûêëþ÷åí") << endl;
+  if (m_show) {
+    irs::mlog() << irsm("ÖÀÏ: âûêëþ÷åí") << endl;
+  }
 }
 
 irs_bool hrm::dac_t::is_on()
@@ -452,45 +457,48 @@ irs_bool hrm::dac_t::is_on()
   return (m_dac_data.opgnd_bit == 0 && m_dac_data.dactri_bit == 0);
 }
 
-void hrm::dac_t::set_code(hrm::dac_value_t a_code)
+void hrm::dac_t::set_normalize_code(hrm::dac_value_t a_code)
 {
   dac_value_t code = irs::bound(a_code, -1., 1.);
   m_dac_data.signed_voltage_code = 
-    static_cast<irs_i32>(code * pow(2., 31));
-  
-  mp_ti_dac->set_u32_data(0,
-    static_cast<irs_u32>(static_cast<double>(m_ti_dac_mid) * (code + 1)));
+    static_cast<irs_i32>(floor(code * (pow(2., 31) - 1.0) + 0.5));
   
   m_status = st_wait;
   m_timer.set(m_after_pause);
-  irs::mlog() << irsm("ÖÀÏ: êîä = ") << code << irsm(" / ") 
-    << (m_dac_data.unsigned_voltage_code >> 12) << endl;
+  if (m_show) {
+    irs::mlog() << irsm("ÖÀÏ: êîä = ") << code << irsm(" / ") 
+      << (m_dac_data.signed_voltage_code >> 12) << endl;
+  }
 }
 
-void hrm::dac_t::set_int_code(irs_i32 a_int_code)
+void hrm::dac_t::set_code(dac_value_t a_code)
 {
-  m_dac_data.unsigned_voltage_code = a_int_code << 12;
-  mp_ti_dac->set_u32_data(0, m_ti_dac_mid + (a_int_code << 12));
+  irs_i32 code = static_cast<irs_i32>(a_code);
+  m_dac_data.unsigned_voltage_code = code << 12;
   m_status = st_wait;
-  irs::mlog() << irsm("ÖÀÏ: êîä = ") 
-    << static_cast<dac_value_t>(a_int_code) / pow(2., 19) << irsm(" / ") 
-    << a_int_code << endl;
+  if (m_show) {
+    irs::mlog() << irsm("ÖÀÏ: êîä = ") 
+      << static_cast<dac_value_t>(code) / pow(2., 19) << irsm(" / ") 
+      << code << endl;
+  }
 }
 
 void hrm::dac_t::set_lin(irs_u8 a_lin)
 {
   m_dac_data.lin_comp = a_lin;
   m_status = st_wait;
-  irs::mlog() << irsm("ÖÀÏ: lin = 0x") << hex << static_cast<int>(a_lin);
-  irs::mlog() << dec << endl;
+  if (m_show) {
+    irs::mlog() << irsm("ÖÀÏ: lin = 0x") << hex << static_cast<int>(a_lin);
+    irs::mlog() << dec << endl;
+  }
 }
 
-hrm::dac_value_t hrm::dac_t::get_code()
+hrm::dac_value_t hrm::dac_t::get_normalize_code()
 {
   return static_cast<dac_value_t>(m_dac_data.signed_voltage_code) / pow(2., 31);
 }
 
-irs_i32 hrm::dac_t::get_int_code()
+irs_i32 hrm::dac_t::get_code()
 {
   return m_dac_data.signed_voltage_code >> 12;
 }
@@ -502,21 +510,49 @@ irs_u8 hrm::dac_t::get_lin()
 
 void hrm::dac_t::set_after_pause(counter_t a_after_pause)
 {
+  double pause = CNT_TO_DBLTIME(a_after_pause);
+  irs::mlog() << irsm("ÖÀÏ: ïàóçà = ") << pause << irsm(" c.") << endl;
   m_after_pause = a_after_pause;
 }
 
 irs_status_t hrm::dac_t::ready()
 {
   irs_status_t return_status = irs_st_busy;
-  if ((m_status == st_ready) && (mp_ti_dac->get_status() == irs_st_ready)) {
+  if (m_status == st_ready) {
     return_status = irs_st_ready;
   }
   return return_status;
 }
 
+void hrm::dac_t::set_voltage_pos(dac_value_t a_voltage_pos)
+{
+  m_voltage_pos = a_voltage_pos;
+}
+
+void hrm::dac_t::set_voltage_neg(dac_value_t a_voltage_neg)
+{
+  m_voltage_neg = a_voltage_neg;
+}
+
+hrm::dac_value_t hrm::dac_t::voltage_pos()
+{
+  return m_voltage_pos;
+}
+
+hrm::dac_value_t hrm::dac_t::voltage_neg()
+{
+  return m_voltage_neg;
+}
+
+hrm::dac_value_t hrm::dac_t::output_voltage()
+{
+  dac_value_t code = (static_cast<dac_value_t>(m_dac_data.signed_voltage_code)
+                      - 0.5) / pow(2., 31);
+  return m_voltage_pos * (2. * code - 1.);
+}
+
 void hrm::dac_t::tick()
 {
-  mp_ti_dac->tick();
   switch (m_status) {
     case st_wait: {
       if (m_dac_data.ready_bit == 1) {
@@ -597,6 +633,22 @@ void hrm::adc_t::set_filter(irs_u8 a_filter)
   m_current_filter = a_filter;
   m_need_set_filter = true;
   m_return_status = irs_st_busy;
+}
+
+void hrm::adc_t::set_additional_gain(adc_value_t a_gain)
+{
+  m_additional_gain = a_gain;
+  if (m_show) {
+    irs::mlog() << irsm("ÀÖÏ Käîï = ") << m_additional_gain << endl;
+  }
+}
+
+void hrm::adc_t::set_ref(adc_value_t a_ref)
+{
+  m_ref = a_ref;
+  if (m_show) {
+    irs::mlog() << irsm("ÀÖÏ REF = ") << m_ref << endl;
+  }
 }
 
 void hrm::adc_t::meas_zero()
@@ -692,7 +744,7 @@ void hrm::adc_t::tick()
     if (mp_raw_adc->status() == meas_status_success) {
       m_need_meas_zero = false;
       m_status = st_free;
-      m_zero = convert_adc(
+      m_zero = convert_adc32(
         m_adc_value, m_current_gain, m_additional_gain, m_ref);
       if (m_show) {
         irs::mlog() << irsm("Íîëü ÀÖÏ = ") << (m_zero * 1.e6) 
@@ -743,9 +795,9 @@ void hrm::adc_t::tick()
     break;
   case st_get_temperature_value:
     if (mp_raw_adc->status() == meas_status_success) {
-      adc_value_t adc_value = convert_adc(
+      adc_value_t adc_value = convert_adc32(
         mp_raw_adc->get_value(), m_current_gain, 1.0, m_ref);
-      m_temperature = (adc_value - 0.5) / 0.0195;
+      m_temperature = (-adc_value - 0.4) / 0.0195;
       if (m_show) {
         irs::mlog() << irsm("Òåìïåðàòóðà = ") << m_temperature << irsm(" °C");
         irs::mlog() << endl;
@@ -778,7 +830,7 @@ void hrm::adc_t::tick()
       m_adc_value = mp_raw_adc->get_value();
       m_need_meas_voltage = false;
       m_status = st_free;
-      m_voltage = convert_adc(
+      m_voltage = convert_adc32(
         m_adc_value, m_current_gain, m_additional_gain, m_ref);
       if (m_show) {
         irs::mlog() << irsm("Íàïðÿæåíèå ÀÖÏ = ");
@@ -815,3 +867,245 @@ void hrm::adc_t::tick()
   }
 }
 
+//------------------------------------------------------------------------------
+
+hrm::buzzer_t::buzzer_t(irs::gpio_pin_t* ap_pin):
+  mp_pin(ap_pin),
+  m_timer(irs::make_cnt_ms(m_bzz_interval)),
+  m_is_bzz(false)
+{
+}
+
+void hrm::buzzer_t::bzz()
+{
+  m_is_bzz = true;
+  m_timer.start();
+  mp_pin->set();
+}
+
+void hrm::buzzer_t::tick()
+{
+  if (m_is_bzz) {
+    if (m_timer.check()) {
+      m_is_bzz = false;
+      mp_pin->clear();
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+hrm::ad7799_cread_t::ad7799_cread_t(irs::spi_t *ap_spi, 
+  irs::gpio_pin_t* ap_cs_pin, adc_exti_t* ap_adc_exti):
+  mp_spi(ap_spi),
+  mp_cs_pin(ap_cs_pin),
+  mp_adc_exti(ap_adc_exti),
+  m_int_event(this, &ad7799_cread_t::event),
+  m_status(st_free),
+  m_return_status(irs_st_ready),
+  m_cnv_cnt(0),
+  m_skip_cnt(0),
+  m_index(0),
+  m_value_vector(),
+  m_value_sko(0.0, 0.0),
+  m_time_sko(0.0, 0.0),
+  m_gain(0),
+  m_channel(0),
+  m_filter(0),
+  m_pause_interval(0),
+  m_cs_interval(irs::make_cnt_us(1)),
+  m_timer(m_cs_interval),
+  m_show(false),
+  m_show_simply(false),
+  m_additional_gain(0.0),
+  m_ref(0.0),
+  m_avg(0.0),
+  m_sko(0.0)
+{
+  mp_cs_pin->set();                       
+  m_cur_point.value = 0;
+  m_cur_point.time = 0;
+  memset(mp_spi_buf, 0, spi_buf_size);
+  mp_adc_exti->add_event(&m_int_event);
+  mp_adc_exti->stop();
+}
+
+void hrm::ad7799_cread_t::start_conversion()
+{
+  if (m_status == st_free) {
+    m_value_vector.clear();
+    m_status = st_spi_prepare;
+    m_return_status = irs_st_busy;
+  }
+}
+
+void hrm::ad7799_cread_t::event()
+{
+  m_cur_point.time = counter_get();
+  mp_adc_exti->stop();
+  if (m_index < m_cnv_cnt) {
+    mp_spi->read(mp_spi_buf, read_buf_size);
+    m_index++;
+    m_status = st_spi_wait;
+  } else {
+    mp_spi_buf[0] = instruction_stop;
+    mp_spi->write(mp_spi_buf, stop_buf_size);
+    //mp_cs_pin->set();
+    m_status = st_spi_wait_stop;
+  }
+}
+
+void hrm::ad7799_cread_t::tick()
+{
+  mp_spi->tick();
+  switch(m_status) {
+    case st_free: {
+      break;
+    }
+    case st_spi_prepare: {
+      if ((mp_spi->get_status() == irs::spi_t::FREE) && !mp_spi->get_lock()) {
+        mp_spi->set_order(irs::spi_t::MSB);
+        mp_spi->set_polarity(irs::spi_t::POSITIVE_POLARITY);
+        mp_spi->set_phase(irs::spi_t::TRAIL_EDGE);
+        mp_spi->lock();
+        m_index = 0;
+        m_status = st_write_cfg_reg;
+      }
+    } break;
+    case st_write_cfg_reg: {
+      if (mp_spi->get_status() == irs::spi_t::FREE) {
+        mp_spi_buf[0] = instruction_write_cfg;
+        mp_spi_buf[1] = m_gain;
+        mp_spi_buf[2] = m_channel | (1 << buf_bit_offset);
+        mp_cs_pin->clear();
+        mp_spi->write(mp_spi_buf, write_cfg_size);
+        m_status = st_cs_pause_cfg;
+      }
+    } break;
+    case st_cs_pause_cfg: {
+      if (mp_spi->get_status() == irs::spi_t::FREE) {
+        mp_cs_pin->set();
+        m_timer.set(m_cs_interval);
+        m_timer.start();
+        m_status = st_write_mode_reg;
+      }
+    } break;
+    case st_write_mode_reg: {
+      if (m_timer.check()) {
+        mp_spi_buf[0] = instruction_write_mode;
+        mp_spi_buf[1] = 0;
+        mp_spi_buf[2] = m_filter;
+        mp_cs_pin->clear();
+        mp_spi->write(mp_spi_buf, write_mode_size);
+        m_status = st_cs_pause_mode;
+      }
+    } break;
+    case st_cs_pause_mode: {
+      if (mp_spi->get_status() == irs::spi_t::FREE) {
+        mp_cs_pin->set();
+        m_timer.set(m_cs_interval + m_pause_interval);
+        m_timer.start();
+        m_status = st_start;
+      }
+    } break;
+    case st_start: {
+      if (m_timer.check()) {
+        if (m_show) {
+          irs::mlog() << irsm("---------------------------------") << endl;
+          irs::mlog() << irsm("ÀÖÏ: ") << m_cnv_cnt << irsm(" òî÷åê");
+          irs::mlog() << endl;
+          irs::mlog() << irsm("Gain: ") << static_cast<int>(m_gain);
+          irs::mlog() << endl;
+          irs::mlog() << irsm("Filter: ") << static_cast<int>(m_filter);
+          irs::mlog() << endl;
+          irs::mlog() << irsm("Channel: ") << static_cast<int>(m_channel);
+          irs::mlog() << endl;
+        }
+        mp_spi_buf[0] = instruction_cread;
+        mp_cs_pin->clear();
+        mp_spi->write(mp_spi_buf, start_buf_size);
+        m_status = st_spi_first_wait;
+      }
+    } break;
+    case st_spi_first_wait: {
+      if (mp_spi->get_status() == irs::spi_t::FREE) {
+        mp_adc_exti->start();
+        m_status = st_cread;
+      }
+    } break;
+    case st_spi_wait: {
+      if (mp_spi->get_status() == irs::spi_t::FREE) {
+        mp_adc_exti->start();
+        irs_i32 adc_raw_value = 0;
+        irs_u8* p_adc_raw_value = reinterpret_cast<irs_u8*>(&adc_raw_value);
+        p_adc_raw_value[0] = mp_spi_buf[2];
+        p_adc_raw_value[1] = mp_spi_buf[1];
+        p_adc_raw_value[2] = mp_spi_buf[0];
+        m_cur_point.value = adc_raw_value;
+        m_value_vector.push_back(m_cur_point);
+        if (m_show) {
+          irs::mlog() << irsm(".") << flush;
+        }
+        m_status = st_cread;
+      }
+    } break;
+    case st_spi_wait_stop: {
+      if (mp_spi->get_status() == irs::spi_t::FREE) {
+        mp_cs_pin->set();
+        mp_spi->unlock();
+        m_return_status = irs_st_ready;
+        if (m_show) {
+          irs::mlog() << endl; 
+        }
+        m_value_sko.clear();
+        m_value_sko.resize(m_cnv_cnt);
+        m_value_sko.resize_average(m_cnv_cnt);
+        if (m_cnv_cnt > 2) {
+          m_time_sko.clear();
+          m_time_sko.resize(m_cnv_cnt);
+          m_time_sko.resize_average(m_cnv_cnt);
+        }
+        
+        for (size_t i = 0; i < m_cnv_cnt; i++) {
+          adc_value_t value = convert_value(m_value_vector[i].value);
+          m_value_sko.add(value);
+          if (m_show || m_show_simply) {
+            irs::mlog() << value << endl << flush;
+          }
+          if (i > 0 && m_cnv_cnt > 2) {
+            double delta = 
+              static_cast<double>(m_value_vector[i].time
+                                  - m_value_vector[i-1].time);
+            double time = delta 
+              / static_cast<double>(irs::cpu_traits_t::frequency());
+            m_time_sko.add(time);
+          }
+        }
+        
+        m_avg = m_value_sko.average();
+        m_sko = m_value_sko;
+        
+        if (m_show) {
+          irs::mlog() << irsm("---------------------------------") << endl;
+          irs::mlog() << irsm("ÑÊÎ     ") << m_value_sko << irsm(" Â");
+          irs::mlog() << endl;
+          irs::mlog() << irsm("Ñðåäíåå ") << m_value_sko.average() << irsm(" Â");
+          irs::mlog() << endl;
+          adc_value_t rel = 1e6 * abs(m_value_sko / m_value_sko.average());
+          irs::mlog() << irsm("ÑÊÎ/Ñð. ") << rel << irsm(" ppm") << endl;
+          if (m_cnv_cnt > 2) {
+            double jitter = m_time_sko * 1e6 / m_time_sko.average();
+            double freq = 1.0 / m_time_sko.average();
+            irs::mlog() << irsm("Äæèòò.  ") << jitter << irsm(" ppm");
+            irs::mlog() << endl;
+            irs::mlog() << irsm("Fñð     ") << freq << irsm(" Ãö");
+            irs::mlog() << endl;
+          }
+          irs::mlog() << irsm("---------------------------------") << endl;
+        }
+        
+        m_status = st_free;
+      }
+    } break;
+  }
+}
