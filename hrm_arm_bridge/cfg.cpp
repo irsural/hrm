@@ -13,6 +13,7 @@ hrm::cfg_t::pins_t::pins_t(
   irs::gpio_pin_t* ap_dac_clr,
   irs::gpio_pin_t* ap_dac_reset,
   irs::gpio_pin_t* ap_dac_ti_cs,
+  irs::gpio_pin_t* ap_th_cs,
   irs::gpio_pin_t* ap_relay_bridge_pos_on,
   irs::gpio_pin_t* ap_relay_bridge_pos_off,
   irs::gpio_pin_t* ap_relay_bridge_neg_on,
@@ -35,6 +36,7 @@ hrm::cfg_t::pins_t::pins_t(
   p_dac_clr(ap_dac_clr),
   p_dac_reset(ap_dac_reset),
   p_dac_ti_cs(ap_dac_ti_cs),
+  p_th_cs(ap_th_cs),
   p_relay_bridge_pos_on(ap_relay_bridge_pos_on),
   p_relay_bridge_pos_off(ap_relay_bridge_pos_off),
   p_relay_bridge_neg_on(ap_relay_bridge_neg_on),
@@ -66,7 +68,7 @@ hrm::cfg_t::cfg_t():
   m_spi_bitrate(1000),
   m_spi(IRS_SPI1_BASE, m_spi_bitrate, PA5, PA6, PB5, 
     irs::arm::arm_spi_t::gpio_speed_25mhz),
-  m_spi_2(IRS_SPI2_I2S2_BASE, m_spi_bitrate, PB10, PC2, PC3),
+  m_spi_th(IRS_SPI3_I2S3_BASE, m_spi_bitrate, PC10, PC11, PC12),
   
   m_vben(GPIO_PORTG, 4, irs::io_t::dir_out, irs::io_pin_on),
   m_ee_cs(GPIO_PORTC, 13, irs::io_t::dir_out, irs::io_pin_on),
@@ -76,6 +78,7 @@ hrm::cfg_t::cfg_t():
   m_dac_clr(GPIO_PORTF, 8, irs::io_t::dir_out, irs::io_pin_off),
   m_dac_reset(GPIO_PORTG, 5, irs::io_t::dir_out, irs::io_pin_off),
   m_dac_ti_cs(GPIO_PORTF, 9, irs::io_t::dir_out, irs::io_pin_on),
+  m_th_cs(GPIO_PORTD, 2, irs::io_t::dir_out, irs::io_pin_on),
   m_relay_bridge_pos_on(GPIO_PORTB, 2, irs::io_t::dir_out, irs::io_pin_off),
   m_relay_bridge_pos_off(GPIO_PORTD, 8, irs::io_t::dir_out, irs::io_pin_off),
   m_relay_bridge_neg_on(GPIO_PORTE, 8, irs::io_t::dir_out, irs::io_pin_off),
@@ -100,6 +103,7 @@ hrm::cfg_t::cfg_t():
     &m_dac_clr,
     &m_dac_reset,
     &m_dac_ti_cs,
+    &m_th_cs,
     &m_relay_bridge_pos_on,
     &m_relay_bridge_pos_off,
     &m_relay_bridge_neg_on,
@@ -128,9 +132,9 @@ irs::spi_t* hrm::cfg_t::spi()
   return &m_spi;
 }
 
-irs::spi_t* hrm::cfg_t::spi_2()
+irs::spi_t* hrm::cfg_t::spi_th()
 {
-  return &m_spi_2;
+  return &m_spi_th;
 }
 
 hrm::cfg_t::pins_t* hrm::cfg_t::pins()

@@ -26,6 +26,8 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
     0),
   m_dac(&m_raw_dac),
   m_adc(mp_cfg->spi(), mp_pins->p_adc_cs, mp_cfg->adc_exti()),
+  m_ext_th(mp_cfg->spi_th(), mp_pins->p_th_cs, irs::make_cnt_s(1)),
+  m_ext_th_data(&m_ext_th),
   m_eth_timer(irs::make_cnt_ms(100)),
   m_blink_timer(irs::make_cnt_ms(500)),
   m_service_timer(irs::make_cnt_ms(1000)),
@@ -230,6 +232,7 @@ void hrm::app_t::tick()
   m_raw_dac.tick();
   m_dac.tick();
   m_adc.tick();
+  m_ext_th.tick();
   
   m_relay_bridge_pos.tick();
   m_relay_bridge_neg.tick();
@@ -387,6 +390,8 @@ void hrm::app_t::tick()
     if (m_eth_data.elab_max_delta != m_eeprom_data.elab_max_delta) {
       m_eeprom_data.elab_max_delta = m_eth_data.elab_max_delta;
     }
+    m_eth_data.external_temperature = m_ext_th_data.temperature_code *
+      m_ext_th.get_conv_koef();
   }
   if (m_blink_timer.check()) {
     if (m_blink) {
@@ -971,17 +976,13 @@ void hrm::app_t::tick()
                 m_max_unsaturated_voltage = abs(m_voltage);
                 m_max_unsaturated_dac_code = abs(m_dac_code);
                 adc_value_t rel_sko = abs(m_adc.sko() / m_voltage) * 1e6;
-                if (m_dac_code != 0) {
-                  m_dac_step_amplitude = abs(m_voltage / m_dac_code);
-                }
-                
+                                
                 irs::mlog() << irsm(">>>> ") << setw(8);
                 irs::mlog() << m_max_unsaturated_dac_code;
                 irs::mlog() << irsm(" : ");
                 irs::mlog() << m_max_unsaturated_voltage;
                 irs::mlog() << irsm(" В ");
-                irs::mlog() << rel_sko << irsm(" ppm ");
-                irs::mlog() << m_dac_step_amplitude << irsm(" В") << endl;
+                irs::mlog() << rel_sko << irsm(" ppm ") << endl;
               }
               elab_point_t elab_point;
               elab_point.dac = m_dac.get_code();
@@ -993,6 +994,19 @@ void hrm::app_t::tick()
               if (m_prev_elab_vector.size() >= m_prev_elab_cnt) {
                 m_balanced_dac_code = floor(0.5 +
                   only_calc_elab_code(&m_prev_elab_vector, 0, m_prev_elab_cnt));
+                
+                if (m_prev_elab_vector.size() >= 2) {
+                  double divider = 
+                    m_prev_elab_vector[m_prev_elab_cnt-1].dac -
+                    m_prev_elab_vector[m_prev_elab_cnt-2].dac;  
+                  if (divider != 0) {
+                    m_dac_step_amplitude 
+                      = abs((m_prev_elab_vector[m_prev_elab_cnt-1].adc - 
+                        m_prev_elab_vector[m_prev_elab_cnt-2].adc) / m_dac_code);
+                  }
+                }
+                irs::mlog() << irsm(">DAC> "); 
+                irs::mlog() << m_dac_step_amplitude << irsm(" В") << endl;
                 
                 irs::mlog() << setw(2) << m_current_iteration+1 << irsm(" : ");
                 irs::mlog() << setw(8) << m_dac_code << irsm(" : ");
@@ -1095,8 +1109,9 @@ void hrm::app_t::tick()
             m_balance_status = bs_coils_off;
           } else {
             if (m_auto_elab_step) {
-              irs_i32 dac_swing = static_cast<irs_i32>(m_elab_step_multiplier *
-                2.0 * (m_max_unsaturated_dac_code - abs(m_balanced_dac_code)));
+              irs_i32 dac_swing = 
+                static_cast<irs_i32>(m_elab_step_multiplier * 2.0 * 
+                abs(m_max_unsaturated_dac_code - abs(m_balanced_dac_code)));
               m_elab_step = 2 * dac_swing / m_elab_iteration_count;
               irs::mlog() << irsm("Размах значений ЦАП = ");
               irs::mlog() << dac_swing << endl;
@@ -1108,12 +1123,42 @@ void hrm::app_t::tick()
             irs::mlog() << m_elab_iteration_count << endl;
             irs::mlog() << irsm("Начальный шаг = ");
             irs::mlog() << m_elab_step << endl;
-            m_current_elab = 0;
-            m_ok_elab_cnt = 0;
-            m_dac_code = m_balanced_dac_code;
-            m_dac.set_after_pause(m_dac_elab_pause);
             
-            m_balance_status = bs_elab_start;
+            bool invalid_experiment = false;
+           
+            if (m_elab_step > m_dac.max_code() 
+                || m_elab_step < m_dac.min_code()) {
+              invalid_experiment = true;
+            }
+            if (m_balanced_dac_code > m_dac.max_code() 
+                || m_balanced_dac_code < m_dac.min_code()) {
+              invalid_experiment = true;
+            }
+            if (invalid_experiment) {
+              irs::mlog() 
+                << irsm(">>>> Ахтунг! Неправильно померялось! <<<<") << endl;
+              m_exp_time = 0;
+              m_eth_data.exp_time = m_exp_time;
+              m_max_unsaturated_voltage = 0.0;
+              m_max_unsaturated_dac_code = 0.0;
+              
+              m_elab_vector.clear();
+              m_elab_result_vector.clear();
+              m_pos_current_elab = 0;
+              
+              m_balance_polarity = bp_neg;
+              
+              m_relay_bridge_pos = 0;
+              m_relay_bridge_neg = 0;
+              m_balance_status = bs_set_prot;
+            } else {
+              m_current_elab = 0;
+              m_ok_elab_cnt = 0;
+              m_dac_code = m_balanced_dac_code;
+              m_dac.set_after_pause(m_dac_elab_pause);
+              
+              m_balance_status = bs_elab_start;
+            }
           }
           break;
         }

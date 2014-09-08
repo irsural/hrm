@@ -82,6 +82,7 @@ public:
       irs::gpio_pin_t* ap_dac_clr,
       irs::gpio_pin_t* ap_dac_reset,
       irs::gpio_pin_t* ap_dac_ti_cs,
+      irs::gpio_pin_t* ap_th_cs,
       irs::gpio_pin_t* ap_relay_bridge_pos_on,
       irs::gpio_pin_t* ap_relay_bridge_pos_off,
       irs::gpio_pin_t* ap_relay_bridge_neg_on,
@@ -104,6 +105,7 @@ public:
     irs::gpio_pin_t* p_dac_clr;
     irs::gpio_pin_t* p_dac_reset;
     irs::gpio_pin_t* p_dac_ti_cs;
+    irs::gpio_pin_t* p_th_cs;
     irs::gpio_pin_t* p_relay_bridge_pos_on;
     irs::gpio_pin_t* p_relay_bridge_pos_off;
     irs::gpio_pin_t* p_relay_bridge_neg_on;
@@ -121,7 +123,7 @@ public:
   cfg_t();
   irs::hardflow::simple_udp_flow_t* hardflow();
   irs::spi_t* spi();
-  irs::spi_t* spi_2();
+  irs::spi_t* spi_th();
   pins_t* pins();
   inline adc_exti_t* adc_exti() { return &m_adc_exti; }
   void tick();
@@ -139,7 +141,7 @@ private:
   
   irs_u32 m_spi_bitrate;
   irs::arm::arm_spi_t m_spi;
-  irs::arm::arm_spi_t m_spi_2;
+  irs::arm::arm_spi_t m_spi_th;
   
   irs::arm::io_pin_t m_vben;
   irs::arm::io_pin_t m_ee_cs;
@@ -149,6 +151,7 @@ private:
   irs::arm::io_pin_t m_dac_clr;
   irs::arm::io_pin_t m_dac_reset;
   irs::arm::io_pin_t m_dac_ti_cs;
+  irs::arm::io_pin_t m_th_cs;
   irs::arm::io_pin_t m_relay_bridge_pos_on;
   irs::arm::io_pin_t m_relay_bridge_pos_off;
   irs::arm::io_pin_t m_relay_bridge_neg_on;
