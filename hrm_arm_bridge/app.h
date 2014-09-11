@@ -10,6 +10,7 @@
 #include <irsalg.h>
 #include <irslimits.h>
 #include <irsmem.h>
+#include <irsmenu.h>
 
 #include <hrm_bridge_data.h>
 
@@ -142,23 +143,34 @@ private:
     double start_code;
     double code;
   };
-  
+
   cfg_t* mp_cfg;
   eth_data_t m_eth_data;
   irs::mxnet_t m_mxnet_server;
-  cfg_t::pins_t* mp_pins;
-  
+
   irs::eeprom_at25128_data_t m_eeprom;
   eeprom_data_t m_eeprom_data;
   init_eeprom_t m_init_eeprom;
-  
+
+  mxdisplay_drv_gen_t m_lcd_drv;
+
+  irs::mxkey_drv_mc_t m_keyboard_drv;
+
+  irs::encoder_drv_mc_t m_encoder_drv;
+
+  mxdisplay_drv_service_t m_lcd_drv_service;
+  mxkey_event_t m_buzzer_kb_event;
+  mxkey_event_t m_hot_kb_event;
+  mxkey_event_t m_menu_kb_event;
+  mxkey_event_gen_t m_keyboard_event_gen;
+
   irs::dac_ad5791_t m_raw_dac;
   dac_t m_dac;
   ad7799_cread_t m_adc;
-  
+
   irs::th_lm95071_t m_ext_th;
   irs::th_lm95071_data_t m_ext_th_data;
-  
+
   irs::loop_timer_t m_eth_timer;
   irs::loop_timer_t m_blink_timer;
   irs::timer_t m_service_timer;
@@ -166,11 +178,11 @@ private:
   bi_relay_t m_relay_bridge_pos;
   bi_relay_t m_relay_bridge_neg;
   mono_relay_t m_relay_prot;
-  
+
   mode_t m_mode;
-  
+
   free_status_t m_free_status;
-  
+
   balance_status_t m_balance_status;
   size_t m_current_iteration;
   size_t m_iteration_count;
@@ -201,26 +213,26 @@ private:
   double m_balanced_sko;
   irs_u32 m_adc_experiment_gain;
   irs_u32 m_adc_experiment_filter;
-  
+
   manual_status_t m_manual_status;
-  
+
   scan_status_t m_scan_status;
   dac_value_t m_dac_center_scan;
   irs_u8 m_current_adc_point;
   irs::timer_t m_prepare_pause_timer;
-  
+
   irs_u32 m_exp_time;
   irs_u32 m_prev_exp_time;
   irs_u32 m_sum_time;
   bool m_is_exp;
   irs::loop_timer_t m_exp_timer;
   bool m_optimize_balance;
-  
+
   irs::fade_data_t m_adc_fade_data;
   adc_value_t m_adc_fade;
   adc_value_t m_voltage;
   adc_value_t m_temperature;
-  
+
   bool m_meas_temperature;
   adc_value_t m_max_unsaturated_voltage;
   dac_value_t m_max_unsaturated_dac_code;
@@ -237,13 +249,45 @@ private:
   balance_polarity_t m_elab_polarity;
   dac_value_t m_elab_step_multiplier;
   double m_elab_max_delta;
-  
+
   irs::timer_t m_relay_pause_timer;
-  
+
   buzzer_t m_buzzer;
-  
-//  double calc_elab_code(vector<elab_point_t>* ap_elab_vector, 
+
+  irs::loop_timer_t m_menu_timer;
+  irs_menu_string_item_t m_mode_item;
+  double m_menu_voltage_ref;
+  irs_menu_double_item_t m_voltage_ref_item;
+  mxfact_event_t m_trans_volt_ref_event;
+  double m_menu_voltage;
+  irs_menu_double_item_t m_voltage_item;
+
+  static const irs_u8 m_user_str_len = 30;
+  char mp_user_str[m_user_str_len + 1];
+
+  static const irs_u8 m_creep_len = 100;
+  static const irs_u8 m_creep_static_path_len = 20;
+  static const irs_u8 m_creep_dynamic_path_len = 40;
+  static const irs_u8 m_creep_message = m_creep_len - m_creep_static_path_len -
+    m_creep_dynamic_path_len;
+  static const irs_u8 m_creep_time_num = 1;
+  static const irs_u8 m_creep_time_denom = 10;
+  char mp_enter_msg[m_creep_message];
+  char mp_exit_msg[m_creep_message];
+  char mp_creep_buffer[m_creep_len+1];
+  irs_menu_creep_t m_main_creep;
+
+  irs_advanced_tablo_t m_main_screen;
+  irs_menu_base_t* mp_cur_menu;
+
+  irs::event_t m_escape_pressed_event;
+
+//  double calc_elab_code(vector<elab_point_t>* ap_elab_vector,
 //    balancing_coil_t a_balancing_coil, etalon_polarity_t a_etpol = ep_neg);
+  void init_keyboard_drv();
+  void init_encoder_drv();
+  // Проверка изменений в меню
+  void menu_check();
   double only_calc_elab_code(vector<elab_point_t>* ap_elab_vector,
     size_t a_num, size_t a_cnt);
   void print_elab_result(vector<elab_point_t>* ap_elab_vector,
