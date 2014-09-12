@@ -167,6 +167,8 @@
           <state>IRS_STM32F4xx</state>
           <state>USE_STDPERIPH_DRIVER</state>
           <state>STM32F40_41xxx</state>
+          <state>USE_LWIP</state>
+          <state>IRS_USE_LWIP_PROJECT_CONFIGURATION=1</state>
         </option>
         <option>
           <name>CCPreprocFile</name>
@@ -206,7 +208,7 @@
         </option>
         <option>
           <name>CCDiagSuppress</name>
-          <state>Pe068, Pa039, Pe261, Pe340, Pa091, Pa089, Go005</state>
+          <state>Pe068, Pe193, Pa039, Pa050, Pe261, Pe340, Pa091, Pa089, Go005</state>
         </option>
         <option>
           <name>CCDiagRemark</name>
@@ -295,13 +297,17 @@
         </option>
         <option>
           <name>CCIncludePath2</name>
-          <state>$PROJ_DIR$\..\mxsrclib\arch\arm\</state>
+          <state>$PROJ_DIR$\</state>
           <state>$PROJ_DIR$\..\mxsrclib\</state>
+          <state>$PROJ_DIR$\..\mxsrclib\arch\arm\</state>
           <state>$PROJ_DIR$\..\hrm_general\</state>
           <state>$PROJ_DIR$\..\extern_libs\st\STM32F4xx_DSP_StdPeriph_Lib\Libraries\STM32F4xx_StdPeriph_Driver\inc</state>
           <state>$PROJ_DIR$\..\extern_libs\st\STM32F4xx_DSP_StdPeriph_Lib\Libraries\CMSIS\Device\ST\STM32F4xx\Include</state>
           <state>$PROJ_DIR$\..\extern_libs\st\STM32F4x7_ETH_Driver\inc</state>
           <state>$PROJ_DIR$\..\extern_libs\st\STM32F4xx_DSP_StdPeriph_Lib\Libraries\CMSIS\Include</state>
+          <state>$PROJ_DIR$\..\extern_libs\lwip\src\include\</state>
+          <state>$PROJ_DIR$\..\extern_libs\lwip\ports\STM32F2x7\</state>
+          <state>$PROJ_DIR$\..\extern_libs\lwip\src\include\ipv4\</state>
         </option>
         <option>
           <name>CCStdIncCheck</name>
@@ -356,7 +362,7 @@
         </option>
         <option>
           <name>IccLang</name>
-          <state>1</state>
+          <state>2</state>
         </option>
         <option>
           <name>IccCDialect</name>
@@ -1922,6 +1928,150 @@
     </file>
   </group>
   <group>
+    <name>lwip</name>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\api\api_lib.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\api\api_msg.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\ipv4\autoip.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\ports\STM32F2x7\arch\bpstruct.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\ports\STM32F2x7\arch\cc.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\ports\STM32F2x7\arch\cc.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\ports\STM32F2x7\arch\cpu.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\def.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\dhcp.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\dns.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\ports\STM32F2x7\arch\epstruct.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\api\err.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\netif\etharp.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\netif\ethernetif.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\ipv4\icmp.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\ipv4\igmp.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\ipv4\inet.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\ipv4\inet_chksum.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\init.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\ports\STM32F2x7\arch\init.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\ipv4\ip.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\ipv4\ip_addr.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\ipv4\ip_frag.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\ports\STM32F2x7\arch\irscerror.cpp</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\ports\STM32F2x7\arch\irscerror.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\ports\STM32F2x7\arch\lib.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\mem.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\memp.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\api\netbuf.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\api\netdb.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\netif.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\api\netifapi.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\pbuf.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\ports\STM32F2x7\arch\perf.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\raw.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\netif\slipif.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\api\sockets.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\stats.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\sys.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\ports\STM32F2x7\arch\sys_arch.cpp</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\ports\STM32F2x7\arch\sys_arch.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\tcp.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\tcp_in.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\tcp_out.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\api\tcpip.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\timers.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\extern_libs\lwip\src\core\udp.c</name>
+    </file>
+  </group>
+  <group>
     <name>mxsrclib</name>
     <group>
       <name>arch</name>
@@ -2038,6 +2188,18 @@
       <name>$PROJ_DIR$\..\mxsrclib\hardflowg.h</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\mxsrclib\irs_chart_data.cpp</name>
+      <excluded>
+        <configuration>Debug</configuration>
+      </excluded>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\mxsrclib\irs_chart_data.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\mxsrclib\irs_codecvt.h</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\mxsrclib\irsadc.cpp</name>
     </file>
     <file>
@@ -2089,6 +2251,12 @@
       <name>$PROJ_DIR$\..\mxsrclib\irsdbgutil.h</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\mxsrclib\irsdcp.cpp</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\mxsrclib\irsdcp.h</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\mxsrclib\irsdefs.h</name>
     </file>
     <file>
@@ -2099,6 +2267,12 @@
     </file>
     <file>
       <name>$PROJ_DIR$\..\mxsrclib\irsdev.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\mxsrclib\irsdevices.cpp</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\mxsrclib\irsdevices.h</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\mxsrclib\irsdsp.cpp</name>
@@ -2140,6 +2314,12 @@
       <name>$PROJ_DIR$\..\mxsrclib\irsgpio.h</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\mxsrclib\irshfftp.cpp</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\mxsrclib\irshfftp.h</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\mxsrclib\irsinit.cpp</name>
     </file>
     <file>
@@ -2165,6 +2345,12 @@
     </file>
     <file>
       <name>$PROJ_DIR$\..\mxsrclib\irslocale.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\mxsrclib\irslwip.cpp</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\mxsrclib\irslwip.h</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\mxsrclib\irsmath.cpp</name>
@@ -2251,6 +2437,9 @@
       <name>$PROJ_DIR$\..\mxsrclib\irsstrmstd.h</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\mxsrclib\irssysutils.cpp</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\mxsrclib\irssysutils.h</name>
     </file>
     <file>
@@ -2279,6 +2468,9 @@
     </file>
     <file>
       <name>$PROJ_DIR$\..\mxsrclib\irsvariant.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\mxsrclib\lwipopts.h</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\mxsrclib\measdef.h</name>
@@ -2382,6 +2574,9 @@
   </file>
   <file>
     <name>$PROJ_DIR$\..\hrm_general\hrm_bridge_data.h</name>
+  </file>
+  <file>
+    <name>$PROJ_DIR$\lwipopts_proj.h</name>
   </file>
   <file>
     <name>$PROJ_DIR$\main.cpp</name>

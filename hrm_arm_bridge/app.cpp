@@ -10,7 +10,11 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   mp_cfg(ap_cfg),
   m_eth_data(),
   m_mxnet_server(
+    #ifdef LWIP
+    mp_cfg->connector_hardflow,
+    #else
     mp_cfg->simple_hardflow,
+    #endif
     m_eth_data.connect(&m_mxnet_server, 0) / sizeof(irs_u32)),
   m_eeprom(&mp_cfg->spi, &mp_cfg->ee_cs, 1024, true, 0, 64,
     irs::make_cnt_s(1)),
@@ -151,9 +155,25 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   ip.val[2] = IP_2;
   ip.val[3] = IP_3;
 
+  #ifdef LWIP
+  mxip_t mask = mxip_t::zero_ip();
+  mask.val[0] = 255;
+  mask.val[1] = 255;
+  mask.val[2] = 255;
+  mask.val[3] = 0;
+
+  mxip_t gateway = mxip_t::zero_ip();
+  bool dhcp_enabled = false;
+  /*gateway.val[0] = m_eeprom_data.gateway_0;
+  gateway.val[1] = m_eeprom_data.gateway_1;
+  gateway.val[2] = m_eeprom_data.gateway_2;
+  gateway.val[3] = m_eeprom_data.gateway_3;*/
+  mp_cfg->network_config.set(ip, mask, gateway, dhcp_enabled);
+  #else // !LWIP
   char ip_str[IP_STR_LEN];
   mxip_to_cstr(ip_str, ip);
   mp_cfg->simple_hardflow.set_param("local_addr", ip_str);
+  #endif // !LWIP
 
   irs::mlog() << setprecision(8);
 

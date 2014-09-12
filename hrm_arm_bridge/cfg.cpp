@@ -4,17 +4,98 @@
 
 #include <irsfinal.h>
 
+// class lwip_config_t
+hrm::network_config_t::network_config_t(
+  irs::arm::st_ethernet_t* ap_arm_eth,
+  irs::handle_t<irs::lwip::ethernet_t>* ap_ethernet,
+  irs::handle_t<irs::hardflow::lwip::udp_t>* ap_udp_client,
+  irs::hardflow::connector_t *ap_connector_hardflow
+):
+  mp_arm_eth(ap_arm_eth),
+  mp_ethernet(ap_ethernet),
+  mp_udp_client(ap_udp_client),
+  mp_connector_hardflow(ap_connector_hardflow),
+  m_config()
+{
+
+}
+
+void hrm::network_config_t::set_ip(mxip_t a_ip)
+{
+  m_config.ip = a_ip;
+  reset();
+}
+
+void hrm::network_config_t::set_dhcp(bool a_dhcp)
+{
+  m_config.dhcp_enabled = a_dhcp;
+  reset();
+}
+
+void hrm::network_config_t::set_mask(mxip_t a_mask)
+{
+  m_config.netmask = a_mask;
+  reset();
+}
+
+void hrm::network_config_t::set_gateway(mxip_t a_gateway)
+{
+  m_config.gateway = a_gateway;
+  reset();
+}
+
+void hrm::network_config_t::set(
+  mxip_t a_ip, mxip_t a_mask, mxip_t a_gateway, bool a_dhcp)
+{
+  m_config.ip = a_ip;
+  m_config.netmask = a_mask;
+  m_config.dhcp_enabled = a_dhcp;
+  m_config.gateway = a_gateway;
+  reset();
+}
+
+void hrm::network_config_t::reset()
+{
+  mp_udp_client->reset();
+
+  irs::lwip::ethernet_t::configuration_t eth_config = m_config;
+  if (eth_config.dhcp_enabled) {
+    eth_config.ip = mxip_t::any_ip();
+  }
+  const mxip_t local_ip = eth_config.ip;
+  const mxip_t remote_ip = mxip_t::any_ip();
+
+  mp_ethernet->reset(new irs::lwip::ethernet_t(mp_arm_eth, eth_config));
+
+  irs::hardflow::lwip::udp_t::configuration_t configuration;
+  mp_udp_client->reset(new irs::hardflow::lwip::udp_t(
+    local_ip, 5005, remote_ip, 0, channel_max_count, configuration));
+  (*mp_udp_client)->
+    set_channel_switching_mode(irs::hardflow_t::csm_ready_for_reading);
+
+  mp_connector_hardflow->hardflow(mp_udp_client->get());
+}
+
 hrm::cfg_t::cfg_t():
-  m_local_mac(irs::make_mxmac(0, 0, IP_0, IP_1, IP_2, IP_3)),
+  m_local_mac(irs::arm::st_generate_mac(irs::device_code_hrm)),
   m_config(),
   m_arm_eth(1500, m_local_mac, m_config),
+  #ifndef LWIP
   m_local_ip(mxip_t::zero_ip()),
   m_local_port(5005),
   m_dest_ip(irs::make_mxip(IP_0, IP_1, IP_2, IP_3)),
   m_dest_port(5005),
   m_tcpip(&m_arm_eth, m_local_ip, m_dest_ip, 10),
+  #endif // !LWIP
+  #ifdef LWIP
+  lwip_ethernet(),
+  udp_client(),
+  connector_hardflow(NULL),
+  network_config(&m_arm_eth, &lwip_ethernet, &udp_client, &connector_hardflow),
+  #else // !LWIP
   simple_hardflow(&m_tcpip, m_local_ip, m_local_port,
     m_dest_ip, m_dest_port, 10),
+  #endif // !LWIP
 
   m_spi_bitrate(1000),
   spi(IRS_SPI1_BASE, m_spi_bitrate, PA5, PA6, PB5,
@@ -78,29 +159,17 @@ hrm::cfg_t::cfg_t():
   irs::pause(irs::make_cnt_ms(100));
 }
 
-/*irs::hardflow::simple_udp_flow_t* hrm::cfg_t::hardflow()
-{
-  return &simple_hardflow;
-}
-
-irs::spi_t* hrm::cfg_t::spi()
-{
-  return &m_spi;
-}
-
-irs::spi_t* hrm::cfg_t::spi_th()
-{
-  return &spi_th;
-}
-
-hrm::cfg_t::pins_t* hrm::cfg_t::pins()
-{
-  return &m_pins;
-}*/
-
 void hrm::cfg_t::tick()
 {
   m_arm_eth.tick();
+  #ifdef LWIP
+  IRS_LIB_ASSERT(!lwip_ethernet.is_empty());
+  IRS_LIB_ASSERT(!udp_client.is_empty());
+  lwip_ethernet->tick();
+  udp_client->tick();
+  connector_hardflow.tick();
+  #else // !LWIP
   m_tcpip.tick();
   simple_hardflow.tick();
+  #endif // !LWIP
 }

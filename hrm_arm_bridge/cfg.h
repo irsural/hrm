@@ -11,14 +11,18 @@
 #include <irskbd.h>
 #include <irserror.h>
 #include <irsdev.h>
+#include <mxdata.h>
 
 #include <irsconfig.h>
 #include <irstcpip.h>
+#include <irslwip.h>
 #include <hardflowg.h>
 
 #include "privatecfg.h"
 
 #include <irsfinal.h>
+
+#define LWIP
 
 namespace hrm {
 
@@ -69,28 +73,62 @@ public:
   inline bool stopped() { return EXTI_IMR_bit.MR3; }
 };
 
+class network_config_t
+{
+public:
+  network_config_t(
+    irs::arm::st_ethernet_t* ap_arm_eth,
+    irs::handle_t<irs::lwip::ethernet_t>* ap_ethernet,
+    irs::handle_t<irs::hardflow::lwip::udp_t>* ap_udp_client,
+    irs::hardflow::connector_t* ap_connector_hardflow);
+  void set_ip(mxip_t a_ip);
+  void set_dhcp(bool a_dhcp);
+  void set_mask(mxip_t a_mask);
+  void set_gateway(mxip_t a_gateway);
+  void set(mxip_t a_ip, mxip_t a_mask, mxip_t a_gateway, bool a_dhcp);
+private:
+  void reset();
+  network_config_t();
+  enum { channel_max_count = 3 };
+  irs::arm::st_ethernet_t* mp_arm_eth;
+  irs::handle_t<irs::lwip::ethernet_t>* mp_ethernet;
+  irs::handle_t<irs::hardflow::lwip::udp_t>* mp_udp_client;
+  irs::hardflow::connector_t* mp_connector_hardflow;
+  irs::lwip::ethernet_t::configuration_t m_config;
+  mxip_t m_ip;
+  bool m_dhcp;
+  mxip_t m_mask;
+  mxip_t m_gateway;
+};
+
 class cfg_t
 {
 public:
   cfg_t();
-  /*irs::hardflow::simple_udp_flow_t* hardflow();
-  irs::spi_t* spi();
-  irs::spi_t* spi_th();
-  pins_t* pins();
-  inline adc_exti_t* adc_exti() { return &adc_exti; }*/
   void tick();
 
 private:
   mxmac_t m_local_mac;
   irs::arm::st_ethernet_t::config_t m_config;
   irs::arm::st_ethernet_t m_arm_eth;
+  #ifndef LWIP
   mxip_t m_local_ip;
   irs_u16 m_local_port;
   mxip_t m_dest_ip;
   irs_u16 m_dest_port;
   irs::simple_tcpip_t m_tcpip;
+  #endif // !LWIP
+  #ifdef LWIP
+  irs::handle_t<irs::lwip::ethernet_t> lwip_ethernet;
+  irs::handle_t<irs::hardflow::lwip::udp_t> udp_client;
+  #endif // LWIP
 public:
+  #ifdef LWIP
+  irs::hardflow::connector_t connector_hardflow;
+  network_config_t network_config;
+  #else // !LWIP
   irs::hardflow::simple_udp_flow_t simple_hardflow;
+  #endif // !LWIP
 
   irs_u32 m_spi_bitrate;
   irs::arm::arm_spi_t spi;
@@ -128,7 +166,6 @@ public:
   irs::arm::io_pin_t led_pon;
   irs::pwm_pin_t buzzer;
 
-  //pins_t m_pins;
   adc_exti_t adc_exti;
 };
 
