@@ -33,7 +33,7 @@ void main()
   irs::pll_on(param_pll);
 
   static hard_fault_event_t hard_fault_event(GPIO_PORTF, 6);
-  
+
   static irs::arm::com_buf log_buf(1, 10, 115200);
   irs::loc();
   irs::mlog().rdbuf(&log_buf);
@@ -48,7 +48,7 @@ void main()
 
   irs::arm::io_pin_t m_memory_chip_select_pin(GPIO_PORTD, 7, irs::io_t::dir_out,
     irs::io_pin_on);
-  
+
   static hrm::cfg_t cfg;
   app_start(&cfg);
 }
@@ -56,7 +56,7 @@ void main()
 void app_start(hrm::cfg_t* ap_cfg)
 {
   static hrm::app_t app(ap_cfg);
-  
+
   irs::mlog() << irsm("------------- START -------------") << endl;
   while(true) {
     #ifdef HRM_DEBUG
@@ -70,7 +70,7 @@ void app_start(hrm::cfg_t* ap_cfg)
     app.tick();
     static irs::blink_t F0_blink(GPIO_PORTD, 1, irs::make_cnt_ms(100));
     F0_blink(); // Мигание светодиодом на плате arm
-    
+
     #ifdef HRM_DEBUG
     count++;
     tick_time += tick_measure_time.get();

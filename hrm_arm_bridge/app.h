@@ -22,6 +22,63 @@
 
 namespace hrm {
 
+enum r_standard_type_t {
+  r_standard_type_original,
+  r_standard_type_imitator
+};
+
+class form_t
+{
+public:
+  form_t();
+  virtual ~form_t();
+  virtual void tick();
+  virtual void draw() = 0;
+private:
+  irs::loop_timer_t m_menu_timer;
+};
+
+class experiment_options_dialog_t: public form_t
+{
+public:
+  enum command_t {
+    command_run,
+    command_menu
+  };
+  experiment_options_dialog_t(mxdisplay_drv_service_t* ap_lcd_drv_service,
+    mxkey_event_t* ap_menu_kb_event, eth_data_t* ap_eth_data);
+  virtual void tick();
+  virtual void draw();
+  irs::generator_events_1_t<command_t>* on_command();
+
+private:
+  void menu_check();
+  mxkey_event_t* mp_menu_kb_event;
+  eth_data_t* mp_eth_data;
+  char mp_exit_msg[40];
+
+  irs_menu_string_item_t m_mode_item;
+  irs_menu_string_item_t m_hint_item;
+
+  double m_r_standard;
+  irs_menu_double_item_t m_r_standard_item;
+  mxfact_event_t m_r_standard_changed_event;
+
+  double m_menu_voltage;
+  irs_menu_double_item_t m_voltage_item;
+
+  irs_bool m_menu_r_standart_type;
+  irs_menu_bool_item_t m_r_standart_type_item;
+  mxfact_event_t m_r_standart_type_changed_event;
+
+  static const irs_u8 m_user_str_len = 30;
+  char mp_user_str[m_user_str_len + 1];
+  irs_advanced_tablo_t m_main_screen;
+
+  irs_menu_base_t* mp_cur_menu;
+  irs::generator_events_1_t<command_t> m_generator_events;
+};
+
 class init_eeprom_t //класс для инициализации eeprom
 {
 public:
@@ -254,13 +311,20 @@ private:
 
   buzzer_t m_buzzer;
 
-  irs::loop_timer_t m_menu_timer;
+  /*irs::loop_timer_t m_menu_timer;
   irs_menu_string_item_t m_mode_item;
+  irs_menu_string_item_t m_hint_item;
+
   double m_menu_voltage_ref;
-  irs_menu_double_item_t m_voltage_ref_item;
-  mxfact_event_t m_trans_volt_ref_event;
+  irs_menu_double_item_t m_r_standard_item;
+  mxfact_event_t m_r_standard_changed_event;
+
   double m_menu_voltage;
   irs_menu_double_item_t m_voltage_item;
+
+  irs_bool m_menu_r_standart_type;
+  irs_menu_bool_item_t m_r_standart_type_item;
+  mxfact_event_t m_r_standart_type_changed_event;
 
   static const irs_u8 m_user_str_len = 30;
   char mp_user_str[m_user_str_len + 1];
@@ -279,8 +343,14 @@ private:
 
   irs_advanced_tablo_t m_main_screen;
   irs_menu_base_t* mp_cur_menu;
+*/
+  //experiment_options_dialog_t m_experiment_options_dialog;
+  irs::handle_t<form_t> mp_local_interface;
 
   irs::event_t m_escape_pressed_event;
+
+  r_standard_type_t m_r_standard_type;
+
 
 //  double calc_elab_code(vector<elab_point_t>* ap_elab_vector,
 //    balancing_coil_t a_balancing_coil, etalon_polarity_t a_etpol = ep_neg);

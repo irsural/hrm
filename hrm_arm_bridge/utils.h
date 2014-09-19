@@ -18,11 +18,11 @@
 #include <irsfinal.h>
 
 namespace hrm {
-  
+
 enum const_t {
   m_adc_midscale = (2 << 22)
 };
-  
+
 class adc_dac_request_t
 {
 public:
@@ -69,7 +69,7 @@ class relay_t
 {
 public:
   typedef int bit_t;
-  
+
   virtual bit_t operator=(const bit_t a_elem) = 0;
   virtual operator bit_t() = 0;
   virtual irs_status_t status() = 0;
@@ -80,7 +80,7 @@ public:
 class mono_relay_t: public relay_t
 {
 public:
-  mono_relay_t(irs::gpio_pin_t* ap_pin, const irs::string_t& a_caption, 
+  mono_relay_t(irs::gpio_pin_t* ap_pin, const irs::string_t& a_caption,
     relay_t::bit_t a_default_value = 0);
   ~mono_relay_t() {};
   virtual bit_t operator=(const bit_t a_elem);
@@ -102,9 +102,9 @@ class bi_relay_t: public relay_t
 {
 public:
   bi_relay_t(
-    irs::gpio_pin_t* ap_pin_0, 
-    irs::gpio_pin_t* ap_pin_1, 
-    const irs::string_t& a_caption, 
+    irs::gpio_pin_t* ap_pin_0,
+    irs::gpio_pin_t* ap_pin_1,
+    const irs::string_t& a_caption,
     relay_t::bit_t a_default_value = 0,
     counter_t a_energization_time = irs::make_cnt_ms(50),
     bool a_wild = false);
@@ -204,10 +204,10 @@ class adc_t
 {
 public:
   adc_t(
-    irs::adc_request_t* ap_raw_adc, 
-    irs_u8 a_default_gain, 
-    irs_u8 a_default_channel, 
-    irs_u8 a_default_mode, 
+    irs::adc_request_t* ap_raw_adc,
+    irs_u8 a_default_gain,
+    irs_u8 a_default_channel,
+    irs_u8 a_default_mode,
     irs_u8 a_default_filter);
   ~adc_t() {};
   inline irs_status_t status() { return m_return_status; }
@@ -226,7 +226,7 @@ public:
   inline adc_value_t zero() { return m_zero; }
   inline adc_value_t voltage() { return m_voltage; }
   inline adc_value_t temperature() { return m_temperature; }
-  inline adc_value_t max_value() { return m_ref 
+  inline adc_value_t max_value() { return m_ref
      / (m_additional_gain * static_cast<adc_value_t>(1 << m_current_gain)); }
   inline void show() { m_show = true; }
   inline void hide() { m_show = false; }
@@ -296,34 +296,35 @@ private:
 inline hrm::adc_value_t convert_adc32(irs_i32 a_in_value, irs_u8 a_adc_gain,
   adc_value_t a_additional_gain, adc_value_t a_ref)
 {
-  adc_value_t gain 
+  adc_value_t gain
     = static_cast<adc_value_t>(1 << a_adc_gain) * a_additional_gain;
-  return (static_cast<adc_value_t>(a_in_value) 
+  return (static_cast<adc_value_t>(a_in_value)
     / static_cast<adc_value_t>(1 << 31)) * (a_ref / gain);
 }
 
 inline hrm::adc_value_t convert_adc24(irs_i32 a_in_value, irs_u8 a_adc_gain,
   adc_value_t a_additional_gain, adc_value_t a_ref)
 {
-  adc_value_t gain 
+  adc_value_t gain
     = static_cast<adc_value_t>(1 << a_adc_gain) * a_additional_gain;
-  return (static_cast<adc_value_t>(a_in_value - (1 << 23)) 
+  return (static_cast<adc_value_t>(a_in_value - (1 << 23))
     / static_cast<adc_value_t>(1 << 23)) * (a_ref / gain);
 }
 
 class buzzer_t
 {
 public:
-  buzzer_t(irs::gpio_pin_t* ap_pin);
+  buzzer_t(irs::gpio_pin_t* ap_buzzer_pin);
+  ~buzzer_t();
+  void bzzz();
   void bzz();
   void tick();
 private:
-  enum {
-    m_bzz_interval = 200  //  ms
-  };
-  irs::gpio_pin_t* mp_pin;
+  const counter_t m_bzz_interval;
+  const counter_t m_bzzz_interval;
+  bool m_buzzed;
   irs::timer_t m_timer;
-  bool m_is_bzz;
+  irs::gpio_pin_t* mp_pin;
 };
 
 struct adc_seq_point_t {
@@ -348,17 +349,17 @@ public:
   inline adc_value_t ref() { return m_ref; }
   inline adc_value_t avg() { return m_avg; }
   inline adc_value_t sko() { return m_sko; }
-  inline adc_value_t max_value() { return m_ref 
+  inline adc_value_t max_value() { return m_ref
      / (2.0 * m_additional_gain * static_cast<adc_value_t>(1 << m_gain)); }
   inline void show() { m_show = true; }
   inline void show_simply() { m_show_simply = true; }
   inline void hide() { m_show = false; m_show_simply = false; }
   inline void set_gain(irs_u8 a_gain) { m_gain = a_gain & gain_mask; }
-  inline void set_channel(irs_u8 a_channel) 
+  inline void set_channel(irs_u8 a_channel)
     { m_channel = a_channel & channel_mask; }
-  inline void set_filter(irs_u8 a_filter) 
+  inline void set_filter(irs_u8 a_filter)
     { m_filter = a_filter & filter_mask; }
-  inline void set_additional_gain(adc_value_t a_gain) 
+  inline void set_additional_gain(adc_value_t a_gain)
     { m_additional_gain = a_gain; }
   inline void set_ref(adc_value_t a_ref) { m_ref = a_ref; }
   inline void set_pause(counter_t a_pause_interval)
@@ -434,9 +435,9 @@ private:
   void event();
   inline adc_value_t convert_value(irs_i32 a_in_value)
   {
-    adc_value_t gain 
+    adc_value_t gain
       = static_cast<adc_value_t>(1 << m_gain) * m_additional_gain;
-    return -(static_cast<adc_value_t>(a_in_value - (1 << 23)) 
+    return -(static_cast<adc_value_t>(a_in_value - (1 << 23))
       / static_cast<adc_value_t>(1 << 23)) * (m_ref / gain);
   }
 };

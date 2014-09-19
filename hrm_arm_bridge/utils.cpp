@@ -106,7 +106,7 @@ void hrm::adc_dac_request_t::tick()
       irs_u32 b0 = mp_spi_buf[0];
       irs_u32 b1 = mp_spi_buf[1];
       irs_u32 b2 = mp_spi_buf[2];
-      irs::mlog() << irsm("AD5791 cr = 0x") << hex << b0 
+      irs::mlog() << irsm("AD5791 cr = 0x") << hex << b0
         << irsm(" 0x") << b1 << irsm(" 0x") << b2 << endl;
       m_status = st_free;
       break;
@@ -140,8 +140,8 @@ void hrm::adc_dac_request_t::tick()
 //------------------------------------------------------------------------------
 
 hrm::mono_relay_t::mono_relay_t(
-  irs::gpio_pin_t* ap_pin, 
-  const irs::string_t& a_caption, 
+  irs::gpio_pin_t* ap_pin,
+  const irs::string_t& a_caption,
   relay_t::bit_t a_default_value):
   m_pin(a_default_value),
   mp_pin(ap_pin),
@@ -156,7 +156,7 @@ hrm::mono_relay_t::mono_relay_t(
   set(a_default_value);
 }
 
-hrm::relay_t::bit_t hrm::mono_relay_t::operator=(const hrm::relay_t::bit_t 
+hrm::relay_t::bit_t hrm::mono_relay_t::operator=(const hrm::relay_t::bit_t
   a_value)
 {
   set(a_value);
@@ -200,7 +200,7 @@ void hrm::mono_relay_t::tick()
   switch (m_status) {
     case irs_st_busy: {
       if (m_timer.check()) {
-        irs::mlog() << irsm("Ðåëå ") << m_caption << irsm(" = ") 
+        irs::mlog() << irsm("Ðåëå ") << m_caption << irsm(" = ")
           << mp_pin->pin() << endl;
         m_status = irs_st_ready;
       }
@@ -215,9 +215,9 @@ void hrm::mono_relay_t::tick()
 //------------------------------------------------------------------------------
 
 hrm::bi_relay_t::bi_relay_t(
-  irs::gpio_pin_t* ap_pin_0, 
-  irs::gpio_pin_t* ap_pin_1, 
-  const irs::string_t& a_caption, 
+  irs::gpio_pin_t* ap_pin_0,
+  irs::gpio_pin_t* ap_pin_1,
+  const irs::string_t& a_caption,
   relay_t::bit_t a_default_value,
   counter_t a_energization_time,
   bool a_wild):
@@ -238,7 +238,7 @@ hrm::bi_relay_t::bi_relay_t(
   set(m_current_value);
 }
 
-hrm::relay_t::bit_t hrm::bi_relay_t::operator=(const hrm::relay_t::bit_t 
+hrm::relay_t::bit_t hrm::bi_relay_t::operator=(const hrm::relay_t::bit_t
   a_value)
 {
   set(a_value);
@@ -290,7 +290,7 @@ void hrm::bi_relay_t::tick()
 {
   switch (m_status) {
     case st_wild_energization_off:
-      if (m_timer.check()) {      
+      if (m_timer.check()) {
         if (m_current_value) {
           mp_pin_1->clear();
           mp_pin_0->set();
@@ -336,7 +336,7 @@ void hrm::bi_relay_t::tick()
     }
     case st_after_pause: {
       if (m_timer.check()) {
-        irs::mlog() << irsm("Ðåëå ") << m_caption << irsm(" = ") 
+        irs::mlog() << irsm("Ðåëå ") << m_caption << irsm(" = ")
           << m_current_value << endl;
         m_status = st_ready;
       }
@@ -395,7 +395,7 @@ void hrm::range_t::range_off()
   *m_relay_vector[m_current_range] = 0;
   irs::mlog() << irsm("Range ") << m_current_range << irsm(" OFF") << endl;
 }
-  
+
 bool hrm::range_t::ready()
 {
   bool ready = true;
@@ -460,13 +460,13 @@ irs_bool hrm::dac_t::is_on()
 void hrm::dac_t::set_normalize_code(hrm::dac_value_t a_code)
 {
   dac_value_t code = irs::bound(a_code, -1., 1.);
-  m_dac_data.signed_voltage_code = 
+  m_dac_data.signed_voltage_code =
     static_cast<irs_i32>(floor(code * (pow(2., 31) - 1.0) + 0.5));
-  
+
   m_status = st_wait;
   m_timer.set(m_after_pause);
   if (m_show) {
-    irs::mlog() << irsm("ÖÀÏ: êîä = ") << code << irsm(" / ") 
+    irs::mlog() << irsm("ÖÀÏ: êîä = ") << code << irsm(" / ")
       << (m_dac_data.signed_voltage_code >> 12) << endl;
   }
 }
@@ -477,8 +477,8 @@ void hrm::dac_t::set_code(dac_value_t a_code)
   m_dac_data.unsigned_voltage_code = code << 12;
   m_status = st_wait;
   if (m_show) {
-    irs::mlog() << irsm("ÖÀÏ: êîä = ") 
-      << static_cast<dac_value_t>(code) / pow(2., 19) << irsm(" / ") 
+    irs::mlog() << irsm("ÖÀÏ: êîä = ")
+      << static_cast<dac_value_t>(code) / pow(2., 19) << irsm(" / ")
       << code << endl;
   }
 }
@@ -576,10 +576,10 @@ void hrm::dac_t::tick()
 //------------------------------------------------------------------------------
 
 hrm::adc_t::adc_t(
-  irs::adc_request_t* ap_raw_adc, 
-  irs_u8 a_default_gain, 
-  irs_u8 a_default_channel, 
-  irs_u8 a_default_mode, 
+  irs::adc_request_t* ap_raw_adc,
+  irs_u8 a_default_gain,
+  irs_u8 a_default_channel,
+  irs_u8 a_default_mode,
   irs_u8 a_default_filter
 ):
   mp_raw_adc(ap_raw_adc),
@@ -653,19 +653,19 @@ void hrm::adc_t::set_ref(adc_value_t a_ref)
 
 void hrm::adc_t::meas_zero()
 {
-  m_need_meas_zero = true; 
+  m_need_meas_zero = true;
   m_return_status = irs_st_busy;
 }
 
 void hrm::adc_t::meas_voltage()
 {
-  m_need_meas_voltage = true; 
+  m_need_meas_voltage = true;
   m_return_status = irs_st_busy;
 }
 
 void hrm::adc_t::meas_voltage_and_temperature()
 {
-  m_need_meas_voltage = true; 
+  m_need_meas_voltage = true;
   m_need_meas_temperature = true;
   m_return_status = irs_st_busy;
 }
@@ -700,7 +700,7 @@ void hrm::adc_t::tick()
       mp_raw_adc->set_param(irs::adc_mode, m_current_mode);
       m_status = st_wait_param;
       if (m_show) {
-        irs::mlog() << irsm("Ðåæèì ÀÖÏ = ") 
+        irs::mlog() << irsm("Ðåæèì ÀÖÏ = ")
           << static_cast<int>(m_current_mode) << endl;
       }
     }
@@ -711,7 +711,7 @@ void hrm::adc_t::tick()
       mp_raw_adc->set_param(irs::adc_freq, m_current_filter);
       m_status = st_wait_param;
       if (m_show) {
-        irs::mlog() << irsm("Ôèëüòð ÀÖÏ = ") 
+        irs::mlog() << irsm("Ôèëüòð ÀÖÏ = ")
           << static_cast<int>(m_current_filter) << endl;
       }
     }
@@ -747,7 +747,7 @@ void hrm::adc_t::tick()
       m_zero = convert_adc32(
         m_adc_value, m_current_gain, m_additional_gain, m_ref);
       if (m_show) {
-        irs::mlog() << irsm("Íîëü ÀÖÏ = ") << (m_zero * 1.e6) 
+        irs::mlog() << irsm("Íîëü ÀÖÏ = ") << (m_zero * 1.e6)
           << irsm(" ìêÂ") << endl;
       }
     }
@@ -767,7 +767,7 @@ void hrm::adc_t::tick()
     if (mp_raw_adc->status() == meas_status_success) {
       m_status = st_select_temperature_channel;
     }
-    break;  
+    break;
   case st_select_temperature_channel:
     if (m_need_meas_temperature) {
       m_need_meas_temperature = false;
@@ -869,33 +869,51 @@ void hrm::adc_t::tick()
 
 //------------------------------------------------------------------------------
 
-hrm::buzzer_t::buzzer_t(irs::gpio_pin_t* ap_pin):
-  mp_pin(ap_pin),
-  m_timer(irs::make_cnt_ms(m_bzz_interval)),
-  m_is_bzz(false)
+hrm::buzzer_t::buzzer_t(irs::gpio_pin_t* ap_buzzer_pin):
+  m_bzz_interval(irs::make_cnt_ms(10)),
+  m_bzzz_interval(irs::make_cnt_ms(500)),
+  m_buzzed(false),
+  m_timer(),
+  mp_pin(ap_buzzer_pin)
 {
+  mp_pin->clear();
+  m_timer.stop();
+}
+
+hrm::buzzer_t::~buzzer_t()
+{
+  mp_pin->clear();
+}
+
+void hrm::buzzer_t::bzzz()
+{
+  m_timer.set(m_bzzz_interval);
+  m_timer.start();
+  m_buzzed = true;
+  mp_pin->set();
 }
 
 void hrm::buzzer_t::bzz()
 {
-  m_is_bzz = true;
+  m_timer.set(m_bzz_interval);
   m_timer.start();
+  m_buzzed = true;
   mp_pin->set();
 }
 
 void hrm::buzzer_t::tick()
 {
-  if (m_is_bzz) {
-    if (m_timer.check()) {
-      m_is_bzz = false;
-      mp_pin->clear();
-    }
+  if (m_timer.check())
+  {
+    m_timer.stop();
+    m_buzzed = false;
+    mp_pin->clear();
   }
 }
 
 //------------------------------------------------------------------------------
 
-hrm::ad7799_cread_t::ad7799_cread_t(irs::spi_t *ap_spi, 
+hrm::ad7799_cread_t::ad7799_cread_t(irs::spi_t *ap_spi,
   irs::gpio_pin_t* ap_cs_pin, adc_exti_t* ap_adc_exti):
   mp_spi(ap_spi),
   mp_cs_pin(ap_cs_pin),
@@ -922,7 +940,7 @@ hrm::ad7799_cread_t::ad7799_cread_t(irs::spi_t *ap_spi,
   m_avg(0.0),
   m_sko(0.0)
 {
-  mp_cs_pin->set();                       
+  mp_cs_pin->set();
   m_cur_point.value = 0;
   m_cur_point.time = 0;
   memset(mp_spi_buf, 0, spi_buf_size);
@@ -1055,7 +1073,7 @@ void hrm::ad7799_cread_t::tick()
         mp_spi->unlock();
         m_return_status = irs_st_ready;
         if (m_show) {
-          irs::mlog() << endl; 
+          irs::mlog() << endl;
         }
         m_value_sko.clear();
         m_value_sko.resize(m_cnv_cnt);
@@ -1065,7 +1083,7 @@ void hrm::ad7799_cread_t::tick()
           m_time_sko.resize(m_cnv_cnt);
           m_time_sko.resize_average(m_cnv_cnt);
         }
-        
+
         for (size_t i = 0; i < m_cnv_cnt; i++) {
           adc_value_t value = convert_value(m_value_vector[i].value);
           m_value_sko.add(value);
@@ -1073,18 +1091,18 @@ void hrm::ad7799_cread_t::tick()
             irs::mlog() << value << endl << flush;
           }
           if (i > 0 && m_cnv_cnt > 2) {
-            double delta = 
+            double delta =
               static_cast<double>(m_value_vector[i].time
                                   - m_value_vector[i-1].time);
-            double time = delta 
+            double time = delta
               / static_cast<double>(irs::cpu_traits_t::frequency());
             m_time_sko.add(time);
           }
         }
-        
+
         m_avg = m_value_sko.average();
         m_sko = m_value_sko;
-        
+
         if (m_show) {
           irs::mlog() << irsm("---------------------------------") << endl;
           irs::mlog() << irsm("ÑÊÎ     ") << m_value_sko << irsm(" Â");
@@ -1103,7 +1121,7 @@ void hrm::ad7799_cread_t::tick()
           }
           irs::mlog() << irsm("---------------------------------") << endl;
         }
-        
+
         m_status = st_free;
       }
     } break;

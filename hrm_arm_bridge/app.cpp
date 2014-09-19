@@ -6,6 +6,123 @@
 
 #include <irsfinal.h>
 
+// class form_t
+hrm::form_t::form_t():
+  m_menu_timer(irs::make_cnt_ms(40))
+{
+}
+
+hrm::form_t::~form_t()
+{
+}
+
+void hrm::form_t::tick()
+{
+  if (m_menu_timer.check()) {
+    draw();
+  }
+}
+
+/*void hrm::form_t::draw()
+{
+}*/
+
+// class experiment_options_dialog_t
+hrm::experiment_options_dialog_t::experiment_options_dialog_t(
+    mxdisplay_drv_service_t *ap_lcd_drv_service,
+    mxkey_event_t* ap_menu_kb_event,
+    eth_data_t* ap_eth_data):
+  form_t(),
+  mp_menu_kb_event(ap_menu_kb_event),
+  mp_eth_data(ap_eth_data),
+  m_mode_item(),
+  m_hint_item(),
+  m_r_standard(1),
+  m_r_standard_item(&m_r_standard, true),
+  m_r_standard_changed_event(),
+
+  m_menu_voltage(0),
+  m_voltage_item(&m_menu_voltage, true),
+
+  m_menu_r_standart_type(r_standard_type_original),
+  m_r_standart_type_item(&m_menu_r_standart_type, true),
+  m_r_standart_type_changed_event(),
+  m_main_screen(),
+  mp_cur_menu(&m_main_screen),
+  m_generator_events()
+{
+  m_mode_item.set_parametr_string("¬вод эталона");
+  m_hint_item.set_parametr_string("И-ѕуск");
+
+  m_r_standard_item.set_header("”ст. эталона");
+  m_r_standard_item.set_message(mp_exit_msg);
+  m_r_standard_item.set_str(mp_user_str, "Rэ", "ќм", 14, 8,
+    irs::num_mode_general);
+  m_r_standard_item.set_max_value(9999999999999.9);
+  m_r_standard_item.set_min_value(0.1);
+  m_r_standard_item.add_change_event(&m_r_standard_changed_event);
+  m_r_standard_item.set_key_type(IMK_DIGITS);
+
+  m_r_standart_type_item.set_header("“ип Rэ");
+  m_r_standart_type_item.set_message(mp_exit_msg);
+  m_r_standart_type_item.set_str("        ћЁ—", "   »митатор");
+  m_r_standart_type_item.add_change_event(&m_r_standart_type_changed_event);
+
+  m_main_screen.set_disp_drv(ap_lcd_drv_service);
+  m_main_screen.set_key_event(ap_menu_kb_event);
+  m_main_screen.set_cursor_symbol(0x01);
+  m_main_screen.creep_stop();
+  m_main_screen.add(&m_mode_item, 0, 0, IMM_FULL);
+  m_main_screen.add(&m_r_standard_item, 0, 1, IMM_FULL);
+  m_main_screen.add(&m_r_standart_type_item, 0, 2, IMM_FULL);
+  m_main_screen.add(&m_hint_item, 0, 3, IMM_FULL);
+}
+
+void hrm::experiment_options_dialog_t::tick()
+{
+  form_t::tick();
+  menu_check();
+}
+
+void hrm::experiment_options_dialog_t::draw()
+{
+  mp_cur_menu->draw(&mp_cur_menu);
+}
+
+void hrm::experiment_options_dialog_t::menu_check()
+{
+  if(m_r_standard_changed_event.check()) {
+    mp_eth_data->etalon = m_r_standard;
+  }
+  if (mp_cur_menu == &m_main_screen) {
+    irskey_t key = mp_menu_kb_event->check();
+    switch (key) {
+      case irskey_5: {
+        mp_cur_menu = &m_r_standard_item;
+        m_r_standard_item.set_master_menu(&m_main_screen);
+        m_r_standard_item.show();
+      } break;
+      case irskey_6: {
+        mp_cur_menu = &m_r_standart_type_item;
+        m_r_standart_type_item.set_master_menu(&m_main_screen);
+        m_r_standart_type_item.show();
+      } break;
+      case irskey_enter: {
+        m_generator_events.exec(command_run);
+      } break;
+      case irskey_backspace: {
+        m_generator_events.exec(command_menu);
+      } break;
+    }
+  }
+}
+
+irs::generator_events_1_t<hrm::experiment_options_dialog_t::command_t>*
+  hrm::experiment_options_dialog_t::on_command()
+{
+  return &m_generator_events;
+}
+
 hrm::app_t::app_t(cfg_t* ap_cfg):
   mp_cfg(ap_cfg),
   m_eth_data(),
@@ -125,13 +242,19 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   //
   // ћеню
   //
-  m_menu_timer(irs::make_cnt_ms(40)),
+  /*m_menu_timer(irs::make_cnt_ms(40)),
   m_mode_item(),
-  m_menu_voltage_ref(0),
-  m_voltage_ref_item(&m_menu_voltage_ref, true),
-  m_trans_volt_ref_event(),
+  m_hint_item(),
+  m_menu_voltage_ref(1),
+  m_r_standard_item(&m_menu_voltage_ref, true),
+  m_r_standard_changed_event(),
+
   m_menu_voltage(0),
   m_voltage_item(&m_menu_voltage, true),
+
+  m_menu_r_standart_type(r_standard_type_original),
+  m_r_standart_type_item(&m_menu_r_standart_type, true),
+  m_r_standart_type_changed_event(),
 
   m_main_creep(
     mp_creep_buffer,
@@ -142,8 +265,10 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
     m_creep_time_num,
     m_creep_time_denom),
   m_main_screen(),
-  mp_cur_menu(&m_main_screen),
-  m_escape_pressed_event()
+  mp_cur_menu(&m_main_screen),*/
+  mp_local_interface(),
+  m_escape_pressed_event(),
+  m_r_standard_type(r_standard_type_original)
 {
 
   init_keyboard_drv();
@@ -292,7 +417,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_keyboard_event_gen.set_rep_time(irs::make_cnt_ms(50));
 
   //change_mode_on_creep();
-  strcpy(mp_enter_msg, "ƒл€ входа в меню нажмите 'И'");
+  /*strcpy(mp_enter_msg, "ƒл€ входа в меню нажмите 'И'");
   strcpy(mp_exit_msg, "ƒл€ выхода из меню нажмите 'esc'");
 
   //  ќсновной экран
@@ -303,31 +428,42 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_main_screen.set_cursor_symbol(0x01);
   //m_main_screen.set_slave_menu(&m_main_menu);
 
-  m_mode_item.set_parametr_string("=U");
+  m_mode_item.set_parametr_string("¬вод эталона");
+  m_hint_item.set_parametr_string("И-пуск; *-настройка");
 
-  m_voltage_ref_item.set_header("”ст. напр€жени€");
-  m_voltage_ref_item.set_message(mp_exit_msg);
-  m_voltage_ref_item.set_str(mp_user_str, "Uo", "¬", 10, 5);
-  m_voltage_ref_item.set_max_value(670.0);
-  m_voltage_ref_item.set_min_value(0.0);
-  m_voltage_ref_item.add_change_event(&m_trans_volt_ref_event);
-  m_voltage_ref_item.set_key_type(IMK_DIGITS);
+  m_r_standard_item.set_header("”ст. эталона");
+  m_r_standard_item.set_message(mp_exit_msg);
+  m_r_standard_item.set_str(mp_user_str, "Rэ", "ќм", 14, 8,
+    irs::num_mode_general);
+  m_r_standard_item.set_max_value(9999999999999.9);
+  m_r_standard_item.set_min_value(0.1);
+  m_r_standard_item.add_change_event(&m_r_standard_changed_event);
+  m_r_standard_item.set_key_type(IMK_DIGITS);
+
+  m_r_standart_type_item.set_header("“ип Rэ");
+  m_r_standart_type_item.set_message(mp_exit_msg);
+  m_r_standart_type_item.set_str("        ћЁ—", "   »митатор");
+  m_r_standart_type_item.add_change_event(&m_r_standart_type_changed_event);
 
   m_voltage_item.set_header("”ст. напр€жени€");
   m_voltage_item.set_message(mp_exit_msg);
   m_voltage_item.set_str(mp_user_str, "U1", "¬", 10, 5);
   m_voltage_item.set_max_value(670.0);
   m_voltage_item.set_min_value(0.0);
-  m_voltage_item.add_change_event(&m_trans_volt_ref_event);
+  m_voltage_item.add_change_event(&m_r_standard_changed_event);
   m_voltage_item.set_key_type(IMK_DIGITS);
 
   m_main_screen.creep_stop();
   m_main_screen.add(&m_mode_item, 0, 0, IMM_FULL);
-  m_main_screen.add(&m_voltage_ref_item, 0, 1, IMM_FULL);
-  m_main_screen.add(&m_voltage_item, 0, 2, IMM_FULL);
-  m_main_screen.add(&m_voltage_item, 0, 3, IMM_FULL);
+  m_main_screen.add(&m_r_standard_item, 0, 1, IMM_FULL);
+  m_main_screen.add(&m_r_standart_type_item, 0, 2, IMM_FULL);
+  m_main_screen.add(&m_hint_item, 0, 3, IMM_FULL);*/
 
 
+  mp_local_interface.reset(new experiment_options_dialog_t(&m_lcd_drv_service,
+    &m_menu_kb_event, &m_eth_data));
+  //experiment_options_dialog_t* experiment_options_dialog =
+    //static_cast<experiment_options_dialog_t*>(mp_local_interface.get());
 
   m_buzzer.bzz();
 }
@@ -363,9 +499,11 @@ void hrm::app_t::tick()
 
   menu_check();
 
-  if (m_menu_timer.check()) {
+  mp_local_interface->tick();
+
+  /*if (m_menu_timer.check()) {
     mp_cur_menu->draw(&mp_cur_menu);
-  }
+  }*/
   m_lcd_drv.tick();
   m_keyboard_event_gen.tick();
 
@@ -1567,12 +1705,9 @@ void hrm::app_t::tick()
 
 void hrm::app_t::menu_check()
 {
-  if (mp_cur_menu == &m_main_screen) {
+  /*if (mp_cur_menu == &m_main_screen) {
     irskey_t key = m_hot_kb_event.check();
-    /*if (key != irskey_none) {
-      int i = 0;
-      irs::mlog() << key << endl;
-    }*/
+
     switch (key) {
       case irskey_0: {
         //m_out_mode = out_mode_actual_value;
@@ -1584,38 +1719,28 @@ void hrm::app_t::menu_check()
       case irskey_2: {
         //m_out_mode = out_mode_sko;
       } break;
-      case irskey_3: {
-       // m_out_mode = out_mode_average;
+      case irskey_5: {
+        mp_cur_menu = &m_r_standard_item;
+        m_r_standard_item.set_master_menu(&m_main_screen);
+        m_r_standard_item.show();
+      } break;
+      case irskey_6: {
+        mp_cur_menu = &m_r_standart_type_item;
+        m_r_standart_type_item.set_master_menu(&m_main_screen);
+        m_r_standart_type_item.show();
       } break;
       case irskey_up: {
-        /*if (m_dc_ac_mode == mode_dc) {
-          m_dc_ac_mode = mode_ac;
-        } else {
-          m_dc_ac_mode = mode_dc;
-        }
-        update_mode_item();*/
+
       } break;
       case irskey_down: {
-        mp_cur_menu = &m_voltage_ref_item;
-        m_voltage_ref_item.set_master_menu(&m_main_screen);
-        m_voltage_ref_item.show();
       } break;
       case irskey_backspace: {
-        //mp_cur_menu = &m_freq_trim;
-        //m_freq_trim.set_master_menu(&m_main_screen);
-        //m_freq_trim.show();
-        /*if (m_ui_mode == mode_u) {
-          m_ui_mode = mode_i;
-        } else {
-          m_ui_mode = mode_u;
-        }
-        update_mode_item();*/
       } break;
       case irskey_escape: {
         m_escape_pressed_event.exec();
       } break;
     }
-  }
+  }*/
 }
 
 //double hrm::app_t::calc_elab_code(vector<elab_point_t>* ap_elab_vector,
