@@ -37,6 +37,7 @@ namespace hrm {
 #define HRM_ERROR_IF_NOT(assert_expr, error_code, msg)\
   IRS_ERROR_IF_NOT(assert_expr, error_code, msg)
 #define HRM_DBG_RAW_MSG(msg) IRS_DBG_RAW_MSG(msg)
+#define HRM_DBG_MSG(msg) IRS_LIB_DBG_MSG(msg)
 #else //HRM_DEBUG
 #define HRM_ASSERT(assert_expr)
 #define HRM_ASSERT_MSG(msg)
@@ -44,6 +45,7 @@ namespace hrm {
 #define HRM_ERROR(error_code, msg)
 #define HRM_ERROR_IF_NOT(assert_expr, error_code, msg)
 #define HRM_DBG_RAW_MSG(msg)
+#define HRM_DBG_MSG(msg)
 #endif //HRM_DEBUG
 
 #define HRM_DELETE_ASSERT(expr) IRS_DELETE_ASSERT(expr)

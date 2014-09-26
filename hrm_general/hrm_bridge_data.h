@@ -18,7 +18,7 @@ enum mode_t {
 
 typedef double  adc_value_t;
 typedef double  dac_value_t;
-  
+
 struct eth_data_t {
   irs::conn_data_t<irs_u32> counter;        //  4 byte
   //  command
@@ -33,6 +33,7 @@ struct eth_data_t {
   irs::bit_data_t no_prot;
   irs::bit_data_t reset;
   irs::bit_data_t apply;
+  irs::bit_data_t complete; // Измерения завершены
   //  status
   irs::conn_data_t<irs_u8> current_mode;    //  1 byte
   irs::conn_data_t<irs_u8> current_range;   //  1 byte
@@ -43,6 +44,8 @@ struct eth_data_t {
   irs::conn_data_t<double> checked;         //  8 byte
   irs::conn_data_t<double> result;          //  8 byte
   irs::conn_data_t<double> result_error;    //  8 byte
+  irs::conn_data_t<double> ratio;           //  8 byte
+  irs::conn_data_t<double> prev_user_result;
   //  manual
   irs::bit_data_t relay_1g;
   irs::bit_data_t relay_100m;
@@ -80,6 +83,7 @@ struct eth_data_t {
   irs::conn_data_t<irs_u32> exp_time;
   irs::conn_data_t<irs_u32> prev_exp_time;
   irs::conn_data_t<irs_u32> sum_time;
+  irs::conn_data_t<irs_u32> remaining_time;
   irs::conn_data_t<irs_u32> options;
   irs::bit_data_t wild_relays;
   irs::bit_data_t adc_clear_filter;
@@ -118,7 +122,7 @@ struct eth_data_t {
     irs_uarc index = a_index;
 
     index = counter.connect(ap_data, index);
-    
+
     index = mode.connect(ap_data, index);
     index = range.connect(ap_data, index);
     index = exp_cnt.connect(ap_data, index);
@@ -131,18 +135,22 @@ struct eth_data_t {
     reset.connect(ap_data, index, 6);
     apply.connect(ap_data, index, 7);
     index++;
-    
+    complete.connect(ap_data, index, 0);
+    index++;
+
     index = current_mode.connect(ap_data, index);
     index = current_range.connect(ap_data, index);
     index = current_exp_cnt.connect(ap_data, index);
     current_etpol.connect(ap_data, index, 0);
     index++;
-    
+
     index = etalon.connect(ap_data, index);
     index = checked.connect(ap_data, index);
     index = result.connect(ap_data, index);
     index = result_error.connect(ap_data, index);
-    
+    index = ratio.connect(ap_data, index);
+    index = prev_user_result.connect(ap_data, index);
+
     relay_1g.connect(ap_data, index, 0);
     relay_100m.connect(ap_data, index, 1);
     relay_10m.connect(ap_data, index, 2);
@@ -152,7 +160,7 @@ struct eth_data_t {
     relay_eton.connect(ap_data, index, 6);
     relay_prot.connect(ap_data, index, 7);
     index++;
-    
+
     relay_zero.connect(ap_data, index, 0);
     relay_etpol.connect(ap_data, index, 1);
     dac_on.connect(ap_data, index, 2);
@@ -160,13 +168,13 @@ struct eth_data_t {
     relay_bridge_neg.connect(ap_data, index, 4);
     relay_gain.connect(ap_data, index, 5);
     relay_voltage.connect(ap_data, index, 6);
-    
+
     optimize_balance.connect(ap_data, index, 7);
     index++;
-    
+
     index = dac_lin.connect(ap_data, index);
     index = elab_cnt.connect(ap_data, index);
-    
+
     index = dac_normalize_code.connect(ap_data, index);
     index = dac_code.connect(ap_data, index);
     index = adc_filter.connect(ap_data, index);
@@ -185,21 +193,22 @@ struct eth_data_t {
     index = exp_time.connect(ap_data, index);
     index = prev_exp_time.connect(ap_data, index);
     index = sum_time.connect(ap_data, index);
-    
+    index = remaining_time.connect(ap_data, index);
+
     wild_relays.connect(ap_data, index, 0);
     adc_clear_filter.connect(ap_data, index, 1);
     start_adc_sequence.connect(ap_data, index, 2);
     auto_elab_step.connect(ap_data, index, 3);
     adc_simply_show.connect(ap_data, index, 4);
     index = options.connect(ap_data, index);
-    
+
     index= adc_filter_constant.connect(ap_data, index);
     index= adc_filter_value.connect(ap_data, index);
-    
+
     index = adc_average_skip_cnt.connect(ap_data, index);
     index = adc_experiment_gain.connect(ap_data, index);
     index = adc_experiment_filter.connect(ap_data, index);
-    
+
     index = adc_additional_gain.connect(ap_data, index);
     index = adc_ref.connect(ap_data, index);
     index = dac_voltage_pos.connect(ap_data, index);
@@ -211,7 +220,7 @@ struct eth_data_t {
     index = elab_step_multiplier.connect(ap_data, index);
     index = elab_max_delta.connect(ap_data, index);
     index = external_temperature.connect(ap_data, index);
-    
+
     return index;
   }
 };  //  eth_data_t
@@ -248,7 +257,9 @@ struct eeprom_data_t {
   irs::conn_data_t<irs_u32> dac_elab_pause_ms;
   irs::conn_data_t<dac_value_t> elab_step_multiplier;
   irs::conn_data_t<dac_value_t> elab_max_delta;
-  
+  irs::conn_data_t<double> ratio;
+  irs::conn_data_t<double> prev_user_result;
+
   eeprom_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
   {
@@ -291,6 +302,8 @@ struct eeprom_data_t {
     index = dac_elab_pause_ms.connect(ap_data, index);
     index = elab_step_multiplier.connect(ap_data, index);
     index = elab_max_delta.connect(ap_data, index);
+    index = ratio.connect(ap_data, index);
+    index = prev_user_result.connect(ap_data, index);
     return index;
   }
   inline void reset_to_default()
@@ -325,6 +338,8 @@ struct eeprom_data_t {
     elab_step_multiplier = 1.0;
     adc_simply_show = 0;
     elab_max_delta = 1.0;
+    ratio = 1.0;
+    prev_user_result = 1.0;
   }
 };
 
