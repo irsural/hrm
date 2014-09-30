@@ -2582,6 +2582,12 @@
     <name>$PROJ_DIR$\main.cpp</name>
   </file>
   <file>
+    <name>$PROJ_DIR$\menu.cpp</name>
+  </file>
+  <file>
+    <name>$PROJ_DIR$\menu.h</name>
+  </file>
+  <file>
     <name>$PROJ_DIR$\utils.cpp</name>
   </file>
   <file>

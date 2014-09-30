@@ -5,6 +5,8 @@
 
 #include <mxdata.h>
 
+#include "privatecfg.h"
+
 #include <irsfinal.h>
 
 namespace hrm {
@@ -106,6 +108,20 @@ struct eth_data_t {
   irs::conn_data_t<dac_value_t> elab_step_multiplier;
   irs::conn_data_t<double> elab_max_delta;
   irs::conn_data_t<double> external_temperature;
+  irs::conn_data_t<irs_u8> ip_0;  //  1 byte
+  irs::conn_data_t<irs_u8> ip_1;  //  1 byte
+  irs::conn_data_t<irs_u8> ip_2;  //  1 byte
+  irs::conn_data_t<irs_u8> ip_3;  //  1 byte
+  irs::conn_data_t<irs_u8> mask_0;  //  1 byte
+  irs::conn_data_t<irs_u8> mask_1;  //  1 byte
+  irs::conn_data_t<irs_u8> mask_2;  //  1 byte
+  irs::conn_data_t<irs_u8> mask_3;  //  1 byte
+  irs::conn_data_t<irs_u8> gateway_0;     //  1 byte
+  irs::conn_data_t<irs_u8> gateway_1;     //  1 byte
+  irs::conn_data_t<irs_u8> gateway_2;     //  1 byte
+  irs::conn_data_t<irs_u8> gateway_3;     //  1 byte
+  irs::bit_data_t dhcp_on;                //  1 byte
+  irs::bit_data_t apply_network_options;  //  1 byte
   //------------------------------------------
 
   eth_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
@@ -143,6 +159,7 @@ struct eth_data_t {
     index = current_exp_cnt.connect(ap_data, index);
     current_etpol.connect(ap_data, index, 0);
     index++;
+    //index+=3;
 
     index = etalon.connect(ap_data, index);
     index = checked.connect(ap_data, index);
@@ -221,6 +238,24 @@ struct eth_data_t {
     index = elab_max_delta.connect(ap_data, index);
     index = external_temperature.connect(ap_data, index);
 
+    index = ip_0.connect(ap_data, index);
+    index = ip_1.connect(ap_data, index);
+    index = ip_2.connect(ap_data, index);
+    index = ip_3.connect(ap_data, index);
+
+    index = mask_0.connect(ap_data, index);
+    index = mask_1.connect(ap_data, index);
+    index = mask_2.connect(ap_data, index);
+    index = mask_3.connect(ap_data, index);
+
+    index = gateway_0.connect(ap_data, index);
+    index = gateway_1.connect(ap_data, index);
+    index = gateway_2.connect(ap_data, index);
+    index = gateway_3.connect(ap_data, index);
+
+    dhcp_on.connect(ap_data, index, 0);
+    apply_network_options.connect(ap_data, index, 1);
+
     return index;
   }
 };  //  eth_data_t
@@ -259,6 +294,19 @@ struct eeprom_data_t {
   irs::conn_data_t<dac_value_t> elab_max_delta;
   irs::conn_data_t<double> ratio;
   irs::conn_data_t<double> prev_user_result;
+  irs::conn_data_t<irs_u8> ip_0;          //  1 byte
+  irs::conn_data_t<irs_u8> ip_1;          //  1 byte
+  irs::conn_data_t<irs_u8> ip_2;          //  1 byte
+  irs::conn_data_t<irs_u8> ip_3;          //  1 byte
+  irs::conn_data_t<irs_u8> mask_0;        //  1 byte
+  irs::conn_data_t<irs_u8> mask_1;        //  1 byte
+  irs::conn_data_t<irs_u8> mask_2;        //  1 byte
+  irs::conn_data_t<irs_u8> mask_3;        //  1 byte
+  irs::conn_data_t<irs_u8> gateway_0;     //  1 byte
+  irs::conn_data_t<irs_u8> gateway_1;     //  1 byte
+  irs::conn_data_t<irs_u8> gateway_2;     //  1 byte
+  irs::conn_data_t<irs_u8> gateway_3;     //  1 byte
+  irs::bit_data_t dhcp_on;                //  1 bit
 
   eeprom_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
@@ -304,6 +352,19 @@ struct eeprom_data_t {
     index = elab_max_delta.connect(ap_data, index);
     index = ratio.connect(ap_data, index);
     index = prev_user_result.connect(ap_data, index);
+    index = ip_0.connect(ap_data, index);
+    index = ip_1.connect(ap_data, index);
+    index = ip_2.connect(ap_data, index);
+    index = ip_3.connect(ap_data, index);
+    index = mask_0.connect(ap_data, index);
+    index = mask_1.connect(ap_data, index);
+    index = mask_2.connect(ap_data, index);
+    index = mask_3.connect(ap_data, index);
+    index = gateway_0.connect(ap_data, index);
+    index = gateway_1.connect(ap_data, index);
+    index = gateway_2.connect(ap_data, index);
+    index = gateway_3.connect(ap_data, index);
+    index = dhcp_on.connect(ap_data, index, 0);
     return index;
   }
   inline void reset_to_default()
@@ -340,6 +401,22 @@ struct eeprom_data_t {
     elab_max_delta = 1.0;
     ratio = 1.0;
     prev_user_result = 1.0;
+    ip_0 = IP_0;
+    ip_1 = IP_1;
+    ip_2 = IP_2;
+    ip_3 = IP_3;
+
+    mask_0 = HRM_MASK_0;
+    mask_1 = HRM_MASK_1;
+    mask_2 = HRM_MASK_2;
+    mask_3 = HRM_MASK_3;
+
+    gateway_0 = HRM_GATEWAY_0;
+    gateway_1 = HRM_GATEWAY_1;
+    gateway_2 = HRM_GATEWAY_2;
+    gateway_3 = HRM_GATEWAY_3;
+
+    dhcp_on = HRM_DHCP_ON;
   }
 };
 
