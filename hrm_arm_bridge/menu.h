@@ -121,8 +121,6 @@ private:
   void menu_check();
   mxkey_event_t* mp_menu_kb_event;
   eth_data_t* mp_eth_data;
-  char mp_exit_msg[40];
-  vector<char> m_exit_msg;
 
   irs_menu_string_item_t m_mode_item;
   irs_menu_string_item_t m_hint_item;
@@ -163,7 +161,6 @@ private:
   void menu_check();
   mxkey_event_t* mp_menu_kb_event;
   eth_data_t* mp_eth_data;
-  char mp_exit_msg[40];
 
   struct menu_str_item_t
   {
@@ -209,7 +206,6 @@ private:
   mxkey_event_t* mp_menu_kb_event;
   eth_data_t* mp_eth_data;
   mode_t m_mode;
-  char mp_exit_msg[40];
 
   irs_menu_string_item_t m_mode_item;
 

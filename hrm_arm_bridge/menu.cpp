@@ -100,10 +100,7 @@ hrm::experiment_options_dialog_t::experiment_options_dialog_t(
   m_mode_item.set_parametr_string("¬вод эталона");
   m_hint_item.set_parametr_string("И-ѕуск");
 
-  strcpy(mp_exit_msg, "ƒл€ выхода из меню нажмите 'esc'");
-
   m_r_standard_item.set_header("¬вод эталона");
-  m_r_standard_item.set_message(mp_exit_msg);
   m_r_standard_item.set_str(mp_user_str, "Rэ ", "ќм", 13, 8,
     irs::num_mode_general);
   m_r_standard_item.set_max_value(r_max);
@@ -112,7 +109,6 @@ hrm::experiment_options_dialog_t::experiment_options_dialog_t(
   m_r_standard_item.set_key_type(IMK_DIGITS);
 
   m_r_standart_type_item.set_header("“ип Rэ");
-  m_r_standart_type_item.set_message(mp_exit_msg);
   m_r_standart_type_item.set_str("        ћЁ—", "   »митатор");
   m_r_standart_type_item.add_change_event(&m_r_standart_type_changed_event);
 
@@ -365,8 +361,6 @@ hrm::confirmation_stop_experiment_t::confirmation_stop_experiment_t(
   m_ok_item.set_parametr_string("И-ƒа");
   m_cancel_item.set_parametr_string("esc-Ќет");
 
-  //strcpy(mp_exit_msg, "ƒл€ выхода из меню нажмите 'esc'");
-
   m_main_screen.set_disp_drv(ap_lcd_drv_service);
   m_main_screen.set_key_event(ap_menu_kb_event);
   m_main_screen.set_cursor_symbol(0x01);
@@ -444,7 +438,6 @@ hrm::calculation_errors_dialog_t::calculation_errors_dialog_t(
   m_r_nominal_item.set_key_type(IMK_DIGITS);
 
   m_r_prev_user_item.set_header("¬вод предыдущ. знач.");
-  //m_r_prev_user_item.set_message(mp_exit_msg);
   m_r_prev_user_item.set_str(mp_r_prev_user_str,
     "Rпп", "ќм", r_width, r_precision, irs::num_mode_general);
   m_r_prev_user_item.set_max_value(r_max);
