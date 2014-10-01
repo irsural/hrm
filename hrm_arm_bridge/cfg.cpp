@@ -45,19 +45,20 @@ void hrm::network_config_t::set_gateway(mxip_t a_gateway)
 }
 
 void hrm::network_config_t::get(
-  mxip_t* ap_ip, mxip_t* ap_mask, mxip_t* ap_gateway)
+  mxip_t* ap_ip, mxip_t* ap_mask, mxip_t* ap_gateway, bool* ap_dhcp_enabled)
 {
   *ap_ip = (*mp_ethernet)->get_ip();
   *ap_mask = (*mp_ethernet)->get_netmask();
   *ap_gateway = (*mp_ethernet)->get_gateway();
+  *ap_dhcp_enabled = m_config.dhcp_enabled;
 }
 
 void hrm::network_config_t::set(
-  mxip_t a_ip, mxip_t a_mask, mxip_t a_gateway, bool a_dhcp)
+  mxip_t a_ip, mxip_t a_mask, mxip_t a_gateway, bool a_dhcp_enabled)
 {
   m_config.ip = a_ip;
   m_config.netmask = a_mask;
-  m_config.dhcp_enabled = a_dhcp;
+  m_config.dhcp_enabled = a_dhcp_enabled;
   m_config.gateway = a_gateway;
   reset();
 }

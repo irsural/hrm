@@ -121,7 +121,8 @@ struct eth_data_t {
   irs::conn_data_t<irs_u8> gateway_2;     //  1 byte
   irs::conn_data_t<irs_u8> gateway_3;     //  1 byte
   irs::bit_data_t dhcp_on;                //  1 byte
-  irs::bit_data_t apply_network_options;  //  1 byte
+  irs::bit_data_t disable_reading_network_options; // 1 bit
+  irs::bit_data_t apply_network_options;  //  1 bit
   //------------------------------------------
 
   eth_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
@@ -254,7 +255,8 @@ struct eth_data_t {
     index = gateway_3.connect(ap_data, index);
 
     dhcp_on.connect(ap_data, index, 0);
-    apply_network_options.connect(ap_data, index, 1);
+    disable_reading_network_options.connect(ap_data, index, 1);
+    apply_network_options.connect(ap_data, index, 2);
 
     return index;
   }

@@ -635,8 +635,8 @@ hrm::network_options_t::network_options_t(
   m_trans_dhcp_event(),
 
   m_network_menu(),
-  mp_cur_menu(&m_network_menu),
-  m_options_changed(false)
+  mp_cur_menu(&m_network_menu)
+  //m_options_changed(false)
 {
   m_parent_menu.set_disp_drv(ap_lcd_drv_service);
   m_parent_menu.set_key_event(ap_menu_kb_event);
@@ -687,7 +687,8 @@ void hrm::network_options_t::menu_check()
     mp_eth_data->ip_1 = m_menu_ip[1];
     mp_eth_data->ip_2 = m_menu_ip[2];
     mp_eth_data->ip_3 = m_menu_ip[3];
-    m_options_changed = true;
+    //m_options_changed = true;
+    mp_eth_data->disable_reading_network_options = 1;
   }
 
   if (m_trans_mask_event.check()) {
@@ -695,7 +696,8 @@ void hrm::network_options_t::menu_check()
     mp_eth_data->mask_1 = m_menu_mask[1];
     mp_eth_data->mask_2 = m_menu_mask[2];
     mp_eth_data->mask_3 = m_menu_mask[3];
-    m_options_changed = true;
+    //m_options_changed = true;
+    mp_eth_data->disable_reading_network_options = 1;
   }
 
   if (m_trans_gateway_event.check()) {
@@ -703,33 +705,37 @@ void hrm::network_options_t::menu_check()
     mp_eth_data->gateway_1 = m_menu_gateway[1];
     mp_eth_data->gateway_2 = m_menu_gateway[2];
     mp_eth_data->gateway_3 = m_menu_gateway[3];
-    m_options_changed = true;
+    //m_options_changed = true;
+    mp_eth_data->disable_reading_network_options = 1;
   }
 
   if (m_trans_dhcp_event.check()) {
     mp_eth_data->dhcp_on = m_menu_dhcp;
-    m_options_changed = true;
+    //m_options_changed = true;
+    mp_eth_data->disable_reading_network_options = 1;
   }
   if (mp_cur_menu == &m_network_menu) {
-    sync_first_to_second(&mp_eth_data->ip_0, &m_menu_ip[0]);
-    sync_first_to_second(&mp_eth_data->ip_1, &m_menu_ip[1]);
-    sync_first_to_second(&mp_eth_data->ip_2, &m_menu_ip[2]);
-    sync_first_to_second(&mp_eth_data->ip_3, &m_menu_ip[3]);
+    if (!mp_eth_data->disable_reading_network_options) {
+      sync_first_to_second(&mp_eth_data->ip_0, &m_menu_ip[0]);
+      sync_first_to_second(&mp_eth_data->ip_1, &m_menu_ip[1]);
+      sync_first_to_second(&mp_eth_data->ip_2, &m_menu_ip[2]);
+      sync_first_to_second(&mp_eth_data->ip_3, &m_menu_ip[3]);
 
-    sync_first_to_second(&mp_eth_data->mask_0, &m_menu_mask[0]);
-    sync_first_to_second(&mp_eth_data->mask_1, &m_menu_mask[1]);
-    sync_first_to_second(&mp_eth_data->mask_2, &m_menu_mask[2]);
-    sync_first_to_second(&mp_eth_data->mask_3, &m_menu_mask[3]);
+      sync_first_to_second(&mp_eth_data->mask_0, &m_menu_mask[0]);
+      sync_first_to_second(&mp_eth_data->mask_1, &m_menu_mask[1]);
+      sync_first_to_second(&mp_eth_data->mask_2, &m_menu_mask[2]);
+      sync_first_to_second(&mp_eth_data->mask_3, &m_menu_mask[3]);
 
-    sync_first_to_second(&mp_eth_data->gateway_0, &m_menu_gateway[0]);
-    sync_first_to_second(&mp_eth_data->gateway_1, &m_menu_gateway[1]);
-    sync_first_to_second(&mp_eth_data->gateway_2, &m_menu_gateway[2]);
-    sync_first_to_second(&mp_eth_data->gateway_3, &m_menu_gateway[3]);
+      sync_first_to_second(&mp_eth_data->gateway_0, &m_menu_gateway[0]);
+      sync_first_to_second(&mp_eth_data->gateway_1, &m_menu_gateway[1]);
+      sync_first_to_second(&mp_eth_data->gateway_2, &m_menu_gateway[2]);
+      sync_first_to_second(&mp_eth_data->gateway_3, &m_menu_gateway[3]);
 
-    sync_first_to_second(&mp_eth_data->dhcp_on, &m_menu_dhcp);
+      sync_first_to_second(&mp_eth_data->dhcp_on, &m_menu_dhcp);
+    }
   } else if (mp_cur_menu == &m_parent_menu) {
-    if (m_options_changed) {
-      m_options_changed = false;
+    if (mp_eth_data->disable_reading_network_options) {
+      //m_options_changed = false;
       mp_eth_data->apply_network_options = 1;
     }
     set_command(command_show_prev_form);

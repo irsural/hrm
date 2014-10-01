@@ -370,7 +370,7 @@ private:
   irs_advanced_menu_t m_network_menu;
   irs_menu_base_t* mp_cur_menu;
 
-  bool m_options_changed;
+  //bool m_options_changed;
 };
 
 class options_dialog_t: public form_t

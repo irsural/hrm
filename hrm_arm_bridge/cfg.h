@@ -87,8 +87,9 @@ public:
   void set_dhcp(bool a_dhcp);
   void set_mask(mxip_t a_mask);
   void set_gateway(mxip_t a_gateway);
-  void get(mxip_t* ap_ip, mxip_t* ap_mask, mxip_t* ap_gateway);
-  void set(mxip_t a_ip, mxip_t a_mask, mxip_t a_gateway, bool a_dhcp);
+  void get(mxip_t* ap_ip, mxip_t* ap_mask, mxip_t* ap_gateway,
+    bool* ap_dhcp_enabled);
+  void set(mxip_t a_ip, mxip_t a_mask, mxip_t a_gateway, bool a_dhcp_enabled);
 private:
   void reset();
   network_config_t();
@@ -98,10 +99,10 @@ private:
   irs::handle_t<irs::hardflow::lwip::udp_t>* mp_udp_client;
   irs::hardflow::connector_t* mp_connector_hardflow;
   irs::lwip::ethernet_t::configuration_t m_config;
-  mxip_t m_ip;
+  /*mxip_t m_ip;
   bool m_dhcp;
   mxip_t m_mask;
-  mxip_t m_gateway;
+  mxip_t m_gateway;*/
 };
 
 class cfg_t
