@@ -77,6 +77,52 @@ hrm::form_maker_base_t* hrm::form_maker_base_t::get_parent_form_maker()
   return mp_parent_form_maker;
 }
 
+// class screensaver_t
+hrm::screensaver_t::screensaver_t(
+    mxdisplay_drv_service_t *ap_lcd_drv_service,
+    mxkey_event_t* ap_menu_kb_event,
+    eth_data_t* ap_eth_data):
+  form_t(),
+  mp_menu_kb_event(ap_menu_kb_event),
+  mp_eth_data(ap_eth_data),
+  m_str_1_item(),
+  m_str_2_item(),
+  m_str_3_item(),
+  m_str_4_item(),
+  m_main_screen(),
+  mp_cur_menu(&m_main_screen),
+  m_timeout(irs::make_cnt_s(5))
+{
+  m_str_1_item.set_parametr_string("    Высокоомная");
+  m_str_2_item.set_parametr_string("     установка");
+  m_str_3_item.set_parametr_string("     ООО \"РЭС\"");
+  m_str_4_item.set_parametr_string("  www.irsural.ru");
+
+  m_main_screen.set_disp_drv(ap_lcd_drv_service);
+  m_main_screen.set_key_event(ap_menu_kb_event);
+  m_main_screen.set_cursor_symbol(0x01);
+  m_main_screen.creep_stop();
+  m_main_screen.add(&m_str_1_item, 0, 0, IMM_FULL);
+  m_main_screen.add(&m_str_2_item, 0, 1, IMM_FULL);
+  m_main_screen.add(&m_str_3_item, 0, 2, IMM_FULL);
+  m_main_screen.add(&m_str_4_item, 0, 3, IMM_FULL);
+
+  m_timeout.start();
+}
+
+void hrm::screensaver_t::tick()
+{
+  form_t::tick();
+  if (m_timeout.check()) {
+    set_command(command_show_experiment_options_dialog);
+  }
+}
+
+void hrm::screensaver_t::draw()
+{
+  mp_cur_menu->draw(&mp_cur_menu);
+}
+
 // class experiment_options_dialog_t
 hrm::experiment_options_dialog_t::experiment_options_dialog_t(
     mxdisplay_drv_service_t* ap_lcd_drv_service,
@@ -87,7 +133,7 @@ hrm::experiment_options_dialog_t::experiment_options_dialog_t(
   mp_eth_data(ap_eth_data),
   m_mode_item(),
   m_hint_item(),
-  m_r_standard(1),
+  m_r_standard(mp_eth_data->etalon),
   m_r_standard_item(&m_r_standard, true),
   m_r_standard_changed_event(),
 
@@ -101,7 +147,7 @@ hrm::experiment_options_dialog_t::experiment_options_dialog_t(
   m_hint_item.set_parametr_string("€-Пуск");
 
   m_r_standard_item.set_header("Ввод эталона");
-  m_r_standard_item.set_str(mp_user_str, "Rэ ", "Ом", 13, 8,
+  m_r_standard_item.set_str(mp_user_str, "Rэ ", "Ом", r_width, r_precision,
     irs::num_mode_general);
   m_r_standard_item.set_max_value(r_max);
   m_r_standard_item.set_min_value(r_min);
@@ -274,9 +320,9 @@ hrm::experiment_result_t::experiment_result_t(
   mp_eth_data(ap_eth_data),
   m_mode_item(),
   m_r_standard(mp_eth_data->etalon),
-  m_r_standard_item(&m_r_standard, false),
+  m_r_standard_item(&m_r_standard, item_read_only),
   m_r_verifiable(mp_eth_data->result),
-  m_r_verifiable_item(&m_r_verifiable, false),
+  m_r_verifiable_item(&m_r_verifiable, item_read_only),
   m_hint_item(),
   m_main_screen(),
   mp_cur_menu(&m_main_screen)
@@ -311,7 +357,10 @@ void hrm::experiment_result_t::tick()
 {
   form_t::tick();
   m_r_standard = mp_eth_data->etalon;
-  m_r_verifiable = mp_eth_data->result;
+  //m_r_verifiable = mp_eth_data->result;
+  const double ration = mp_eth_data->ratio;
+  const double r_etalon = mp_eth_data->etalon;
+  m_r_verifiable = ration*r_etalon;
   menu_check();
 }
 
@@ -424,13 +473,17 @@ hrm::calculation_errors_dialog_t::calculation_errors_dialog_t(
   m_instability(0),
   m_instability_item(&m_instability, item_read_only),
 
+  m_r_standard(mp_eth_data->etalon),
+  m_r_standard_item(&m_r_standard, true),
+  m_r_standard_changed_event(),
+
   m_main_screen(),
   mp_cur_menu(&m_main_screen),
   m_recalculation_period_timer(irs::make_cnt_s(0.1))
 {
   m_r_nominal_item.set_header("Ввод номинала");
 
-  m_r_nominal_item.set_str(mp_r_nominal_str,
+  m_r_nominal_item.set_str(mp_user_str,
     "Rн ", "Ом", r_width, r_precision, irs::num_mode_general);
   m_r_nominal_item.set_max_value(r_max);
   m_r_nominal_item.set_min_value(r_min);
@@ -438,24 +491,35 @@ hrm::calculation_errors_dialog_t::calculation_errors_dialog_t(
   m_r_nominal_item.set_key_type(IMK_DIGITS);
 
   m_r_prev_user_item.set_header("Ввод предыдущ. знач.");
-  m_r_prev_user_item.set_str(mp_r_prev_user_str,
+  m_r_prev_user_item.set_str(mp_user_str,
     "Rпп", "Ом", r_width, r_precision, irs::num_mode_general);
   m_r_prev_user_item.set_max_value(r_max);
   m_r_prev_user_item.set_min_value(r_min);
   m_r_prev_user_item.add_change_event(&m_r_prev_user_changed_event);
   m_r_prev_user_item.set_key_type(IMK_DIGITS);
 
-  m_deviation_item.set_str(mp_deviation_str, "Откл. ном.", "%",
+  m_deviation_item.set_str(mp_user_str, "Откл. ном.", "%",
     deviation_width, deviation_precision, irs::num_mode_fixed);
   m_deviation_item.set_max_value(m_deviation_max);
   m_deviation_item.set_min_value(m_deviation_min);
   m_deviation_item.set_key_type(IMK_DIGITS);
 
-  m_instability_item.set_str(mp_instability_str, "Нестаб.   ", "%",
+  m_instability_item.set_str(mp_user_str, "Нестаб.   ", "%",
     instability_width, instability_precision, irs::num_mode_fixed);
   m_instability_item.set_max_value(m_instability_max);
   m_instability_item.set_min_value(m_instability_min);
   m_instability_item.set_key_type(IMK_DIGITS);
+
+  m_r_standard_item.set_disp_drv(ap_lcd_drv_service);
+  m_r_standard_item.set_key_event(ap_menu_kb_event);
+  m_r_standard_item.set_cursor_symbol(0x01);
+  m_r_standard_item.set_header("Ввод эталона");
+  m_r_standard_item.set_str(mp_user_str, "Rэ ", "Ом",
+    r_width, r_precision, irs::num_mode_general);
+  m_r_standard_item.set_max_value(r_max);
+  m_r_standard_item.set_min_value(r_min);
+  m_r_standard_item.add_change_event(&m_r_standard_changed_event);
+  m_r_standard_item.set_key_type(IMK_DIGITS);
 
   m_main_screen.set_disp_drv(ap_lcd_drv_service);
   m_main_screen.set_key_event(ap_menu_kb_event);
@@ -489,18 +553,25 @@ void hrm::calculation_errors_dialog_t::menu_check()
     mp_eth_data->prev_user_result = m_r_prev_user;
   }
 
+  if(m_r_standard_changed_event.check()) {
+    mp_eth_data->etalon = m_r_standard;
+  }
+
   if (mp_cur_menu == &m_main_screen) {
-    if (mp_eth_data->checked != m_r_nominal) {
-      m_r_nominal = mp_eth_data->checked;
-    }
-    if (mp_eth_data->prev_user_result != m_r_prev_user) {
-      m_r_prev_user = mp_eth_data->prev_user_result;
-    }
+    sync_first_to_second(&mp_eth_data->checked, &m_r_nominal);
+    sync_first_to_second(&mp_eth_data->prev_user_result, &m_r_prev_user);
+    sync_first_to_second(&mp_eth_data->etalon, &m_r_standard);
+
     if (m_recalculation_period_timer.check()) {
       calc_errors();
     }
     irskey_t key = mp_menu_kb_event->check();
     switch (key) {
+      case irskey_5: {
+        mp_cur_menu = &m_r_standard_item;
+        m_r_standard_item.set_master_menu(&m_main_screen);
+        m_r_standard_item.show();
+      } break;
       case irskey_8: {
         mp_cur_menu = &m_r_nominal_item;
         m_r_nominal_item.set_master_menu(&m_main_screen);
@@ -665,7 +736,7 @@ void hrm::network_options_t::menu_check()
   }
 }
 
-// class settings_dialog_t
+// class options_dialog_t
 hrm::options_dialog_t::options_dialog_t(
     mxdisplay_drv_service_t* ap_lcd_drv_service,
     mxkey_event_t* ap_menu_kb_event,
@@ -789,6 +860,7 @@ hrm::menu_t::menu_t(mxdisplay_drv_service_t* ap_lcd_drv_service,
   mp_eth_data(ap_eth_data),
   mp_form(NULL),
   mp_form_maker(),
+  m_screensaver_maker(),
   m_experiment_options_dialog_maker(),
   m_experiment_progress_maker(),
   m_experiment_result_maker(),
@@ -797,7 +869,12 @@ hrm::menu_t::menu_t(mxdisplay_drv_service_t* ap_lcd_drv_service,
   m_options_dialog_maker()
 
 {
-  show_experiment_options();
+  show_screensaver();
+}
+
+void hrm::menu_t::show_screensaver()
+{
+  reset(&m_screensaver_maker, mp_form_maker);
 }
 
 void hrm::menu_t::show_experiment_options()
@@ -850,6 +927,9 @@ void hrm::menu_t::check_commands()
     } break;
     case form_t::command_show_prev_form: {
       show_prev_form();
+    } break;
+    case form_t::command_show_screensaver: {
+      show_screensaver();
     } break;
     case form_t::command_show_experiment_options_dialog: {
       show_experiment_options();

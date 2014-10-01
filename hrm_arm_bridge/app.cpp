@@ -415,6 +415,14 @@ void hrm::app_t::tick()
       m_eth_data.adc_temperature = m_temperature;
     }
 
+    if ((m_mode == md_free) && (m_free_status == fs_idle)) {
+      if (m_eth_data.apply_network_options == 1) {
+        m_eth_data.apply_network_options = 0;
+        reset_network_config();
+      }
+      network_config_to_eth_data();
+    }
+
     if (m_eth_data.exp_cnt != m_eeprom_data.exp_cnt) {
       m_eeprom_data.exp_cnt = m_eth_data.exp_cnt;
     }
@@ -594,10 +602,6 @@ void hrm::app_t::tick()
           break;
         }
         case fs_idle: {
-          if (m_eth_data.apply_network_options == 1) {
-            m_eth_data.apply_network_options = 0;
-            reset_network_config();
-          }
           if (m_eth_data.apply == 1) {
             m_eth_data.apply = 0;
             m_eth_data.complete = 0;
@@ -1612,6 +1616,29 @@ void hrm::app_t::reset_network_config()
   const bool dhcp_enabled = m_eth_data.dhcp_on;
 
   mp_cfg->network_config.set(ip, mask, gateway, dhcp_enabled);
+}
+
+void hrm::app_t::network_config_to_eth_data()
+{
+  mxip_t ip = mxip_t::zero_ip();
+  mxip_t mask = mxip_t::zero_ip();
+  mxip_t gateway = mxip_t::zero_ip();
+  mp_cfg->network_config.get(&ip, &mask, &gateway);
+
+  m_eth_data.ip_0 = ip.val[0];
+  m_eth_data.ip_1 = ip.val[1];
+  m_eth_data.ip_2 = ip.val[2];
+  m_eth_data.ip_3 = ip.val[3];
+
+  m_eth_data.mask_0 = mask.val[0];
+  m_eth_data.mask_1 = mask.val[1];
+  m_eth_data.mask_2 = mask.val[2];
+  m_eth_data.mask_3 = mask.val[3];
+
+  m_eth_data.gateway_0 = gateway.val[0];
+  m_eth_data.gateway_1 = gateway.val[1];
+  m_eth_data.gateway_2 = gateway.val[2];
+  m_eth_data.gateway_3 = gateway.val[3];
 }
 
 //double hrm::app_t::calc_elab_code(vector<elab_point_t>* ap_elab_vector,

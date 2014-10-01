@@ -87,6 +87,7 @@ public:
   void set_dhcp(bool a_dhcp);
   void set_mask(mxip_t a_mask);
   void set_gateway(mxip_t a_gateway);
+  void get(mxip_t* ap_ip, mxip_t* ap_mask, mxip_t* ap_gateway);
   void set(mxip_t a_ip, mxip_t a_mask, mxip_t a_gateway, bool a_dhcp);
 private:
   void reset();

@@ -269,6 +269,7 @@ private:
   void init_encoder_drv();
   void print_elab_result();
   void reset_network_config();
+  void network_config_to_eth_data();
   double only_calc_elab_code(vector<elab_point_t>* ap_elab_vector,
     size_t a_num, size_t a_cnt);
   void print_elab_result(vector<elab_point_t>* ap_elab_vector,

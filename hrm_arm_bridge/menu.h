@@ -41,6 +41,7 @@ public:
     command_no,
     command_show_parent_form,
     command_show_prev_form,
+    command_show_screensaver,
     command_show_experiment_options_dialog,
     command_show_experiment_progress,
     command_show_experiment_result,
@@ -107,6 +108,34 @@ public:
     reset_form(form);
     return form.get();
   }
+};
+
+class screensaver_t: public form_t
+{
+public:
+  typedef size_t size_type;
+  typedef irs::string_t string_type;
+
+  enum command_t {
+    command_stop
+  };
+  screensaver_t(
+    mxdisplay_drv_service_t* ap_lcd_drv_service,
+    mxkey_event_t* ap_menu_kb_event, eth_data_t* ap_eth_data);
+  virtual void tick();
+  irs::generator_events_1_t<command_t>* on_command();
+private:
+  virtual void draw();
+  mxkey_event_t* mp_menu_kb_event;
+  eth_data_t* mp_eth_data;
+  irs_menu_string_item_t m_str_1_item;
+  irs_menu_string_item_t m_str_2_item;
+  irs_menu_string_item_t m_str_3_item;
+  irs_menu_string_item_t m_str_4_item;
+
+  irs_advanced_tablo_t m_main_screen;
+  irs_menu_base_t* mp_cur_menu;
+  irs::timer_t m_timeout;
 };
 
 class experiment_options_dialog_t: public form_t
@@ -288,11 +317,12 @@ private:
   double m_instability;
   irs_menu_double_item_t m_instability_item;
 
+  double m_r_standard;
+  irs_menu_double_item_t m_r_standard_item;
+  mxfact_event_t m_r_standard_changed_event;
+
   enum { buffer_str_len = 30 };
-  char mp_r_nominal_str[buffer_str_len + 1];
-  char mp_r_prev_user_str[buffer_str_len + 1];
-  char mp_deviation_str[buffer_str_len + 1];
-  char mp_instability_str[buffer_str_len + 1];
+  char mp_user_str[buffer_str_len + 1];
 
   irs_advanced_tablo_t m_main_screen;
 
@@ -419,6 +449,7 @@ class menu_t
 public:
   menu_t(mxdisplay_drv_service_t* ap_lcd_drv_service,
     mxkey_event_t* ap_menu_kb_event, eth_data_t* ap_eth_data);
+  void show_screensaver();
   void show_experiment_options();
   void show_experiment_progress();
   void show_experiment_result();
@@ -439,6 +470,7 @@ private:
   form_t* mp_form;
 
   form_maker_base_t* mp_form_maker;
+  form_maker_t<screensaver_t> m_screensaver_maker;
   form_maker_t<experiment_options_dialog_t> m_experiment_options_dialog_maker;
   form_maker_t<experiment_progress_t> m_experiment_progress_maker;
   form_maker_t<experiment_result_t> m_experiment_result_maker;
