@@ -957,7 +957,8 @@ void hrm::app_t::tick()
 
           m_exp_time = 0;
           m_sum_time = 0;
-          m_remaining_time = 60; // Пока не реализован расчет времени!!!!!
+          m_eth_data.sum_time = 0;
+          m_remaining_time = 50; // Пока не реализован расчет времени!!!!!
           m_optimize_balance = m_eth_data.optimize_balance;
 
           m_adc.set_additional_gain(m_eth_data.adc_additional_gain);
