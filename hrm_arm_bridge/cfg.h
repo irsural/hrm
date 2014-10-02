@@ -22,8 +22,6 @@
 
 #include <irsfinal.h>
 
-#define LWIP
-
 namespace hrm {
 
 //#define HRM_DEBUG
