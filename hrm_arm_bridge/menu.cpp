@@ -687,7 +687,6 @@ void hrm::network_options_t::menu_check()
     mp_eth_data->ip_1 = m_menu_ip[1];
     mp_eth_data->ip_2 = m_menu_ip[2];
     mp_eth_data->ip_3 = m_menu_ip[3];
-    //m_options_changed = true;
     mp_eth_data->disable_reading_network_options = 1;
   }
 
@@ -696,7 +695,6 @@ void hrm::network_options_t::menu_check()
     mp_eth_data->mask_1 = m_menu_mask[1];
     mp_eth_data->mask_2 = m_menu_mask[2];
     mp_eth_data->mask_3 = m_menu_mask[3];
-    //m_options_changed = true;
     mp_eth_data->disable_reading_network_options = 1;
   }
 
@@ -705,13 +703,11 @@ void hrm::network_options_t::menu_check()
     mp_eth_data->gateway_1 = m_menu_gateway[1];
     mp_eth_data->gateway_2 = m_menu_gateway[2];
     mp_eth_data->gateway_3 = m_menu_gateway[3];
-    //m_options_changed = true;
     mp_eth_data->disable_reading_network_options = 1;
   }
 
   if (m_trans_dhcp_event.check()) {
     mp_eth_data->dhcp_on = m_menu_dhcp;
-    //m_options_changed = true;
     mp_eth_data->disable_reading_network_options = 1;
   }
   if (mp_cur_menu == &m_network_menu) {
@@ -735,7 +731,6 @@ void hrm::network_options_t::menu_check()
     }
   } else if (mp_cur_menu == &m_parent_menu) {
     if (mp_eth_data->disable_reading_network_options) {
-      //m_options_changed = false;
       mp_eth_data->apply_network_options = 1;
     }
     set_command(command_show_prev_form);

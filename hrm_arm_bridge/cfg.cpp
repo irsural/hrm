@@ -89,22 +89,10 @@ hrm::cfg_t::cfg_t():
   m_local_mac(irs::arm::st_generate_mac(irs::device_code_hrm)),
   m_config(),
   m_arm_eth(1500, m_local_mac, m_config),
-  #ifndef LWIP
-  m_local_ip(mxip_t::zero_ip()),
-  m_local_port(5005),
-  m_dest_ip(irs::make_mxip(IP_0, IP_1, IP_2, IP_3)),
-  m_dest_port(5005),
-  m_tcpip(&m_arm_eth, m_local_ip, m_dest_ip, 10),
-  #endif // !LWIP
-  #ifdef LWIP
   lwip_ethernet(),
   udp_client(),
   connector_hardflow(NULL),
   network_config(&m_arm_eth, &lwip_ethernet, &udp_client, &connector_hardflow),
-  #else // !LWIP
-  simple_hardflow(&m_tcpip, m_local_ip, m_local_port,
-    m_dest_ip, m_dest_port, 10),
-  #endif // !LWIP
 
   m_spi_bitrate(1000),
   spi(IRS_SPI1_BASE, m_spi_bitrate, PA5, PA6, PB5,
@@ -171,14 +159,9 @@ hrm::cfg_t::cfg_t():
 void hrm::cfg_t::tick()
 {
   m_arm_eth.tick();
-  #ifdef LWIP
   IRS_LIB_ASSERT(!lwip_ethernet.is_empty());
   IRS_LIB_ASSERT(!udp_client.is_empty());
   lwip_ethernet->tick();
   udp_client->tick();
   connector_hardflow.tick();
-  #else // !LWIP
-  m_tcpip.tick();
-  simple_hardflow.tick();
-  #endif // !LWIP
 }
