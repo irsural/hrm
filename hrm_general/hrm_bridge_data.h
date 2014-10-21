@@ -92,6 +92,9 @@ struct eth_data_t {
   irs::bit_data_t start_adc_sequence;
   irs::bit_data_t auto_elab_step;
   irs::bit_data_t adc_simply_show;
+  irs::bit_data_t termostat_off;
+  irs::bit_data_t termostat_is_off;
+  irs::bit_data_t adc_meas_process;
   irs::conn_data_t<adc_value_t> adc_filter_constant;
   irs::conn_data_t<adc_value_t> adc_filter_value;
   irs::conn_data_t<irs_u32> adc_average_skip_cnt;
@@ -108,6 +111,7 @@ struct eth_data_t {
   irs::conn_data_t<dac_value_t> elab_step_multiplier;
   irs::conn_data_t<double> elab_max_delta;
   irs::conn_data_t<double> external_temperature;
+  irs::conn_data_t<double> termostat_off_pause;
   irs::conn_data_t<irs_u8> ip_0;  //  1 byte
   irs::conn_data_t<irs_u8> ip_1;  //  1 byte
   irs::conn_data_t<irs_u8> ip_2;  //  1 byte
@@ -218,6 +222,9 @@ struct eth_data_t {
     start_adc_sequence.connect(ap_data, index, 2);
     auto_elab_step.connect(ap_data, index, 3);
     adc_simply_show.connect(ap_data, index, 4);
+    termostat_off.connect(ap_data, index, 5);
+    termostat_is_off.connect(ap_data, index, 6);
+    adc_meas_process.connect(ap_data, index, 7);
     index = options.connect(ap_data, index);
 
     index= adc_filter_constant.connect(ap_data, index);
@@ -238,6 +245,7 @@ struct eth_data_t {
     index = elab_step_multiplier.connect(ap_data, index);
     index = elab_max_delta.connect(ap_data, index);
     index = external_temperature.connect(ap_data, index);
+    index = termostat_off_pause.connect(ap_data, index);
 
     index = ip_0.connect(ap_data, index);
     index = ip_1.connect(ap_data, index);
@@ -309,6 +317,7 @@ struct eeprom_data_t {
   irs::conn_data_t<irs_u8> gateway_2;     //  1 byte
   irs::conn_data_t<irs_u8> gateway_3;     //  1 byte
   irs::bit_data_t dhcp_on;                //  1 bit
+  irs::conn_data_t<double> termostat_off_pause;
 
   eeprom_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
@@ -367,6 +376,8 @@ struct eeprom_data_t {
     index = gateway_2.connect(ap_data, index);
     index = gateway_3.connect(ap_data, index);
     index = dhcp_on.connect(ap_data, index, 0);
+    index+=4;
+    index = termostat_off_pause.connect(ap_data, index);
     return index;
   }
   inline void reset_to_default()
@@ -419,6 +430,8 @@ struct eeprom_data_t {
     gateway_3 = HRM_GATEWAY_3;
 
     dhcp_on = HRM_DHCP_ON;
+    
+    termostat_off_pause = 3.1459;
   }
 };
 
