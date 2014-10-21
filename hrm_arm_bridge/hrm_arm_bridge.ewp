@@ -300,6 +300,7 @@
           <state>$PROJ_DIR$\</state>
           <state>$PROJ_DIR$\..\mxsrclib\</state>
           <state>$PROJ_DIR$\..\mxsrclib\arch\arm\</state>
+          <state>$PROJ_DIR$\..\mxsrclib\utils\libconfig\</state>
           <state>$PROJ_DIR$\..\hrm_general\</state>
           <state>$PROJ_DIR$\..\extern_libs\st\STM32F4xx_DSP_StdPeriph_Lib\Libraries\STM32F4xx_StdPeriph_Driver\inc</state>
           <state>$PROJ_DIR$\..\extern_libs\st\STM32F4xx_DSP_StdPeriph_Lib\Libraries\CMSIS\Device\ST\STM32F4xx\Include</state>

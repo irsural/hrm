@@ -63,17 +63,20 @@ private:
     bs_meas_temperature,
     bs_wait_temperature,
     bs_dac_prepare,
+    bs_termostat_off_adc_start,
     bs_adc_start,
     bs_adc_wait,
     bs_adc_average,
     bs_balance,
     bs_dac_set,
+    bs_termostat_off_dac_wait,
     bs_dac_wait,
     bs_elab_prepare,
     bs_elab_start,
     bs_elab_relay_on,
     bs_elab_relay_wait,
     bs_elab_dac_set,
+    bs_termostat_off_elab_adc_start,
     bs_elab_adc_start,
     bs_elab_adc_wait,
     bs_elab_result,
@@ -261,6 +264,8 @@ private:
   irs::event_t m_escape_pressed_event;
 
   r_standard_type_t m_r_standard_type;
+  
+  termostat_t m_termostat;
 
 
 //  double calc_elab_code(vector<elab_point_t>* ap_elab_vector,

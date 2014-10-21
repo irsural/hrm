@@ -49,6 +49,8 @@ void main()
   irs::arm::io_pin_t m_memory_chip_select_pin(GPIO_PORTD, 7, irs::io_t::dir_out,
     irs::io_pin_on);
 
+  irs::pause(irs::make_cnt_s(1));
+  
   static hrm::cfg_t cfg;
   app_start(&cfg);
 }
@@ -57,7 +59,7 @@ void app_start(hrm::cfg_t* ap_cfg)
 {
   static hrm::app_t app(ap_cfg);
 
-  irs::mlog() << irsm("------------- START -------------") << endl;
+  //irs::mlog() << irsm("------------- START -------------") << endl;
   while(true) {
     #ifdef HRM_DEBUG
     static const counter_t period = irs::make_cnt_s(1);

@@ -442,6 +442,23 @@ private:
   }
 };
 
+class termostat_t
+{
+public:
+  explicit termostat_t(irs::gpio_pin_t* ap_off_pin);
+  ~termostat_t() {};
+  void set_off(bool a_off);
+  bool is_off();
+  irs_status_t status();
+  void set_after_pause(counter_t a_after_pause);
+  void tick();
+private:
+  irs::gpio_pin_t* mp_off_pin;
+  bool m_is_off;
+  irs::timer_t m_timer;
+  irs_status_t m_status;
+};
+
 }
 
 #endif  //  utilsH

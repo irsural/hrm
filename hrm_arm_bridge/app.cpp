@@ -122,7 +122,8 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_buzzer(&mp_cfg->buzzer),
   mp_menu(),
   m_escape_pressed_event(),
-  m_r_standard_type(r_standard_type_original)
+  m_r_standard_type(r_standard_type_original),
+  m_termostat(&mp_cfg->thst_off)
 {
 
   init_keyboard_drv();
@@ -274,6 +275,11 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_relay_bridge_pos.set_after_pause(m_relay_after_pause);
   m_relay_bridge_neg.set_after_pause(m_relay_after_pause);
   m_relay_prot.set_after_pause(m_relay_after_pause);
+  
+  m_eth_data.termostat_off_pause = m_eeprom_data.termostat_off_pause;
+  m_termostat.set_after_pause(
+    //DBLTIME_TO_CNT(5.1));
+    DBLTIME_TO_CNT(m_eeprom_data.termostat_off_pause));
 
   //  ЖКИ и клавиатура
   m_lcd_drv_service.connect(&m_lcd_drv);
@@ -307,7 +313,7 @@ void hrm::app_t::init_encoder_drv()
 }
 
 void hrm::app_t::tick()
-{
+{ 
   mp_cfg->tick();
   m_mxnet_server.tick();
   m_eeprom.tick();
@@ -326,6 +332,8 @@ void hrm::app_t::tick()
 
   m_lcd_drv.tick();
   m_keyboard_event_gen.tick();
+  
+  m_termostat.tick();
 
   if (m_buzzer_kb_event.check()) {
     m_buzzer.bzz();
@@ -517,7 +525,17 @@ void hrm::app_t::tick()
     sync_first_to_second(&m_eth_data.gateway_3, &m_eeprom_data.gateway_3);
 
     sync_first_to_second(&m_eth_data.dhcp_on, &m_eeprom_data.dhcp_on);
-
+    
+    m_eth_data.termostat_is_off = m_termostat.is_off();
+    if (m_eth_data.termostat_off_pause != m_eeprom_data.termostat_off_pause) {
+      m_eeprom_data.termostat_off_pause = m_eth_data.termostat_off_pause;
+    }
+    
+    if (m_adc.status() == irs_st_ready) {
+      m_eth_data.adc_meas_process = 0;
+    } else {
+      m_eth_data.adc_meas_process = 1;
+    }
   }
   if (m_blink_timer.check()) {
     if (m_blink) {
@@ -564,6 +582,8 @@ void hrm::app_t::tick()
           m_eth_data.prepare_pause = m_prepare_pause;
           m_service_timer.start();
           m_meas_temperature = false;
+          m_termostat.set_off(false);
+          m_eth_data.termostat_off = 0;
           m_free_status = fs_wait;
           break;
         }
@@ -706,6 +726,14 @@ void hrm::app_t::tick()
             if (m_eth_data.start_adc_sequence == 1) {
               m_eth_data.start_adc_sequence = 0;
               m_manual_status = ms_adc_show;
+            }
+            //
+            bool thst_is_off = false;
+            if (m_eth_data.termostat_off) {
+              thst_is_off = true;
+            }
+            if (thst_is_off != m_termostat.is_off()) {
+              m_termostat.set_off(thst_is_off);
             }
           } break;
         }
@@ -952,6 +980,11 @@ void hrm::app_t::tick()
           m_elab_polarity = bp_neg;
           m_elab_step_multiplier = m_eth_data.elab_step_multiplier;
           m_elab_max_delta = m_eth_data.elab_max_delta;
+          
+          m_termostat.set_off(false);
+          m_termostat.set_after_pause(
+            //DBLTIME_TO_CNT(5.2));
+            DBLTIME_TO_CNT(m_eth_data.termostat_off_pause));
 
           m_balance_status = bs_set_prot;
           break;
@@ -1088,12 +1121,20 @@ void hrm::app_t::tick()
             m_dac_step_amplitude = 0.0;
             m_dac.on();
             m_prev_elab_vector.clear();
+            m_balance_status = bs_termostat_off_adc_start;
+          }
+          break;
+        }
+        case bs_termostat_off_adc_start: {
+          if(m_dac.ready()) {
+            m_termostat.set_off(true);
             m_balance_status = bs_adc_start;
           }
           break;
         }
         case bs_adc_start: {
-          if (m_adc.status() == irs_st_ready && m_dac.ready()) {
+          if (m_adc.status() == irs_st_ready 
+              && m_termostat.status() == irs_st_ready) {
             m_adc.start_conversion();
             m_balance_status = bs_adc_wait;
           }
@@ -1101,6 +1142,7 @@ void hrm::app_t::tick()
         }
         case bs_adc_wait: {
           if (m_adc.status() == irs_st_ready) {
+            m_termostat.set_off(false);
             bool m_prev_balance_completed = false;
             m_voltage = m_adc.avg();
             if (abs(m_voltage) < 0.99 * m_adc.max_value() &&
@@ -1214,12 +1256,19 @@ void hrm::app_t::tick()
         case bs_dac_set: {
           if (m_dac.ready()) {
             m_dac.set_code(m_dac_code);
+            m_balance_status = bs_termostat_off_dac_wait;
+          }
+          break;
+        }
+        case bs_termostat_off_dac_wait: {
+          if (m_dac.ready()) {
+            m_termostat.set_off(true);
             m_balance_status = bs_dac_wait;
           }
           break;
         }
         case bs_dac_wait: {
-          if (m_dac.ready()) {
+          if (m_termostat.status() == irs_st_ready) {
             m_balance_status = bs_adc_start;
           }
           break;
@@ -1259,8 +1308,7 @@ void hrm::app_t::tick()
 
             bool invalid_experiment = false;
 
-            if (m_elab_step > m_dac.max_code()
-                || m_elab_step < m_dac.min_code()) {
+            if (m_elab_step > (m_dac.max_code() - m_dac.min_code())) {
               invalid_experiment = true;
             }
             if (m_balanced_dac_code > m_dac.max_code()
@@ -1343,7 +1391,7 @@ void hrm::app_t::tick()
         case bs_elab_dac_set: {
           if (m_dac.ready()) {
             m_dac.set_code(m_dac_code);
-            m_balance_status = bs_elab_adc_start;
+            m_balance_status = bs_termostat_off_elab_adc_start;
           } else {
             if (m_adc.status() == irs_st_ready) {
               m_voltage = m_adc.avg();
@@ -1352,8 +1400,15 @@ void hrm::app_t::tick()
           }
           break;
         }
-        case bs_elab_adc_start: {
+        case bs_termostat_off_elab_adc_start: {
           if (m_dac.ready()) {
+            m_termostat.set_off(true);
+            m_balance_status = bs_elab_adc_start;
+          }
+          break;
+        }
+        case bs_elab_adc_start: {
+          if (m_termostat.status() == irs_st_ready) {
             m_adc.start_conversion();
             m_balance_status = bs_elab_adc_wait;
           }
@@ -1361,6 +1416,7 @@ void hrm::app_t::tick()
         }
         case bs_elab_adc_wait: {
           if (m_adc.status() == irs_st_ready) {
+            m_termostat.set_off(false);
             m_voltage = m_adc.avg();
             elab_point_t elab_point;
             elab_point.dac = m_dac.get_code();

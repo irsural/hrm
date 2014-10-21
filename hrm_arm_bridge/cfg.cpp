@@ -94,11 +94,6 @@ hrm::cfg_t::cfg_t():
   connector_hardflow(NULL),
   network_config(&m_arm_eth, &lwip_ethernet, &udp_client, &connector_hardflow),
 
-  m_spi_bitrate(1000),
-  spi(IRS_SPI1_BASE, m_spi_bitrate, PA5, PA6, PB5,
-    irs::arm::arm_spi_t::gpio_speed_25mhz),
-  spi_th(IRS_SPI3_I2S3_BASE, m_spi_bitrate, PC10, PC11, PC12),
-
   vben(GPIO_PORTG, 4, irs::io_t::dir_out, irs::io_pin_on),
   ee_cs(GPIO_PORTC, 13, irs::io_t::dir_out, irs::io_pin_on),
   lcd_port(GPIO_PORTE, 0xFF, irs::io_t::dir_open_drain, 0),
@@ -132,7 +127,13 @@ hrm::cfg_t::cfg_t():
   led_pon(GPIO_PORTB, 8, irs::io_t::dir_out, irs::io_pin_off),
   buzzer(irs::handle_t<irs::pwm_gen_t>(
     new irs::arm::st_pwm_gen_t(PB6, IRS_TIM4_BASE, 4000, 0.5))),
+  thst_off(GPIO_PORTB, 10, irs::io_t::dir_out, irs::io_pin_off),
 
+  m_spi_bitrate(1000),
+  spi(IRS_SPI1_BASE, m_spi_bitrate, PA5, PA6, PB5,
+    irs::arm::arm_spi_t::gpio_speed_25mhz),
+  spi_th(IRS_SPI3_I2S3_BASE, m_spi_bitrate, PC10, PC11, PC12),
+  
   adc_exti()
 {
   key_drv_horizontal_pins.push_back(irs::handle_t<irs::gpio_pin_t>(

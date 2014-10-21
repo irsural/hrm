@@ -115,10 +115,6 @@ public:
   irs::hardflow::connector_t connector_hardflow;
   network_config_t network_config;
 
-  irs_u32 m_spi_bitrate;
-  irs::arm::arm_spi_t spi;
-  irs::arm::arm_spi_t spi_th;
-
   irs::arm::io_pin_t vben;
   irs::arm::io_pin_t ee_cs;
   irs::arm::io_port_t lcd_port;
@@ -150,7 +146,12 @@ public:
   irs::arm::io_pin_t led_hf;
   irs::arm::io_pin_t led_pon;
   irs::pwm_pin_t buzzer;
+  irs::arm::io_pin_t thst_off;
 
+  irs_u32 m_spi_bitrate;
+  irs::arm::arm_spi_t spi;
+  irs::arm::arm_spi_t spi_th;
+  
   adc_exti_t adc_exti;
 };
 

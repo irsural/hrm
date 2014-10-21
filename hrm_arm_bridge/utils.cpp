@@ -1127,3 +1127,51 @@ void hrm::ad7799_cread_t::tick()
     } break;
   }
 }
+
+//------------------------------------------------------------------------------
+
+hrm::termostat_t::termostat_t(irs::gpio_pin_t* ap_off_pin):
+  mp_off_pin(ap_off_pin),
+  m_is_off(false),
+  m_timer(0),
+  m_status(irs_st_ready)
+{
+}
+
+void hrm::termostat_t::set_off(bool a_off)
+{
+  if (a_off) {
+    mp_off_pin->set();
+    //irs::mlog() << irsm("Термостат OFF") << endl;
+  } else {
+    mp_off_pin->clear();
+    //irs::mlog() << irsm("Термостат ON") << endl;
+  }
+  m_status = irs_st_busy;
+  m_timer.start();
+}
+
+bool hrm::termostat_t::is_off()
+{
+  return mp_off_pin->pin();
+}
+
+void hrm::termostat_t::set_after_pause(counter_t a_after_pause)
+{
+  m_timer.set(a_after_pause);
+  irs::mlog() << irsm("Термостат пауза ") << CNT_TO_DBLTIME(a_after_pause);
+  irs::mlog() << irsm(" с.") << endl;
+}
+
+irs_status_t hrm::termostat_t::status()
+{
+  return m_status;
+}
+
+void hrm::termostat_t::tick()
+{
+  if (m_timer.check()) {
+    m_status = irs_st_ready;
+    //irs::mlog() << irsm("Термостат готов") << endl;
+  }
+}
