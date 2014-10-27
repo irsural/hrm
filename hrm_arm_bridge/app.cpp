@@ -43,18 +43,26 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_blink_timer(irs::make_cnt_ms(500)),
   m_service_timer(irs::make_cnt_ms(1000)),
   m_blink(false),
+//  m_relay_bridge_pos(
+//    &mp_cfg->relay_bridge_pos_off,
+//    &mp_cfg->relay_bridge_pos_on,
+//    irst("BPOS"),
+//    0,
+//    irs::make_cnt_ms(100)),
+//  m_relay_bridge_neg(
+//    &mp_cfg->relay_bridge_neg_off,
+//    &mp_cfg->relay_bridge_neg_on,
+//    irst("BNEG"),
+//    0,
+//    irs::make_cnt_ms(100)),
   m_relay_bridge_pos(
-    &mp_cfg->relay_bridge_pos_off,
     &mp_cfg->relay_bridge_pos_on,
     irst("BPOS"),
-    0,
-    irs::make_cnt_ms(100)),
+    0),
   m_relay_bridge_neg(
-    &mp_cfg->relay_bridge_neg_off,
     &mp_cfg->relay_bridge_neg_on,
     irst("BNEG"),
-    0,
-    irs::make_cnt_ms(100)),
+    0),
   m_relay_prot(&mp_cfg->relay_prot, irst("PROT"), 1),
   m_mode(md_free),
   m_free_status(fs_prepare),
@@ -575,8 +583,8 @@ void hrm::app_t::tick()
           //
           m_adc.hide();
           //
-          m_relay_bridge_pos.set_wild(false);
-          m_relay_bridge_neg.set_wild(false);
+          //m_relay_bridge_pos.set_wild(false);
+          //m_relay_bridge_neg.set_wild(false);
           //
           m_eth_data.apply = 0;
           m_eth_data.prepare_pause = m_prepare_pause;
@@ -917,8 +925,8 @@ void hrm::app_t::tick()
           m_wild_relays = m_eth_data.wild_relays;
           m_eeprom_data.wild_relays = m_wild_relays;
           if (m_wild_relays) {
-            m_relay_bridge_pos.set_wild(true);
-            m_relay_bridge_neg.set_wild(true);
+            //m_relay_bridge_pos.set_wild(true);
+            //m_relay_bridge_neg.set_wild(true);
           }
 
           m_relay_pause_timer.set(m_relay_after_pause);

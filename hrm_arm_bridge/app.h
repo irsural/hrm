@@ -179,8 +179,10 @@ private:
   irs::loop_timer_t m_blink_timer;
   irs::timer_t m_service_timer;
   bool m_blink;
-  bi_relay_t m_relay_bridge_pos;
-  bi_relay_t m_relay_bridge_neg;
+  //bi_relay_t m_relay_bridge_pos;
+  //bi_relay_t m_relay_bridge_neg;
+  mono_relay_t m_relay_bridge_pos;
+  mono_relay_t m_relay_bridge_neg;
   mono_relay_t m_relay_prot;
 
   mode_t m_mode;
