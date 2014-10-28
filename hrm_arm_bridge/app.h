@@ -147,6 +147,10 @@ private:
     double start_code;
     double code;
   };
+  enum elab_mode_t {
+    m_linear = 0,
+    m_pid = 1
+  };
 
   cfg_t* mp_cfg;
   eth_data_t m_eth_data;
@@ -268,7 +272,7 @@ private:
   r_standard_type_t m_r_standard_type;
   
   termostat_t m_termostat;
-
+  elab_mode_t m_elab_mode;
 
 //  double calc_elab_code(vector<elab_point_t>* ap_elab_vector,
 //    balancing_coil_t a_balancing_coil, etalon_polarity_t a_etpol = ep_neg);

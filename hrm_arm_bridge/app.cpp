@@ -131,7 +131,8 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   mp_menu(),
   m_escape_pressed_event(),
   m_r_standard_type(r_standard_type_original),
-  m_termostat(&mp_cfg->thst_off)
+  m_termostat(&mp_cfg->thst_off),
+  m_elab_mode(m_linear)
 {
 
   init_keyboard_drv();
@@ -255,6 +256,11 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
 
   m_elab_max_delta = m_eeprom_data.elab_max_delta;
   m_eth_data.elab_max_delta = m_elab_max_delta;
+  
+  m_elab_mode = m_eeprom_data.elab_mode;
+  m_eth_data.elab_mode = m_elab_mode;
+  m_elab_pid.kp = m_eeprom_data.elab_mode;
+  m_eth_data.elab_mode = m_elab_mode;
 
   mp_cfg->vben.set();
 
@@ -513,6 +519,18 @@ void hrm::app_t::tick()
     }
     if (m_eth_data.elab_max_delta != m_eeprom_data.elab_max_delta) {
       m_eeprom_data.elab_max_delta = m_eth_data.elab_max_delta;
+    }
+    if (m_eth_data.elab_mode != m_eeprom_data.elab_mode) {
+      m_eeprom_data.elab_mode = m_eth_data.elab_mode;
+    }
+    if (m_eth_data.elab_pid_kp != m_eeprom_data.elab_pid_kp) {
+      m_eeprom_data.elab_pid_kp = m_eth_data.elab_pid_kp;
+    }
+    if (m_eth_data.elab_pid_ki != m_eeprom_data.elab_pid_ki) {
+      m_eeprom_data.elab_pid_ki = m_eth_data.elab_pid_ki;
+    }
+    if (m_eth_data.elab_pid_kd != m_eeprom_data.elab_pid_kd) {
+      m_eeprom_data.elab_pid_kd = m_eth_data.elab_pid_kd;
     }
     m_eth_data.external_temperature = m_ext_th_data.temperature_code *
       m_ext_th.get_conv_koef();
