@@ -938,7 +938,9 @@ hrm::ad7799_cread_t::ad7799_cread_t(irs::spi_t *ap_spi,
   m_additional_gain(0.0),
   m_ref(0.0),
   m_avg(0.0),
-  m_sko(0.0)
+  m_sko(0.0),
+  m_time_counter_prev(0),
+  m_time_counter(0)
 {
   mp_cs_pin->set();
   m_cur_point.value = 0;
@@ -951,6 +953,8 @@ hrm::ad7799_cread_t::ad7799_cread_t(irs::spi_t *ap_spi,
 void hrm::ad7799_cread_t::start_conversion()
 {
   if (m_status == st_free) {
+    m_time_counter_prev = m_time_counter;
+    m_time_counter = counter_get();
     m_value_vector.clear();
     m_status = st_spi_prepare;
     m_return_status = irs_st_busy;
@@ -971,6 +975,39 @@ void hrm::ad7799_cread_t::event()
     //mp_cs_pin->set();
     m_status = st_spi_wait_stop;
   }
+}
+
+double hrm::ad7799_cread_t::get_adc_frequency()
+{
+  double freq = 0.0;
+//  switch (m_filter) {
+//    case  0: freq = 0.000; break;
+//    case  1: freq = 500.0; break;
+//    case  2: freq = 250.0; break;
+//    case  3: freq = 125.0; break;
+//    case  4: freq = 62.50; break;
+//    case  5: freq = 50.00; break;
+//    case  6: freq = 39.20; break;
+//    case  7: freq = 33.30; break;
+//    case  8: freq = 19.60; break;
+//    case  9: freq = 16.70; break;
+//    case 10: freq = 16.70; break;
+//    case 11: freq = 12.50; break;
+//    case 12: freq = 10.00; break;
+//    case 13: freq = 8.330; break;
+//    case 14: freq = 6.250; break;
+//    case 15: freq = 4.170; break;
+//  }
+//  if (m_cnv_cnt > 0) {
+//    freq /= m_cnv_cnt;
+//  }
+  freq = CNT_TO_DBLTIME(m_time_counter - m_time_counter_prev);
+  if (freq > 0.0) {
+    freq = 1.0 / freq;
+  } else {
+    freq = 0.0;
+  }
+  return freq;
 }
 
 void hrm::ad7799_cread_t::tick()

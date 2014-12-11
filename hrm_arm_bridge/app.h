@@ -11,6 +11,7 @@
 #include <irslimits.h>
 #include <irsmem.h>
 #include <irsmenu.h>
+#include <irsdsp.h>
 
 #include <hrm_bridge_data.h>
 
@@ -88,9 +89,14 @@ private:
   };
   enum manual_status_t {
     ms_prepare,
+    ms_adc_setup,
     ms_check_user_changes,
     ms_adc_show,
-    ms_adc_hide
+    ms_adc_hide,
+    ms_pid_start,
+    ms_pid_process,
+    ms_pid_reset,
+    ms_pid_reset_wait
   };
   enum scan_status_t {
     ss_prepare,
@@ -272,10 +278,23 @@ private:
   r_standard_type_t m_r_standard_type;
   
   termostat_t m_termostat;
-  elab_mode_t m_elab_mode;
+  irs_u8 m_elab_mode;
+  irs::pid_data_t m_elab_pid;
+  bool m_elab_pid_on;
+  double m_elab_pid_kp;
+  double m_elab_pid_ki;
+  double m_elab_pid_kd;
+  irs::isodr_data_t m_elab_iso;
+  double m_elab_iso_k;
+  double m_elab_iso_t;
+  const counter_t m_min_after_pause;
+  double m_elab_pid_fade_t;
+  irs::fade_data_t m_elab_pid_fade;
+  irs::fast_sko_t<double, double> m_elab_pid_sko;
+  double m_elab_pid_target_sko;
+  double m_elab_pid_target_sko_norm;
+  double m_elab_pid_ref;
 
-//  double calc_elab_code(vector<elab_point_t>* ap_elab_vector,
-//    balancing_coil_t a_balancing_coil, etalon_polarity_t a_etpol = ep_neg);
   void init_keyboard_drv();
   void init_encoder_drv();
   void print_elab_result();
@@ -291,6 +310,9 @@ private:
       && (m_relay_bridge_neg.status() == irs_st_ready);
   }
   void print_voltage(adc_value_t a_value);
+  void update_elab_pid_koefs();
+  dac_value_t norm(dac_value_t a_in);
+  dac_value_t denorm(dac_value_t a_in);
 };
 
 } //  hrm

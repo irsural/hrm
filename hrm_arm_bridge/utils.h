@@ -366,6 +366,7 @@ public:
     { m_pause_interval = a_pause_interval; }
   inline void set_cnv_cnt(size_t a_cnv_cnt) { m_cnv_cnt = a_cnv_cnt; }
   inline void set_skip_cnt(size_t a_skip_cnt) { m_skip_cnt = a_skip_cnt; }
+  double get_adc_frequency();
   void tick();
 private:
   enum status_t {
@@ -432,6 +433,8 @@ private:
   adc_value_t m_ref;
   adc_value_t m_avg;
   adc_value_t m_sko;
+  counter_t m_time_counter_prev;
+  counter_t m_time_counter;
   void event();
   inline adc_value_t convert_value(irs_i32 a_in_value)
   {

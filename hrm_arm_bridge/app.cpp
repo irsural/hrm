@@ -132,9 +132,57 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_escape_pressed_event(),
   m_r_standard_type(r_standard_type_original),
   m_termostat(&mp_cfg->thst_off),
-  m_elab_mode(m_linear)
+  m_elab_mode(m_linear),
+  m_elab_pid_on(false),
+  m_elab_pid_kp(0.0),
+  m_elab_pid_ki(0.0),
+  m_elab_pid_kd(0.0),
+  m_elab_iso_k(0.0),
+  m_elab_iso_t(0.0),
+  m_min_after_pause(irs::make_cnt_ms(100)),
+  m_elab_pid_fade_t(0.0),
+  m_elab_pid_sko(m_eeprom_data.elab_pid_avg_cnt, 
+    m_eeprom_data.elab_pid_avg_cnt),
+  m_elab_pid_target_sko(0.0),
+  m_elab_pid_target_sko_norm(0.0),
+  m_elab_pid_ref(0.0)
 {
-
+  m_eth_data.elab_pid_kp = m_eeprom_data.elab_pid_kp;
+  m_elab_pid_kp = m_eeprom_data.elab_pid_kp;
+  m_eth_data.elab_pid_ki = m_eeprom_data.elab_pid_ki;
+  m_elab_pid_ki = m_eeprom_data.elab_pid_ki;
+  m_eth_data.elab_pid_kd = m_eeprom_data.elab_pid_kd;
+  m_elab_pid_kd = m_eeprom_data.elab_pid_kd;
+  m_elab_pid.min = -1.0;
+  m_elab_pid.max = 1.0;
+  m_elab_pid.prev_e = 0.0;
+  m_elab_pid.pp_e = 0.0;
+  m_elab_pid.prev_out = 0.0;
+  m_elab_pid.block_int = 0;
+  m_elab_pid.block_int_ext = 0;
+  m_elab_pid.int_val = 0.0;
+  m_elab_pid.k_d_pid = 0.1;
+  m_eth_data.elab_iso_k = m_eeprom_data.elab_iso_k;
+  m_elab_iso_k = m_eeprom_data.elab_iso_k;
+  m_eth_data.elab_iso_t = m_eeprom_data.elab_iso_t;
+  m_elab_iso_t = m_eeprom_data.elab_iso_t;
+  m_elab_iso.k = m_elab_iso_k;
+  m_elab_iso.fd.x1 = 0.0;
+  m_elab_iso.fd.y1 = 0.0;
+  m_elab_iso.fd.t = m_elab_iso_t * m_adc.get_adc_frequency();
+  m_eth_data.elab_pid_fade_t = m_eeprom_data.elab_pid_fade_t;
+  m_elab_pid_fade_t = m_eeprom_data.elab_pid_fade_t;
+  m_elab_pid_fade.x1 = 0.0;
+  m_elab_pid_fade.y1 = 0.0;
+  m_elab_pid_fade.t =  m_elab_pid_fade_t * m_adc.get_adc_frequency();
+  m_eth_data.elab_pid_avg_cnt = m_eeprom_data.elab_pid_avg_cnt;
+  m_elab_pid_target_sko_norm = m_eeprom_data.elab_pid_target_sko_norm;
+  m_elab_pid_target_sko = denorm(m_elab_pid_target_sko_norm);
+  m_eth_data.elab_pid_target_sko_norm = m_elab_pid_target_sko_norm;
+  m_eth_data.elab_pid_target_sko = m_elab_pid_target_sko;
+  m_elab_pid_ref = m_eeprom_data.elab_pid_ref;
+  m_eth_data.elab_pid_ref = m_elab_pid_ref;
+    
   init_keyboard_drv();
   init_encoder_drv();
 
@@ -184,7 +232,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
 
   m_dac_after_pause = irs::make_cnt_ms(m_eeprom_data.dac_pause_ms);
   m_eth_data.dac_pause_ms = m_eeprom_data.dac_pause_ms;
-  m_dac.set_after_pause(m_dac_after_pause);
+  m_dac.set_after_pause(m_min_after_pause);
 
   m_dac_elab_pause = irs::make_cnt_ms(m_eeprom_data.dac_elab_pause_ms);
   m_eth_data.dac_elab_pause_ms = m_eeprom_data.dac_elab_pause_ms;
@@ -259,8 +307,6 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   
   m_elab_mode = m_eeprom_data.elab_mode;
   m_eth_data.elab_mode = m_elab_mode;
-  m_elab_pid.kp = m_eeprom_data.elab_mode;
-  m_eth_data.elab_mode = m_elab_mode;
 
   mp_cfg->vben.set();
 
@@ -286,14 +332,12 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
 
   m_eth_data.dhcp_on = m_eeprom_data.dhcp_on;
 
-  m_relay_bridge_pos.set_after_pause(m_relay_after_pause);
-  m_relay_bridge_neg.set_after_pause(m_relay_after_pause);
-  m_relay_prot.set_after_pause(m_relay_after_pause);
+  m_relay_bridge_pos.set_after_pause(m_min_after_pause);
+  m_relay_bridge_neg.set_after_pause(m_min_after_pause);
+  m_relay_prot.set_after_pause(m_min_after_pause);
   
   m_eth_data.termostat_off_pause = m_eeprom_data.termostat_off_pause;
-  m_termostat.set_after_pause(
-    //DBLTIME_TO_CNT(5.1));
-    DBLTIME_TO_CNT(m_eeprom_data.termostat_off_pause));
+  m_termostat.set_after_pause(m_min_after_pause);
 
   //  ЖКИ и клавиатура
   m_lcd_drv_service.connect(&m_lcd_drv);
@@ -532,8 +576,37 @@ void hrm::app_t::tick()
     if (m_eth_data.elab_pid_kd != m_eeprom_data.elab_pid_kd) {
       m_eeprom_data.elab_pid_kd = m_eth_data.elab_pid_kd;
     }
+    if (m_eth_data.elab_iso_k != m_eeprom_data.elab_iso_k) {
+      m_eeprom_data.elab_iso_k = m_eth_data.elab_iso_k;
+    }
+    if (m_eth_data.elab_iso_t != m_eeprom_data.elab_iso_t) {
+      m_eeprom_data.elab_iso_t = m_eth_data.elab_iso_t;
+    }
+    if (m_eth_data.elab_pid_fade_t != m_eeprom_data.elab_pid_fade_t) {
+      m_eeprom_data.elab_pid_fade_t = m_eth_data.elab_pid_fade_t;
+    }
+    if (m_eth_data.elab_pid_avg_cnt != m_eeprom_data.elab_pid_avg_cnt) {
+      m_eeprom_data.elab_pid_avg_cnt = m_eth_data.elab_pid_avg_cnt;
+    }
+    if (m_eth_data.elab_pid_target_sko != m_elab_pid_target_sko) {
+      m_elab_pid_target_sko = m_eth_data.elab_pid_target_sko;
+      m_elab_pid_target_sko_norm = norm(m_elab_pid_target_sko);
+      m_eeprom_data.elab_pid_target_sko_norm = m_elab_pid_target_sko_norm;
+      m_eth_data.elab_pid_target_sko_norm = m_elab_pid_target_sko_norm;
+    }
+    if (m_eth_data.elab_pid_target_sko_norm != m_elab_pid_target_sko_norm) {
+      m_elab_pid_target_sko_norm = m_eth_data.elab_pid_target_sko_norm;
+      m_eeprom_data.elab_pid_target_sko_norm = m_elab_pid_target_sko_norm;
+      m_elab_pid_target_sko = denorm(m_elab_pid_target_sko_norm);
+      m_eth_data.elab_pid_target_sko = m_elab_pid_target_sko;
+    }
+    if (m_eth_data.elab_pid_ref != m_eeprom_data.elab_pid_ref) {
+      m_eeprom_data.elab_pid_ref = m_eth_data.elab_pid_ref;
+      m_elab_pid_ref = m_eth_data.elab_pid_ref;
+    }
     m_eth_data.external_temperature = m_ext_th_data.temperature_code *
       m_ext_th.get_conv_koef();
+    m_eth_data.adc_meas_freq = m_adc.get_adc_frequency();
 
     sync_first_to_second(&m_eth_data.ip_0, &m_eeprom_data.ip_0);
     sync_first_to_second(&m_eth_data.ip_1, &m_eeprom_data.ip_1);
@@ -610,6 +683,10 @@ void hrm::app_t::tick()
           m_meas_temperature = false;
           m_termostat.set_off(false);
           m_eth_data.termostat_off = 0;
+          m_elab_pid_on = false;
+          m_eth_data.elab_pid_on = false;
+          m_eth_data.elab_pid_reset = 0;
+          m_eth_data.elab_pid_sko_ready = 0;
           m_free_status = fs_wait;
           break;
         }
@@ -683,7 +760,22 @@ void hrm::app_t::tick()
           irs::mlog() << irsm("--- Режим ручного управления ----") << endl;
           irs::mlog() << irsm("---------------------------------") << endl;
           //
-          m_manual_status = ms_check_user_changes;
+          m_relay_bridge_pos.set_after_pause(m_min_after_pause);
+          m_relay_bridge_neg.set_after_pause(m_min_after_pause);
+          m_relay_prot.set_after_pause(m_min_after_pause);
+          m_dac.set_after_pause(m_min_after_pause);
+          m_termostat.set_after_pause(m_min_after_pause);
+          m_manual_status = ms_adc_setup;
+          break;
+        }
+        case ms_adc_setup: {
+          if (m_adc.status() == irs_st_ready) {
+            m_adc.set_channel(ac_voltage);
+            m_adc.set_gain(m_adc_experiment_gain);
+            m_adc.set_filter(m_adc_experiment_filter);
+            update_elab_pid_koefs();
+            m_manual_status = ms_check_user_changes;
+          }
           break;
         }
         case ms_check_user_changes: {
@@ -738,6 +830,17 @@ void hrm::app_t::tick()
             if (m_eth_data.adc_gain != m_adc.gain()) {
               m_adc.set_gain(m_eth_data.adc_gain);
             }
+            if (m_eth_data.adc_average_cnt != m_adc.cnv_cnt()) {
+              m_adc.set_cnv_cnt(m_eth_data.adc_average_cnt);
+            }
+            if (m_eth_data.elab_iso_k != m_elab_iso_k) {
+              m_elab_iso_k = m_eth_data.elab_iso_k;
+              update_elab_pid_koefs();
+            }
+            if (m_eth_data.elab_iso_t != m_elab_iso_t) {
+              m_elab_iso_t = m_eth_data.elab_iso_t;
+              update_elab_pid_koefs();
+            }
             if (m_adc.status() == irs_st_ready) {
               if (m_meas_temperature) {
                 m_meas_temperature = false;
@@ -745,13 +848,14 @@ void hrm::app_t::tick()
                 m_voltage = m_adc.avg();
               }
               m_adc.start_conversion();
-            }
-            if (m_eth_data.adc_average_cnt != m_adc.cnv_cnt()) {
-              m_adc.set_cnv_cnt(m_eth_data.adc_average_cnt);
+              double iso_out = isodr(&m_elab_iso, m_voltage);
+              m_eth_data.elab_iso_out = iso_out;
             }
             if (m_eth_data.start_adc_sequence == 1) {
               m_eth_data.start_adc_sequence = 0;
               m_manual_status = ms_adc_show;
+            } else if (m_eth_data.elab_pid_on == 1) {
+              m_manual_status = ms_pid_start;
             }
             //
             bool thst_is_off = false;
@@ -790,6 +894,143 @@ void hrm::app_t::tick()
             m_adc.start_conversion();
           }
         } break;
+        case ms_pid_start: {
+          m_elab_pid_on = true;
+          m_elab_pid_kp = m_eth_data.elab_pid_kp;
+          m_elab_pid_ki = m_eth_data.elab_pid_ki;
+          m_elab_pid_kd = m_eth_data.elab_pid_kd;
+          m_elab_iso_k = m_eth_data.elab_iso_k;
+          m_elab_iso_t = m_eth_data.elab_iso_t;
+          m_elab_pid_fade_t = m_eth_data.elab_pid_fade_t;
+          update_elab_pid_koefs();
+          irs::mlog() << irsm("PID ON") << endl;
+          m_manual_status = ms_pid_process;
+          break;
+        }
+        case ms_pid_process: {
+          if (m_eth_data.reset == 1) {
+            m_eth_data.reset = 0;
+            m_manual_status = ms_prepare;
+            irs::mlog() << irsm("PID OFF") << endl;
+            m_mode = md_free;
+            m_eth_data.mode = md_free;
+          } else if (m_eth_data.elab_pid_on == 0) {
+            m_manual_status = ms_check_user_changes;
+            m_elab_pid_on = false;
+            irs::mlog() << irsm("PID OFF") << endl;
+          } else {
+            //  ЦАП
+            if (m_eth_data.dac_normalize_code != m_dac.get_normalize_code()) {
+              m_eth_data.dac_normalize_code = m_dac.get_normalize_code();
+            }
+            if (m_eth_data.dac_code != m_dac.get_code()) {
+              m_eth_data.dac_code = m_dac.get_code();
+            }
+            //  АЦП
+            if (m_eth_data.adc_filter != m_adc.filter()) {
+              m_adc.set_filter(m_eth_data.adc_filter);
+              update_elab_pid_koefs();
+            }
+            if (m_eth_data.adc_gain != m_adc.gain()) {
+              m_adc.set_gain(m_eth_data.adc_gain);
+            }
+            if (m_eth_data.adc_average_cnt != m_adc.cnv_cnt()) {
+              m_adc.set_cnv_cnt(m_eth_data.adc_average_cnt);
+              update_elab_pid_koefs();
+            }
+            if (m_eth_data.elab_pid_kp != m_elab_pid_kp) {
+              m_elab_pid_kp = m_eth_data.elab_pid_kp;
+              update_elab_pid_koefs();
+            }
+            if (m_eth_data.elab_pid_ki != m_elab_pid_ki) {
+              m_elab_pid_ki = m_eth_data.elab_pid_ki;
+              update_elab_pid_koefs();
+            }
+            if (m_eth_data.elab_pid_kd != m_elab_pid_kd) {
+              m_elab_pid_kd = m_eth_data.elab_pid_kd;
+              update_elab_pid_koefs();
+            }
+            if (m_eth_data.elab_iso_k != m_elab_iso_k) {
+              m_elab_iso_k = m_eth_data.elab_iso_k;
+              update_elab_pid_koefs();
+            }
+            if (m_eth_data.elab_iso_t != m_elab_iso_t) {
+              m_elab_iso_t = m_eth_data.elab_iso_t;
+              update_elab_pid_koefs();
+            }
+            if (m_eth_data.elab_pid_fade_t != m_elab_pid_fade_t) {
+              m_elab_pid_fade_t = m_eth_data.elab_pid_fade_t;
+              update_elab_pid_koefs();
+            }
+            if (m_eth_data.elab_pid_avg_cnt != m_elab_pid_sko.size()) {
+              m_elab_pid_sko.resize(m_eth_data.elab_pid_avg_cnt);
+              m_elab_pid_sko.resize_average(m_eth_data.elab_pid_avg_cnt);
+              //update_elab_pid_koefs();
+            }
+            bool thst_is_off = false;
+            if (m_eth_data.termostat_off) {
+              thst_is_off = true;
+            }
+            if (thst_is_off != m_termostat.is_off()) {
+              m_termostat.set_off(thst_is_off);
+            }
+            if (m_eth_data.elab_pid_reset == 1) {
+              m_eth_data.elab_pid_reset = 0;
+              irs::mlog() << irsm("PID RESET") << endl;
+              m_manual_status = ms_pid_reset;
+            }
+            if (m_adc.status() == irs_st_ready) {
+              if (m_meas_temperature) {
+                m_meas_temperature = false;
+              } else {
+                m_voltage = m_adc.avg();
+              }
+              m_adc.start_conversion();
+              double iso_out = isodr(&m_elab_iso, m_voltage);
+              m_eth_data.elab_iso_out = iso_out;
+              double dac = pid_reg(&m_elab_pid, m_elab_pid_ref - iso_out);
+              m_dac.set_normalize_code(dac);
+              double dac_out = fade(&m_elab_pid_fade, dac);
+              m_eth_data.elab_pid_fade_out = denorm(dac_out);
+              m_eth_data.elab_pid_int = m_elab_pid.int_val;
+              m_elab_pid_sko.add(dac);
+              m_eth_data.elab_pid_avg = denorm(m_elab_pid_sko.average());
+              m_eth_data.elab_pid_sko = denorm(m_elab_pid_sko);
+              m_eth_data.elab_pid_avg_norm = m_elab_pid_sko.average();
+              m_eth_data.elab_pid_sko_norm = m_elab_pid_sko;
+              if (m_elab_pid_sko < m_eth_data.elab_pid_target_sko) {
+                m_eth_data.elab_pid_sko_ready = 1;
+              } else {
+                m_eth_data.elab_pid_sko_ready = 0;
+              }
+            }
+          }
+          break;
+        }
+        case ms_pid_reset: {
+          if (m_dac.ready()) {
+            m_dac.set_code(0);
+            update_elab_pid_koefs();
+            m_elab_pid.int_val = 0.0;
+            m_elab_pid.pp_e = 0.0;
+            m_elab_pid.prev_e = 0.0;
+            m_elab_pid.prev_out = 0.0;
+            m_elab_iso.fd.x1 = 0.0;
+            m_elab_iso.fd.y1 = 0.0;
+            m_elab_pid_fade.x1 = 0.0;
+            m_elab_pid_fade.y1 = 0.0;
+            m_elab_pid_sko.clear();
+            m_manual_status = ms_pid_reset_wait;
+          }
+          break;
+        }
+        case ms_pid_reset_wait: {
+          if (m_dac.ready()) {
+            irs::mlog() << irsm("PID READY") << endl;
+            m_manual_status = ms_pid_process;
+          }
+          break;
+        }
       }
       break;
     }
@@ -1009,7 +1250,6 @@ void hrm::app_t::tick()
           
           m_termostat.set_off(false);
           m_termostat.set_after_pause(
-            //DBLTIME_TO_CNT(5.2));
             DBLTIME_TO_CNT(m_eth_data.termostat_off_pause));
 
           m_balance_status = bs_set_prot;
@@ -1850,4 +2090,46 @@ hrm::init_eeprom_t::init_eeprom_t(irs::eeprom_at25128_data_t* ap_eeprom,
 
 hrm::init_eeprom_t::~init_eeprom_t()
 {
+}
+
+void hrm::app_t::update_elab_pid_koefs()
+{
+  m_elab_pid.k = m_elab_pid_kp;
+  m_elab_pid.ki = m_elab_pid_ki * m_adc.get_adc_frequency();
+  if (m_adc.get_adc_frequency() > 0.0) {
+    m_elab_pid.kd = m_elab_pid_kd / m_adc.get_adc_frequency();
+  }
+  m_elab_iso.fd.x1 = m_voltage;
+  m_elab_iso.fd.y1 = m_voltage;
+  m_elab_iso.fd.t = m_elab_iso_t * m_adc.get_adc_frequency();
+  
+  m_elab_pid_fade.x1 = m_dac.get_normalize_code();
+  m_elab_pid_fade.y1 = m_dac.get_normalize_code();
+  m_elab_pid_fade.t = m_elab_pid_fade_t * m_adc.get_adc_frequency();
+  
+  pid_reg_sync(&m_elab_pid, m_elab_pid_ref - m_voltage, 
+    m_dac.get_normalize_code());
+}
+
+
+hrm::dac_value_t hrm::app_t::norm(hrm::dac_value_t a_in)
+{
+  dac_value_t out = 0.0;
+  if (a_in > 0.0) {
+    out = a_in / (pow(2.0, 19) - 1.0); 
+  } else {
+    out = a_in / pow(2.0, 19);
+  }
+  return out;
+}
+
+hrm::dac_value_t hrm::app_t::denorm(hrm::dac_value_t a_in)
+{
+  dac_value_t out = 0.0;
+  if (a_in > 0.0) {
+    out = a_in * (pow(2.0, 19) - 1.0); 
+  } else {
+    out = a_in * pow(2.0, 19);
+  }
+  return out;
 }
