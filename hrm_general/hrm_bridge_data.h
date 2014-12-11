@@ -98,6 +98,8 @@ struct eth_data_t {
   irs::conn_data_t<irs_u8> elab_mode;
   irs::bit_data_t elab_pid_on;
   irs::bit_data_t elab_pid_sync;
+  irs::bit_data_t elab_pid_reset;
+  irs::bit_data_t elab_pid_sko_ready;
   irs::conn_data_t<adc_value_t> adc_filter_constant;
   irs::conn_data_t<adc_value_t> adc_filter_value;
   irs::conn_data_t<irs_u32> adc_average_skip_cnt;
@@ -119,6 +121,20 @@ struct eth_data_t {
   irs::conn_data_t<double> elab_pid_ki;
   irs::conn_data_t<double> elab_pid_kd;
   irs::conn_data_t<double> elab_pid_int;
+  irs::conn_data_t<double> elab_iso_k;
+  irs::conn_data_t<double> elab_iso_t;
+  irs::conn_data_t<double> elab_iso_out;
+  irs::conn_data_t<double> elab_pid_fade_out;
+  irs::conn_data_t<double> elab_pid_fade_t;
+  irs::conn_data_t<double> elab_pid_avg;
+  irs::conn_data_t<double> elab_pid_sko;
+  irs::conn_data_t<double> elab_pid_avg_norm;
+  irs::conn_data_t<double> elab_pid_sko_norm;
+  irs::conn_data_t<irs_u32> elab_pid_avg_cnt;
+  irs::conn_data_t<double> elab_pid_target_sko;
+  irs::conn_data_t<double> elab_pid_target_sko_norm;
+  irs::conn_data_t<double> elab_pid_ref;
+  irs::conn_data_t<double> adc_meas_freq;
   irs::conn_data_t<irs_u8> ip_0;  //  1 byte
   irs::conn_data_t<irs_u8> ip_1;  //  1 byte
   irs::conn_data_t<irs_u8> ip_2;  //  1 byte
@@ -232,7 +248,11 @@ struct eth_data_t {
     termostat_off.connect(ap_data, index, 5);
     termostat_is_off.connect(ap_data, index, 6);
     adc_meas_process.connect(ap_data, index, 7);
-    elab_mode.connect(ap_data, index);
+    elab_mode.connect(ap_data, index + 1);
+    elab_pid_on.connect(ap_data, index + 2, 0);
+    elab_pid_sync.connect(ap_data, index + 2, 1);
+    elab_pid_reset.connect(ap_data, index + 2, 2);
+    elab_pid_sko_ready.connect(ap_data, index + 2, 3);
     index = options.connect(ap_data, index);
 
     index= adc_filter_constant.connect(ap_data, index);
@@ -258,6 +278,20 @@ struct eth_data_t {
     index = elab_pid_ki.connect(ap_data, index);
     index = elab_pid_kd.connect(ap_data, index);
     index = elab_pid_int.connect(ap_data, index);
+    index = elab_iso_k.connect(ap_data, index);
+    index = elab_iso_t.connect(ap_data, index);
+    index = elab_iso_out.connect(ap_data, index);
+    index = elab_pid_fade_out.connect(ap_data, index);
+    index = elab_pid_fade_t.connect(ap_data, index);
+    index = elab_pid_avg.connect(ap_data, index);
+    index = elab_pid_sko.connect(ap_data, index);
+    index = elab_pid_avg_norm.connect(ap_data, index);
+    index = elab_pid_sko_norm.connect(ap_data, index);
+    index = elab_pid_avg_cnt.connect(ap_data, index);
+    index = elab_pid_target_sko.connect(ap_data, index);
+    index = elab_pid_target_sko_norm.connect(ap_data, index);
+    index = elab_pid_ref.connect(ap_data, index);
+    index = adc_meas_freq.connect(ap_data, index);
 
     index = ip_0.connect(ap_data, index);
     index = ip_1.connect(ap_data, index);
@@ -334,6 +368,12 @@ struct eeprom_data_t {
   irs::conn_data_t<double> elab_pid_kp;
   irs::conn_data_t<double> elab_pid_ki;
   irs::conn_data_t<double> elab_pid_kd;
+  irs::conn_data_t<double> elab_iso_k;
+  irs::conn_data_t<double> elab_iso_t;
+  irs::conn_data_t<double> elab_pid_fade_t;
+  irs::conn_data_t<irs_u32> elab_pid_avg_cnt;
+  irs::conn_data_t<double> elab_pid_target_sko_norm;
+  irs::conn_data_t<double> elab_pid_ref;
 
   eeprom_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
@@ -398,6 +438,12 @@ struct eeprom_data_t {
     index = elab_pid_kp.connect(ap_data, index);
     index = elab_pid_ki.connect(ap_data, index);
     index = elab_pid_kd.connect(ap_data, index);
+    index = elab_iso_k.connect(ap_data, index);
+    index = elab_iso_t.connect(ap_data, index);
+    index = elab_pid_fade_t.connect(ap_data, index);
+    index = elab_pid_avg_cnt.connect(ap_data, index);
+    index = elab_pid_target_sko_norm.connect(ap_data, index);
+    index = elab_pid_ref.connect(ap_data, index);
     return index;
   }
   inline void reset_to_default()
@@ -455,7 +501,13 @@ struct eeprom_data_t {
     elab_pid_kp = 1.0;
     elab_pid_ki = 0.0;
     elab_pid_kd = 0.0;
+    elab_iso_k = 1.0;
+    elab_iso_t = 0.0;
     elab_mode = 0;
+    elab_pid_fade_t = 0.0;
+    elab_pid_avg_cnt = 10;
+    elab_pid_target_sko_norm = 1.0 / pow(2.0, 20);
+    elab_pid_ref = 0.0;
   }
 };
 
