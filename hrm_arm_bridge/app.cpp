@@ -255,8 +255,8 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_adc_fade_data.t = m_eeprom_data.adc_filter_constant;
   m_eth_data.adc_filter_constant = m_adc_fade_data.t;
 
-  m_adc.set_skip_cnt(m_eeprom_data.adc_average_skip_cnt);
-  m_eth_data.adc_average_skip_cnt = m_eeprom_data.adc_average_skip_cnt;
+  //m_adc.set_skip_cnt(m_eeprom_data.adc_average_skip_cnt);
+  //m_eth_data.adc_average_skip_cnt = m_eeprom_data.adc_average_skip_cnt;
 
   m_adc_experiment_gain = m_eeprom_data.adc_experiment_gain;
   m_eth_data.adc_experiment_gain = m_adc_experiment_gain;
@@ -301,6 +301,9 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_eth_data.elab_step_multiplier = m_elab_step_multiplier;
 
   m_eth_data.adc_simply_show = m_eeprom_data.adc_simply_show;
+  
+  m_eth_data.use_impf = m_eeprom_data.use_impf;
+  m_eth_data.impf_iterations_cnt = m_eeprom_data.impf_iterations_cnt;
 
   m_elab_max_delta = m_eeprom_data.elab_max_delta;
   m_eth_data.elab_max_delta = m_elab_max_delta;
@@ -439,6 +442,19 @@ void hrm::app_t::tick()
       m_eth_data.adc_value = m_voltage;
       m_adc_fade = fade(&m_adc_fade_data, m_voltage);
       m_eth_data.adc_filter_value = m_adc_fade;
+    }/*
+    if (m_eth_data.adc_impf != m_adc.impf()) {
+      m_eth_data.adc_impf = m_adc.impf();
+    }*/
+    if (m_adc.new_result()) {
+      adc_result_data_t adc_result_data;
+      m_adc.result(&adc_result_data);
+      m_eth_data.adc_sko = abs(adc_result_data.sko * 1e6);
+      m_eth_data.adc_impf = m_adc.impf();
+      m_eth_data.adc_sko_impf = abs(adc_result_data.impf_sko * 1e6);
+      m_eth_data.adc_min = adc_result_data.min;
+      m_eth_data.adc_max = adc_result_data.max;
+      m_eth_data.adc_raw = adc_result_data.raw;
     }
     if (m_eth_data.adc_clear_filter) {
       m_eth_data.adc_clear_filter = 0;
@@ -561,6 +577,12 @@ void hrm::app_t::tick()
     if (m_eth_data.adc_simply_show != m_eeprom_data.adc_simply_show) {
       m_eeprom_data.adc_simply_show = m_eth_data.adc_simply_show;
     }
+    if (m_eth_data.use_impf != m_eeprom_data.use_impf) {
+      m_eeprom_data.use_impf = m_eth_data.use_impf;
+    }
+    if (m_eth_data.impf_iterations_cnt != m_eeprom_data.impf_iterations_cnt) {
+      m_eeprom_data.impf_iterations_cnt = m_eth_data.impf_iterations_cnt;
+    }
     if (m_eth_data.elab_max_delta != m_eeprom_data.elab_max_delta) {
       m_eeprom_data.elab_max_delta = m_eth_data.elab_max_delta;
     }
@@ -604,6 +626,9 @@ void hrm::app_t::tick()
       m_eeprom_data.elab_pid_ref = m_eth_data.elab_pid_ref;
       m_elab_pid_ref = m_eth_data.elab_pid_ref;
     }
+    if (m_eth_data.use_impf != m_eeprom_data.use_impf) {
+      m_eeprom_data.use_impf = m_eth_data.use_impf;
+    }
     m_eth_data.external_temperature = m_ext_th_data.temperature_code *
       m_ext_th.get_conv_koef();
     m_eth_data.adc_meas_freq = m_adc.get_adc_frequency();
@@ -634,6 +659,10 @@ void hrm::app_t::tick()
       m_eth_data.adc_meas_process = 0;
     } else {
       m_eth_data.adc_meas_process = 1;
+    }
+    
+    if (m_adc.new_point_time()) {
+      m_eth_data.adc_point_time = m_adc.get_point_processing_time() * 1e6;  //us
     }
   }
   if (m_blink_timer.check()) {
@@ -738,6 +767,7 @@ void hrm::app_t::tick()
                 m_meas_temperature = false;
               } else {
                 m_voltage = m_adc.avg();
+                m_eth_data.adc_impf = m_adc.impf();
                 m_adc.set_channel(ac_temperature);
                 m_adc.set_gain(m_min_adc_gain);
                 m_adc.set_filter(m_slow_adc_filter);
@@ -774,6 +804,8 @@ void hrm::app_t::tick()
             m_adc.set_gain(m_adc_experiment_gain);
             m_adc.set_filter(m_adc_experiment_filter);
             update_elab_pid_koefs();
+            m_adc.set_use_impf(m_eth_data.use_impf);
+            m_adc.set_impf_iterations_cnt(m_eth_data.impf_iterations_cnt);
             m_manual_status = ms_check_user_changes;
           }
           break;
@@ -837,19 +869,38 @@ void hrm::app_t::tick()
               m_elab_iso_k = m_eth_data.elab_iso_k;
               update_elab_pid_koefs();
             }
-            if (m_eth_data.elab_iso_t != m_elab_iso_t) {
-              m_elab_iso_t = m_eth_data.elab_iso_t;
-              update_elab_pid_koefs();
+            bool use_impf = m_eth_data.use_impf;
+            if (use_impf != m_adc.use_impf()) {
+              m_adc.set_use_impf(use_impf);
             }
+            bool continious_mode = m_eth_data.adc_continious;
+            if (continious_mode != m_adc.continious_mode()) {
+              m_adc.set_continious_mode(continious_mode);
+            }
+            if (m_eth_data.test_impf == 1) {
+              m_adc.test_impf();
+              m_eth_data.test_impf = 0;
+            }
+            if (m_eth_data.impf_iterations_cnt != m_adc.impf_iterations_cnt()) {
+              m_adc.set_impf_iterations_cnt(m_eth_data.impf_iterations_cnt);
+            }
+            if (m_adc.new_avg()) {
+              m_voltage = m_adc.avg();
+              double iso_out = isodr(&m_elab_iso, m_voltage);
+              m_eth_data.elab_iso_out = iso_out;
+            }
+            /*if (m_adc.new_sko()) {
+              m_eth_data.adc_sko = m_adc.sko() * 1e6; //  ppm
+            }*/
             if (m_adc.status() == irs_st_ready) {
               if (m_meas_temperature) {
                 m_meas_temperature = false;
               } else {
-                m_voltage = m_adc.avg();
+                //m_voltage = m_adc.avg();
               }
-              m_adc.start_conversion();
-              double iso_out = isodr(&m_elab_iso, m_voltage);
-              m_eth_data.elab_iso_out = iso_out;
+              if (!m_adc.continious_mode()) {
+                m_adc.start_conversion();
+              }
             }
             if (m_eth_data.start_adc_sequence == 1) {
               m_eth_data.start_adc_sequence = 0;
@@ -870,7 +921,7 @@ void hrm::app_t::tick()
         case ms_adc_show: {
           if (m_adc.status() == irs_st_ready) {
             if (m_eth_data.adc_simply_show) {
-              m_adc.show_simply();
+              m_adc.show();
             } else {
               m_adc.show();
             }
@@ -1214,7 +1265,7 @@ void hrm::app_t::tick()
 
           m_no_prot = m_eth_data.no_prot;
           m_adc.set_cnv_cnt(m_eth_data.adc_average_cnt);
-          m_adc.set_skip_cnt(m_eth_data.adc_average_skip_cnt);
+          //m_adc.set_skip_cnt(m_eth_data.adc_average_skip_cnt);
 
           m_adc_experiment_gain = m_eth_data.adc_experiment_gain;
           if (m_adc_experiment_gain > m_max_adc_gain) {
@@ -1251,6 +1302,9 @@ void hrm::app_t::tick()
           m_termostat.set_off(false);
           m_termostat.set_after_pause(
             DBLTIME_TO_CNT(m_eth_data.termostat_off_pause));
+          
+          m_adc.set_use_impf(m_eth_data.use_impf);
+          m_adc.set_impf_iterations_cnt(m_eth_data.impf_iterations_cnt);
 
           m_balance_status = bs_set_prot;
           break;
@@ -2082,6 +2136,7 @@ hrm::init_eeprom_t::init_eeprom_t(irs::eeprom_at25128_data_t* ap_eeprom,
   if (ap_eeprom->error()) {
     if (ap_eeprom_data != IRS_NULL) {
       ap_eeprom_data->reset_to_default();
+      irs::mlog() << irsm("Ahtung!!! EEPROM reset to default!!!") << endl;
     } else {
       irs::mlog() << irsm("Ahtung!!! EEPROM error!!!") << endl;
     }

@@ -921,33 +921,54 @@ hrm::ad7799_cread_t::ad7799_cread_t(irs::spi_t *ap_spi,
   m_int_event(this, &ad7799_cread_t::event),
   m_status(st_free),
   m_return_status(irs_st_ready),
-  m_cnv_cnt(0),
-  m_skip_cnt(0),
+  m_cnv_cnt(min_cnv_cnt),
+  m_user_cnv_cnt(min_cnv_cnt),
   m_index(0),
-  m_value_vector(),
-  m_value_sko(0.0, 0.0),
-  m_time_sko(0.0, 0.0),
+  m_value_deque(),
+  m_fast_sko(m_cnv_cnt, m_cnv_cnt),
+  m_impf_sko(m_cnv_cnt, m_cnv_cnt),
   m_gain(0),
   m_channel(0),
   m_filter(0),
+  m_user_gain(0),
+  m_user_channel(0),
+  m_user_filter(0),
   m_pause_interval(0),
   m_cs_interval(irs::make_cnt_us(1)),
   m_timer(m_cs_interval),
   m_show(false),
-  m_show_simply(false),
   m_additional_gain(0.0),
   m_ref(0.0),
   m_avg(0.0),
   m_sko(0.0),
+  m_impf(0.0),
+  m_use_impf(false),
+  m_impf_iterations_cnt(0),
+  m_continious_mode(false),
+  m_new_avg(false),
+  m_new_sko(false),
+  m_new_impf(false),
+  m_new_impf_sko(false),
+  m_need_prefilling(false),
   m_time_counter_prev(0),
-  m_time_counter(0)
+  m_time_counter(0),
+  m_point_time(0),
+  m_new_point_time(false),
+  m_need_reconfigure(false),
+  m_new_result(false)
 {
   mp_cs_pin->set();
-  m_cur_point.value = 0;
-  m_cur_point.time = 0;
+  //m_cur_point.value = 0;
+  //m_cur_point.time = 0;
   memset(mp_spi_buf, 0, spi_buf_size);
   mp_adc_exti->add_event(&m_int_event);
   mp_adc_exti->stop();
+  m_result_data.avg = 0.0;
+  m_result_data.sko = 0.0;
+  m_result_data.impf = 0.0;
+  m_result_data.impf_sko = 0.0;
+  m_result_data.min = 0.0;
+  m_result_data.max = 0.0;
 }
 
 void hrm::ad7799_cread_t::start_conversion()
@@ -955,52 +976,22 @@ void hrm::ad7799_cread_t::start_conversion()
   if (m_status == st_free) {
     m_time_counter_prev = m_time_counter;
     m_time_counter = counter_get();
-    m_value_vector.clear();
-    m_status = st_spi_prepare;
+    m_status = st_reconfigure;
     m_return_status = irs_st_busy;
   }
 }
 
 void hrm::ad7799_cread_t::event()
 {
-  m_cur_point.time = counter_get();
+  //m_cur_point.time = counter_get();
+  mp_spi->read(mp_spi_buf, read_buf_size);
+  m_status = st_spi_point_processing;
   mp_adc_exti->stop();
-  if (m_index < m_cnv_cnt) {
-    mp_spi->read(mp_spi_buf, read_buf_size);
-    m_index++;
-    m_status = st_spi_wait;
-  } else {
-    mp_spi_buf[0] = instruction_stop;
-    mp_spi->write(mp_spi_buf, stop_buf_size);
-    //mp_cs_pin->set();
-    m_status = st_spi_wait_stop;
-  }
 }
 
 double hrm::ad7799_cread_t::get_adc_frequency()
 {
   double freq = 0.0;
-//  switch (m_filter) {
-//    case  0: freq = 0.000; break;
-//    case  1: freq = 500.0; break;
-//    case  2: freq = 250.0; break;
-//    case  3: freq = 125.0; break;
-//    case  4: freq = 62.50; break;
-//    case  5: freq = 50.00; break;
-//    case  6: freq = 39.20; break;
-//    case  7: freq = 33.30; break;
-//    case  8: freq = 19.60; break;
-//    case  9: freq = 16.70; break;
-//    case 10: freq = 16.70; break;
-//    case 11: freq = 12.50; break;
-//    case 12: freq = 10.00; break;
-//    case 13: freq = 8.330; break;
-//    case 14: freq = 6.250; break;
-//    case 15: freq = 4.170; break;
-//  }
-//  if (m_cnv_cnt > 0) {
-//    freq /= m_cnv_cnt;
-//  }
   freq = CNT_TO_DBLTIME(m_time_counter - m_time_counter_prev);
   if (freq > 0.0) {
     freq = 1.0 / freq;
@@ -1015,6 +1006,24 @@ void hrm::ad7799_cread_t::tick()
   mp_spi->tick();
   switch(m_status) {
     case st_free: {
+      break;
+    }
+    case st_reconfigure: {
+      m_index = 0;
+      m_cnv_cnt = m_user_cnv_cnt;
+      m_gain = m_user_gain;
+      m_filter = m_user_filter;
+      m_channel = m_user_channel;
+      while (m_value_deque.size() > m_cnv_cnt) {
+        m_value_deque.pop_front();
+      }
+      m_fast_sko.resize(m_cnv_cnt);
+      m_fast_sko.resize_average(m_cnv_cnt);
+      m_impf_sko.resize(m_cnv_cnt);
+      m_impf_sko.resize_average(m_cnv_cnt);
+      m_need_prefilling = true;
+      m_need_reconfigure = false;
+      m_status = st_spi_prepare;
       break;
     }
     case st_spi_prepare: {
@@ -1065,17 +1074,7 @@ void hrm::ad7799_cread_t::tick()
     } break;
     case st_start: {
       if (m_timer.check()) {
-        if (m_show) {
-          irs::mlog() << irsm("---------------------------------") << endl;
-          irs::mlog() << irsm("АЦП: ") << m_cnv_cnt << irsm(" точек");
-          irs::mlog() << endl;
-          irs::mlog() << irsm("Gain: ") << static_cast<int>(m_gain);
-          irs::mlog() << endl;
-          irs::mlog() << irsm("Filter: ") << static_cast<int>(m_filter);
-          irs::mlog() << endl;
-          irs::mlog() << irsm("Channel: ") << static_cast<int>(m_channel);
-          irs::mlog() << endl;
-        }
+        show_start_message(m_show, m_cnv_cnt, m_gain, m_filter, m_channel);
         mp_spi_buf[0] = instruction_cread;
         mp_cs_pin->clear();
         mp_spi->write(mp_spi_buf, start_buf_size);
@@ -1088,81 +1087,262 @@ void hrm::ad7799_cread_t::tick()
         m_status = st_cread;
       }
     } break;
-    case st_spi_wait: {
+    case st_cread: {
+      break;
+    }
+    case st_spi_point_processing: {
       if (mp_spi->get_status() == irs::spi_t::FREE) {
-        mp_adc_exti->start();
-        irs_i32 adc_raw_value = 0;
-        irs_u8* p_adc_raw_value = reinterpret_cast<irs_u8*>(&adc_raw_value);
-        p_adc_raw_value[0] = mp_spi_buf[2];
-        p_adc_raw_value[1] = mp_spi_buf[1];
-        p_adc_raw_value[2] = mp_spi_buf[0];
-        m_cur_point.value = adc_raw_value;
-        m_value_vector.push_back(m_cur_point);
-        if (m_show) {
-          irs::mlog() << irsm(".") << flush;
+        m_point_time = counter_get();
+        irs_i32 adc_raw_value = reinterpret_adc_raw_value(mp_spi_buf);
+        adc_value_t adc_value = convert_value(adc_raw_value);
+        if (m_value_deque.size() >= m_cnv_cnt) {
+          m_value_deque.pop_front();
         }
-        m_status = st_cread;
+        m_value_deque.push_back(adc_value);
+        m_fast_sko.add(adc_value);
+        
+        if (m_index >= (m_cnv_cnt - 1)) {
+          m_need_prefilling = false;
+        }
+        
+        impf_test_data_t impf_test_data;
+        if (!m_need_prefilling && m_use_impf) {
+          size_t iterations_cnt = m_impf_iterations_cnt;
+          size_t max_iterations_cnt = m_cnv_cnt / 2;
+          
+          if (iterations_cnt == 0 || iterations_cnt > max_iterations_cnt) {
+            iterations_cnt = max_iterations_cnt;
+          }
+          for (size_t i = 0; i < iterations_cnt; i++) {
+            m_impf = calc_impf(&m_value_deque, &impf_test_data);
+            if (m_test_impf) {
+              show_impf_test_data(&m_value_deque, &impf_test_data, i, m_impf);
+            }
+          }
+          m_impf_sko.add(m_impf);
+          m_new_impf = true;
+          m_test_impf = false;
+        }
+        m_sko = m_fast_sko.relative();
+        m_avg = m_fast_sko.average();
+        m_new_avg = true;
+        m_new_sko = true;
+       
+        m_result_data.avg = m_avg;
+        m_result_data.sko = m_fast_sko.relative();
+        m_result_data.impf = m_impf;
+        m_result_data.impf_sko = m_impf_sko.relative();
+        m_result_data.min = impf_test_data.min;
+        m_result_data.max = impf_test_data.max;
+        m_result_data.raw = adc_raw_value;
+        m_new_result = true;
+        
+        show_point_symbol(m_show);
+        
+        m_index++;
+        if (m_index < m_cnv_cnt) {
+          mp_adc_exti->start();
+          m_status = st_cread;
+        } else {
+          m_index = 0;
+          if (m_need_reconfigure || !m_continious_mode) {
+            mp_spi_buf[0] = instruction_stop;
+            mp_spi->write(mp_spi_buf, stop_buf_size);
+            m_status = st_spi_wait_stop;
+          } else {
+            mp_adc_exti->start();
+            m_status = st_cread;
+          }
+        }
+        m_point_time = counter_get() - m_point_time;
+        m_new_point_time = true;
       }
     } break;
     case st_spi_wait_stop: {
       if (mp_spi->get_status() == irs::spi_t::FREE) {
         mp_cs_pin->set();
         mp_spi->unlock();
-        m_return_status = irs_st_ready;
-        if (m_show) {
-          irs::mlog() << endl;
-        }
-        m_value_sko.clear();
-        m_value_sko.resize(m_cnv_cnt);
-        m_value_sko.resize_average(m_cnv_cnt);
-        if (m_cnv_cnt > 2) {
-          m_time_sko.clear();
-          m_time_sko.resize(m_cnv_cnt);
-          m_time_sko.resize_average(m_cnv_cnt);
-        }
-
-        for (size_t i = 0; i < m_cnv_cnt; i++) {
-          adc_value_t value = convert_value(m_value_vector[i].value);
-          m_value_sko.add(value);
-          if (m_show || m_show_simply) {
-            irs::mlog() << value << endl << flush;
-          }
-          if (i > 0 && m_cnv_cnt > 2) {
-            double delta =
-              static_cast<double>(m_value_vector[i].time
-                                  - m_value_vector[i-1].time);
-            double time = delta
-              / static_cast<double>(irs::cpu_traits_t::frequency());
-            m_time_sko.add(time);
-          }
-        }
-
-        m_avg = m_value_sko.average();
-        m_sko = m_value_sko;
-
-        if (m_show) {
-          irs::mlog() << irsm("---------------------------------") << endl;
-          irs::mlog() << irsm("СКО     ") << m_value_sko << irsm(" В");
-          irs::mlog() << endl;
-          irs::mlog() << irsm("Среднее ") << m_value_sko.average() << irsm(" В");
-          irs::mlog() << endl;
-          adc_value_t rel = 1e6 * abs(m_value_sko / m_value_sko.average());
-          irs::mlog() << irsm("СКО/Ср. ") << rel << irsm(" ppm") << endl;
-          if (m_cnv_cnt > 2) {
-            double jitter = m_time_sko * 1e6 / m_time_sko.average();
-            double freq = 1.0 / m_time_sko.average();
-            irs::mlog() << irsm("Джитт.  ") << jitter << irsm(" ppm");
-            irs::mlog() << endl;
-            irs::mlog() << irsm("Fср     ") << freq << irsm(" Гц");
+        if (m_need_reconfigure) {
+          m_status = st_reconfigure;
+        } else {
+          m_return_status = irs_st_ready;
+          if (m_show) {
             irs::mlog() << endl;
           }
-          irs::mlog() << irsm("---------------------------------") << endl;
+          m_status = st_free;
         }
-
-        m_status = st_free;
       }
     } break;
   }
+}
+
+void hrm::ad7799_cread_t::set_gain(irs_u8 a_gain) 
+{ 
+  m_user_gain = a_gain & gain_mask;
+  m_need_reconfigure = true;
+}
+
+void hrm::ad7799_cread_t::set_channel(irs_u8 a_channel)
+{ 
+  m_user_channel = a_channel & channel_mask;
+  m_need_reconfigure = true;
+}
+
+void hrm::ad7799_cread_t::set_filter(irs_u8 a_filter)
+{ 
+  m_user_filter = a_filter & filter_mask;
+  m_need_reconfigure = true;
+}
+
+void hrm::ad7799_cread_t::set_cnv_cnt(size_t a_cnv_cnt)
+{ 
+  if (a_cnv_cnt < min_cnv_cnt) {
+    a_cnv_cnt = min_cnv_cnt;
+  } else if (a_cnv_cnt > max_cnv_cnt) {
+    a_cnv_cnt = max_cnv_cnt;
+  }
+  m_user_cnv_cnt = a_cnv_cnt; 
+  m_need_reconfigure = true;
+}
+
+hrm::adc_value_t hrm::ad7799_cread_t::calc_impf(
+  deque<adc_value_t>* ap_impf_deque, impf_test_data_t* ap_test_data)
+{
+  counter_t time = counter_get();
+  size_t cnt = ap_impf_deque->size();
+  adc_value_t max = (*ap_impf_deque)[0];
+  adc_value_t min = (*ap_impf_deque)[0];
+  size_t max_index = 0;
+  size_t min_index = 0;
+  adc_value_t summa = 0.0;
+  adc_value_t avg = 0.0;
+  irs_i32 P = 0;
+  irs_i32 N = 0;
+  adc_value_t Dtotal = 0.0;
+  deque<adc_value_t> impf_deque;
+  //  Вычисление среднего и замена абсолютных максимума 
+  //  и минимума на среднее
+  for (size_t i = 0; i < cnt; i++) {
+    adc_value_t value = (*ap_impf_deque)[i];
+    impf_deque.push_back(value);
+    summa += value;
+    if (value > max) {
+      max = value;
+      max_index = i;
+    } else if (value < min) {
+      min = value;
+      min_index = i;
+    }
+  }
+  avg = (summa - min - max) / (cnt - 2);
+  impf_deque[min_index] = avg;
+  impf_deque[max_index] = avg;
+  //  Подсчёт количества и суммы отклонений от среднего
+  for (size_t i = 0; i < cnt; i++) {
+    adc_value_t value = impf_deque[i];
+    if (value > avg) {
+      P++;
+      Dtotal += abs(avg - value);
+    } else if (value < avg) {
+      N++;
+    }
+  }
+  adc_value_t delta = static_cast<adc_value_t>(P-N);
+  adc_value_t impf = avg + (delta * Dtotal) / (cnt * cnt);
+  
+  if (ap_test_data) {
+    ap_test_data->max = max;
+    ap_test_data->max_index = max_index;
+    ap_test_data->min = min;
+    ap_test_data->min_index = min_index;
+    ap_test_data->P = P;
+    ap_test_data->N = N;
+    ap_test_data->Dtotal = Dtotal;
+    ap_test_data->avg = avg;
+    ap_test_data->time = counter_get() - time;
+  }
+  return impf;
+}
+
+void hrm::ad7799_cread_t::show_impf_test_data(
+  deque<adc_value_t>* ap_value_deque, impf_test_data_t* ap_test_data, 
+  size_t a_iteration_number, adc_value_t a_impf_result)
+{
+  double time = CNT_TO_DBLTIME(ap_test_data->time);
+  size_t cnt = ap_value_deque->size();
+  irs::mlog() << irsm("---------------------------------") << endl;
+  irs::mlog() << irsm("Итерация ");
+  irs::mlog() << a_iteration_number << endl;
+  for (size_t i = 0; i < cnt; i++) {
+    irs::mlog() << (*ap_value_deque)[i];
+    if (i == ap_test_data->max_index) {
+      irs::mlog() << irsm(" < MAX");
+    } else if (i == ap_test_data->min_index) {
+      irs::mlog() << irsm(" < MIN");
+    }
+    irs::mlog() << endl;
+  }
+  irs::mlog() << irsm("Max = ") << ap_test_data->max << irsm(" (");
+  irs::mlog() << ap_test_data->max_index << irsm(")") << endl;
+  irs::mlog() << irsm("Min = ") << ap_test_data->min << irsm(" (");
+  irs::mlog() << ap_test_data->min_index << irsm(")") << endl;
+  irs::mlog() << irsm("P = ") << ap_test_data->P << endl;
+  irs::mlog() << irsm("N = ") << ap_test_data->N << endl;
+  irs::mlog() << irsm("Dtotal = ") << ap_test_data->Dtotal << endl;
+  irs::mlog() << irsm("ImpfAvg = ") << ap_test_data->avg << endl;
+  irs::mlog() << irsm("Time = ") << time << endl;
+  irs::mlog() << irsm("Impf = ") << a_impf_result << endl;
+}
+
+bool hrm::ad7799_cread_t::new_data(bool* ap_new_data)
+{
+  bool new_data = *ap_new_data;
+  *ap_new_data = false;
+  return new_data;
+}
+
+void hrm::ad7799_cread_t::show_start_message(bool a_show, size_t a_cnv_cnt, 
+  irs_u8 a_gain, irs_u8 a_filter, irs_u8 a_channel)
+{
+  if (a_show) {
+    irs::mlog() << irsm("---------------------------------") << endl;
+    irs::mlog() << irsm("АЦП: ") << a_cnv_cnt << irsm(" точек");
+    irs::mlog() << endl;
+    irs::mlog() << irsm("Gain: ") << static_cast<int>(a_gain);
+    irs::mlog() << endl;
+    irs::mlog() << irsm("Filter: ") << static_cast<int>(a_filter);
+    irs::mlog() << endl;
+    irs::mlog() << irsm("Channel: ") << static_cast<int>(a_channel);
+    irs::mlog() << endl;
+  }
+}
+
+void hrm::ad7799_cread_t::show_point_symbol(bool a_show)
+{
+  if (a_show) {
+    irs::mlog() << irsm(".") << flush;
+  }
+}
+
+irs_i32 hrm::ad7799_cread_t::reinterpret_adc_raw_value(irs_u8* ap_spi_buf)
+{
+  irs_i32 adc_raw_value = 0;
+  irs_u8* p_adc_raw_value = reinterpret_cast<irs_u8*>(&adc_raw_value);
+  p_adc_raw_value[0] = ap_spi_buf[2];
+  p_adc_raw_value[1] = ap_spi_buf[1];
+  p_adc_raw_value[2] = ap_spi_buf[0];
+  return adc_raw_value;
+}
+
+void hrm::ad7799_cread_t::result(adc_result_data_t* ap_result_data)
+{
+  ap_result_data->avg = m_result_data.avg;
+  ap_result_data->sko = m_result_data.sko;
+  ap_result_data->impf = m_result_data.impf;
+  ap_result_data->impf_sko = m_result_data.impf_sko;
+  ap_result_data->min = m_result_data.min;
+  ap_result_data->max = m_result_data.max;
+  ap_result_data->raw = m_result_data.raw;
 }
 
 //------------------------------------------------------------------------------

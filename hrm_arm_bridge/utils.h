@@ -328,8 +328,18 @@ private:
 };
 
 struct adc_seq_point_t {
-  irs_i32 value;
+  adc_value_t value;
+  adc_value_t value_sqr;
   counter_t time;
+};
+struct adc_result_data_t {
+  adc_value_t avg;
+  adc_value_t sko;
+  adc_value_t impf;
+  adc_value_t impf_sko;
+  adc_value_t min;
+  adc_value_t max;
+  irs_i32 raw;
 };
 
 class ad7799_cread_t
@@ -339,37 +349,59 @@ public:
     adc_exti_t* ap_adc_exti);
   ~ad7799_cread_t() {};
   void start_conversion();
+  inline void stop_continious() { m_continious_mode = false; }
   inline irs_status_t status() { return m_return_status; }
-  inline irs_u8 gain() { return m_gain; }
-  inline irs_u8 filter() { return m_filter; }
-  inline irs_u8 channel() { return m_channel; }
-  inline size_t cnv_cnt() { return m_cnv_cnt; }
-  inline size_t skip_cnt() { return m_skip_cnt; }
+  //  Чтение параметров
+  inline irs_u8 gain() { return m_user_gain; }
+  inline irs_u8 filter() { return m_user_filter; }
+  inline irs_u8 channel() { return m_user_channel; }
+  inline size_t cnv_cnt() { return m_user_cnv_cnt; }
   inline adc_value_t additional_gain() { return m_additional_gain; }
   inline adc_value_t ref() { return m_ref; }
+  inline bool continious_mode() { return m_continious_mode; }
+  //  Чтение результатов
   inline adc_value_t avg() { return m_avg; }
   inline adc_value_t sko() { return m_sko; }
+  inline adc_value_t impf() { return m_impf; }
+  inline bool new_avg() { return new_data(&m_new_avg); }
+  inline bool new_sko() { return new_data(&m_new_sko); }
+  inline bool new_impf() { return new_data(&m_new_impf); }
+  inline bool new_impf_sko() { return new_data(&m_new_impf_sko); }
   inline adc_value_t max_value() { return m_ref
      / (2.0 * m_additional_gain * static_cast<adc_value_t>(1 << m_gain)); }
+  inline bool new_result() { return new_data(&m_new_result); }
+  void result(adc_result_data_t* ap_result_data);
+  //  Импульсный фильтр
+  inline bool use_impf() { return m_use_impf; }
+  inline size_t impf_iterations_cnt() { return m_impf_iterations_cnt; }
+  //  Вывод в консоль
   inline void show() { m_show = true; }
-  inline void show_simply() { m_show_simply = true; }
-  inline void hide() { m_show = false; m_show_simply = false; }
-  inline void set_gain(irs_u8 a_gain) { m_gain = a_gain & gain_mask; }
-  inline void set_channel(irs_u8 a_channel)
-    { m_channel = a_channel & channel_mask; }
-  inline void set_filter(irs_u8 a_filter)
-    { m_filter = a_filter & filter_mask; }
+  inline void hide() { m_show = false; }
+  inline void test_impf() { m_test_impf = true; }
+  //  Установка параметров
+  void set_channel(irs_u8 a_channel);
+  void set_gain(irs_u8 a_gain);
+  void set_filter(irs_u8 a_filter);
   inline void set_additional_gain(adc_value_t a_gain)
     { m_additional_gain = a_gain; }
   inline void set_ref(adc_value_t a_ref) { m_ref = a_ref; }
   inline void set_pause(counter_t a_pause_interval)
     { m_pause_interval = a_pause_interval; }
-  inline void set_cnv_cnt(size_t a_cnv_cnt) { m_cnv_cnt = a_cnv_cnt; }
-  inline void set_skip_cnt(size_t a_skip_cnt) { m_skip_cnt = a_skip_cnt; }
+  void set_cnv_cnt(size_t a_cnv_cnt);
+  inline void set_use_impf(bool a_use_impf) { m_use_impf = a_use_impf; }
+  inline void set_impf_iterations_cnt(size_t a_iterations_cnt) 
+    { m_impf_iterations_cnt = a_iterations_cnt; }
+  inline void set_continious_mode(bool a_continious) 
+    { m_continious_mode = a_continious; }
+  //  Частота преобразований АЦП
   double get_adc_frequency();
+  inline double get_point_processing_time() 
+    { return CNT_TO_DBLTIME(m_point_time); }
+  inline bool new_point_time() { return new_data(&m_new_point_time); }
   void tick();
 private:
   enum status_t {
+    st_reconfigure,
     st_spi_prepare,
     st_write_cfg_reg,
     st_cs_pause_cfg,
@@ -377,10 +409,14 @@ private:
     st_cs_pause_mode,
     st_start,
     st_spi_first_wait,
-    st_spi_wait,
+    st_spi_point_processing,
     st_spi_wait_stop,
     st_cread,
     st_free
+  };
+  enum {
+    min_cnv_cnt = 3,
+    max_cnv_cnt = 64
   };
   enum  {
     instruction_cread = 0x5C,
@@ -407,6 +443,18 @@ private:
     channel_mask = 0x07,
     buf_bit_offset = 4
   };
+  struct impf_test_data_t {
+    adc_value_t max;
+    size_t max_index;
+    adc_value_t min;
+    size_t min_index;
+    adc_value_t P;
+    adc_value_t N;
+    adc_value_t Dtotal;
+    adc_value_t avg;
+    counter_t time;
+  };
+  
   irs::spi_t *mp_spi;
   irs::gpio_pin_t *mp_cs_pin;
   adc_exti_t* mp_adc_exti;
@@ -414,27 +462,43 @@ private:
   status_t m_status;
   irs_status_t m_return_status;
   size_t m_cnv_cnt;
-  size_t m_skip_cnt;
+  size_t m_user_cnv_cnt;
   size_t m_index;
-  vector<adc_seq_point_t> m_value_vector;
-  irs::fast_sko_t<adc_value_t, adc_value_t> m_value_sko;
-  irs::fast_sko_t<double, double> m_time_sko;
+  deque<adc_value_t> m_value_deque;
+  irs::fast_sko_t<adc_value_t, adc_value_t> m_fast_sko;
+  irs::fast_sko_t<adc_value_t, adc_value_t> m_impf_sko;
   irs_u8 mp_spi_buf[spi_buf_size];
   irs_u8 m_gain;
   irs_u8 m_channel;
   irs_u8 m_filter;
+  irs_u8 m_user_gain;
+  irs_u8 m_user_channel;
+  irs_u8 m_user_filter;
   counter_t m_pause_interval;
   counter_t m_cs_interval;
   irs::timer_t m_timer;
-  adc_seq_point_t m_cur_point;
   bool m_show;
-  bool m_show_simply;
   adc_value_t m_additional_gain;
   adc_value_t m_ref;
   adc_value_t m_avg;
   adc_value_t m_sko;
+  adc_value_t m_impf;
+  bool m_use_impf;
+  bool m_test_impf;
+  size_t m_impf_iterations_cnt;
+  bool m_continious_mode;
+  bool m_new_avg;
+  bool m_new_sko;
+  bool m_new_impf;
+  bool m_new_impf_sko;
+  bool m_need_prefilling;
   counter_t m_time_counter_prev;
   counter_t m_time_counter;
+  counter_t m_point_time;
+  bool m_new_point_time;
+  bool m_need_reconfigure;
+  bool m_new_result;
+  adc_result_data_t m_result_data;
   void event();
   inline adc_value_t convert_value(irs_i32 a_in_value)
   {
@@ -443,6 +507,18 @@ private:
     return -(static_cast<adc_value_t>(a_in_value - (1 << 23))
       / static_cast<adc_value_t>(1 << 23)) * (m_ref / gain);
   }
+  adc_value_t calc_impf(deque<adc_value_t>* ap_value_deque, 
+    impf_test_data_t* ap_test_data = 0);
+  void show_impf_test_data(
+    deque<adc_value_t>* ap_value_deque, impf_test_data_t* ap_test_data, 
+    size_t a_iteration_number, adc_value_t a_impf_result);
+  bool new_data(bool* ap_new_data);
+  //  Вывод в консоль
+  void show_start_message(bool a_show, size_t a_cnv_cnt, irs_u8 a_gain, 
+    irs_u8 a_filter, irs_u8 a_channel);
+  void show_point_symbol(bool a_show);
+  //  Утилиты
+  irs_i32 reinterpret_adc_raw_value(irs_u8* ap_spi_buf);
 };
 
 class termostat_t

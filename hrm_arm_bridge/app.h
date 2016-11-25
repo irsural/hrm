@@ -96,7 +96,9 @@ private:
     ms_pid_start,
     ms_pid_process,
     ms_pid_reset,
-    ms_pid_reset_wait
+    ms_pid_reset_wait,
+    ms_adc_continious_start,
+    ms_adc_continious
   };
   enum scan_status_t {
     ss_prepare,
