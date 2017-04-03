@@ -2171,12 +2171,6 @@
       <name>$PROJ_DIR$\..\mxsrclib\correct_alg.h</name>
     </file>
     <file>
-      <name>$PROJ_DIR$\..\mxsrclib\csvwork.cpp</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\mxsrclib\csvwork.h</name>
-    </file>
-    <file>
       <name>$PROJ_DIR$\..\mxsrclib\dbgprn.cpp</name>
     </file>
     <file>
@@ -2187,15 +2181,6 @@
     </file>
     <file>
       <name>$PROJ_DIR$\..\mxsrclib\hardflowg.h</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\mxsrclib\irs_chart_data.cpp</name>
-      <excluded>
-        <configuration>Debug</configuration>
-      </excluded>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\mxsrclib\irs_chart_data.h</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\mxsrclib\irs_codecvt.h</name>
@@ -2288,12 +2273,6 @@
       <name>$PROJ_DIR$\..\mxsrclib\irserror.h</name>
     </file>
     <file>
-      <name>$PROJ_DIR$\..\mxsrclib\irsexcept.cpp</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\mxsrclib\irsexcept.h</name>
-    </file>
-    <file>
       <name>$PROJ_DIR$\..\mxsrclib\irsfilter.cpp</name>
     </file>
     <file>
@@ -2301,12 +2280,6 @@
     </file>
     <file>
       <name>$PROJ_DIR$\..\mxsrclib\irsfinal.h</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\mxsrclib\irsfunnel.cpp</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\mxsrclib\irsfunnel.h</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\mxsrclib\irsgpio.cpp</name>
@@ -2360,12 +2333,6 @@
       <name>$PROJ_DIR$\..\mxsrclib\irsmath.h</name>
     </file>
     <file>
-      <name>$PROJ_DIR$\..\mxsrclib\irsmatrix.cpp</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\mxsrclib\irsmatrix.h</name>
-    </file>
-    <file>
       <name>$PROJ_DIR$\..\mxsrclib\irsmbus.cpp</name>
     </file>
     <file>
@@ -2397,12 +2364,6 @@
     </file>
     <file>
       <name>$PROJ_DIR$\..\mxsrclib\irspch.h</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\mxsrclib\irsprop.cpp</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\mxsrclib\irsprop.h</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\mxsrclib\irsrect.h</name>
@@ -2465,22 +2426,7 @@
       <name>$PROJ_DIR$\..\mxsrclib\irstree.h</name>
     </file>
     <file>
-      <name>$PROJ_DIR$\..\mxsrclib\irsvariant.cpp</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\mxsrclib\irsvariant.h</name>
-    </file>
-    <file>
       <name>$PROJ_DIR$\..\mxsrclib\lwipopts.h</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\mxsrclib\measdef.h</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\mxsrclib\measmul.cpp</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\mxsrclib\measmul.h</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\mxsrclib\meassup.cpp</name>
@@ -2540,18 +2486,6 @@
       <name>$PROJ_DIR$\..\mxsrclib\mxnetr.h</name>
     </file>
     <file>
-      <name>$PROJ_DIR$\..\mxsrclib\niusbgpib.cpp</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\mxsrclib\niusbgpib.h</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\mxsrclib\niusbgpib_hardflow.cpp</name>
-    </file>
-    <file>
-      <name>$PROJ_DIR$\..\mxsrclib\niusbgpib_hardflow.h</name>
-    </file>
-    <file>
       <name>$PROJ_DIR$\..\mxsrclib\timer.cpp</name>
     </file>
     <file>
@@ -2561,6 +2495,9 @@
       <name>$PROJ_DIR$\..\mxsrclib\tstlan4abs.h</name>
     </file>
   </group>
+  <file>
+    <name>$PROJ_DIR$\adc_params_translate.cpp</name>
+  </file>
   <file>
     <name>$PROJ_DIR$\app.cpp</name>
   </file>
@@ -2575,6 +2512,12 @@
   </file>
   <file>
     <name>$PROJ_DIR$\..\hrm_general\hrm_bridge_data.h</name>
+  </file>
+  <file>
+    <name>$PROJ_DIR$\imp_filt.cpp</name>
+  </file>
+  <file>
+    <name>$PROJ_DIR$\imp_filt.h</name>
   </file>
   <file>
     <name>$PROJ_DIR$\lwipopts_proj.h</name>

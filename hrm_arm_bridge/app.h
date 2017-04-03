@@ -72,6 +72,12 @@ private:
     bs_dac_set,
     bs_termostat_off_dac_wait,
     bs_dac_wait,
+    bs_fast_elab_prepare,
+    bs_fast_elab_dac_set,
+    bs_fast_elab_adc_start,
+    bs_fast_elab_adc_read,
+    bs_fast_elab_point_processing,
+    bs_fast_elab_result,
     bs_elab_prepare,
     bs_elab_start,
     bs_elab_relay_on,
@@ -145,10 +151,18 @@ private:
     double avg;
   };
   struct exp_t {
-    double result;
+    double result_old;
+    double result_2;
+    double result_3;
+    double result_4;
+    double result_5;
     double error;
     double et_code;
     double ch_code;
+    double n0_2;
+    double n0_3;
+    double n0_4;
+    double n0_5;
   };
   struct elab_result_t {
     balance_polarity_t polarity;
@@ -156,8 +170,9 @@ private:
     double code;
   };
   enum elab_mode_t {
-    m_linear = 0,
-    m_pid = 1
+    em_linear = 0,
+    em_pid = 1,
+    em_fast_2points = 2
   };
 
   cfg_t* mp_cfg;
@@ -204,6 +219,7 @@ private:
   balance_status_t m_balance_status;
   size_t m_current_iteration;
   size_t m_iteration_count;
+  elab_mode_t m_elab_mode;
   size_t m_elab_iteration_count;
   irs_i32 m_elab_step;
   dac_value_t m_dac_code;
@@ -224,13 +240,15 @@ private:
   irs_u32 m_prepare_pause;
   irs_u32 m_prepare_current_time;
   vector<elab_point_t> m_elab_vector;
+  vector<elab_point_t> m_fast_elab_vector;
+  double m_fast_elab_dac_step;
   irs_u8 m_exp_cnt;
   vector<exp_t> m_exp_vector;
   bool m_no_prot;
   bool m_wild_relays;
   double m_balanced_sko;
-  irs_u32 m_adc_experiment_gain;
-  irs_u32 m_adc_experiment_filter;
+  //irs_u32 m_adc_experiment_gain;
+  //irs_u32 m_adc_experiment_filter;
 
   manual_status_t m_manual_status;
 
@@ -268,6 +286,24 @@ private:
   balance_polarity_t m_elab_polarity;
   dac_value_t m_elab_step_multiplier;
   double m_elab_max_delta;
+  
+  //  Параметры АЦП в режиме ожидания при измерении напряжения
+  adc_param_data_t m_adc_free_vx_param_data;
+  bool m_new_adc_param_free_vx;
+  //  Параметры АЦП в режиме ожидания при измерении температуры
+  adc_param_data_t m_adc_free_th_param_data;
+  bool m_new_adc_param_free_th;
+  //  Параметры АЦП в ручном режиме
+  adc_param_data_t m_adc_manual_param_data;
+  bool m_new_adc_param_manual;
+  //  Параметры АЦП в режиме измерения при уравновешивании
+  adc_param_data_t m_adc_balance_param_data;
+  bool m_new_adc_param_balance;
+  //  Параметры АЦП в режиме измерения при уточнении
+  adc_param_data_t m_adc_elab_param_data;
+  bool m_new_adc_param_elab;
+  //  Результаты измерения АЦП
+  adc_result_data_t m_adc_result_data;
 
   irs::timer_t m_relay_pause_timer;
 
@@ -280,7 +316,6 @@ private:
   r_standard_type_t m_r_standard_type;
   
   termostat_t m_termostat;
-  irs_u8 m_elab_mode;
   irs::pid_data_t m_elab_pid;
   bool m_elab_pid_on;
   double m_elab_pid_kp;
@@ -304,6 +339,8 @@ private:
   void network_config_to_eth_data();
   double only_calc_elab_code(vector<elab_point_t>* ap_elab_vector,
     size_t a_num, size_t a_cnt);
+  double calc_elab_code_2point(vector<elab_point_t>* ap_elab_vector,
+    size_t a_shift);
   void print_elab_result(vector<elab_point_t>* ap_elab_vector,
     size_t a_num, size_t a_cnt);
   inline bool bridge_relays_ready()
@@ -315,6 +352,21 @@ private:
   void update_elab_pid_koefs();
   dac_value_t norm(dac_value_t a_in);
   dac_value_t denorm(dac_value_t a_in);
+  
+  //  Начальная загрузка параметров из eeprom в структуры АЦП и Ethernet
+  void adc_params_load_from_eeprom();
+  //  Передача текущих параметров АЦП в Ethernet
+  void adc_params_translate_actual_to_eth();
+  //  Проверка изменения параметров в Ethernet и сохраниение в структуры и EEPRO
+  bool adc_params_recieve_and_save_free_vx(); // Канал напряжения в режиме free
+  bool adc_params_recieve_and_save_free_th(); // Канал температуры в режиме free
+  bool adc_params_recieve_and_save_manual();  // Напряжение в ручном режиме 
+  bool adc_params_recieve_and_save_balance(); // Напряжение при уравновешивании
+  bool adc_params_recieve_and_save_elab();    // Напряжение при уточнении
+  //  Преобразование показаний АЦП в температуру с датчика MCP9701
+  adc_value_t adc_vx_to_th(adc_value_t a_voltage);
+  //  Вывод текущих параметров эксперимента
+  void show_experiment_parameters();
 };
 
 } //  hrm

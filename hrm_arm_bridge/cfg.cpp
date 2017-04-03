@@ -129,7 +129,7 @@ hrm::cfg_t::cfg_t():
     new irs::arm::st_pwm_gen_t(PB6, IRS_TIM4_BASE, 4000, 0.5))),
   thst_off(GPIO_PORTB, 10, irs::io_t::dir_out, irs::io_pin_off),
 
-  m_spi_bitrate(1000),
+  m_spi_bitrate(1000000),
   spi(IRS_SPI1_BASE, m_spi_bitrate, PA5, PA6, PB5,
     irs::arm::arm_spi_t::gpio_speed_25mhz),
   spi_th(IRS_SPI3_I2S3_BASE, m_spi_bitrate, PC10, PC11, PC12),
