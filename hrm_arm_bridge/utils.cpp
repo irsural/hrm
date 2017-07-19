@@ -957,7 +957,8 @@ hrm::ad7799_cread_t::ad7799_cread_t(irs::spi_t *ap_spi,
   m_valid_frequency(false),
   m_show_points(false),
   m_adc_filter_ready(false),
-  m_imp_filt()
+  m_imp_filt(),
+  m_max_value(1.0)
 {
   mp_cs_pin->set();
   memset(mp_spi_buf, 0, spi_buf_size);
@@ -1228,20 +1229,19 @@ void hrm::ad7799_cread_t::tick()
       if (mp_spi->get_status() == irs::spi_t::FREE) {
         m_point_time = counter_get();
         irs_i32 adc_raw_value = reinterpret_adc_raw_value(mp_spi_buf);
+        adc_value_t adc_non_normalized_value = 
+          static_cast<adc_value_t>(adc_raw_value);
         adc_value_t adc_value = convert_value(adc_raw_value);
-        m_result_data.raw = -adc_raw_value;
-        
-        //irs::mlog() << adc_value << endl;
+        m_result_data.raw = adc_raw_value;
         
         if (m_adc_filter_ready) {
           if (m_value_deque.size() >= m_param_data.cnv_cnt) {
             m_value_deque.pop_front();
           }
-          m_value_deque.push_back(adc_value);
+          m_value_deque.push_back(adc_non_normalized_value);
           
           if (m_index >= (m_param_data.cnv_cnt - 1)) {
             m_need_prefilling = false;
-            //irs::mlog() << irsm("m_need_prefilling = false") << endl;
           }
           
           if (m_index > 0) {
@@ -1251,7 +1251,7 @@ void hrm::ad7799_cread_t::tick()
           
           switch (m_param_data.impf_type) {
             case impf_none: {
-              m_fast_sko.add(adc_value);
+              m_fast_sko.add(adc_non_normalized_value);
               break;
             }
             case impf_mp: {
@@ -1273,23 +1273,25 @@ void hrm::ad7799_cread_t::tick()
                 m_fast_sko.add(impf);
                 m_test_impf = false;
               } else {
-                m_fast_sko.add(adc_value);
+                m_fast_sko.add(adc_non_normalized_value);
               }
               break;
             }
             case impf_mk: {
-              m_imp_filt.add(adc_value);
+              m_imp_filt.add(adc_non_normalized_value);
               if (!m_need_prefilling) {
                 m_fast_sko.add(m_imp_filt.get());
               } else {
-                m_fast_sko.add(adc_value);
+                m_fast_sko.add(adc_non_normalized_value);
               }
               break;
             }
           }
           
-          m_result_data.sko = m_fast_sko / max_value();
-          m_result_data.avg = m_fast_sko.average();
+          m_result_data.sko = m_fast_sko / pow(2.0, 24);//max_non_normolized_value();
+          m_result_data.avg = normalize_value(m_fast_sko.average());
+          m_result_data.unnormalized_value = m_fast_sko.average();
+          m_result_data.current_point = m_cont_index + 1;
          
           show_points(m_show_points, adc_value);
           show_point_symbol(m_show);
@@ -1345,7 +1347,7 @@ void hrm::ad7799_cread_t::tick()
               }
             }
           } else {
-            if (abs(m_result_data.avg) > max_value()) {
+            if (abs(m_result_data.avg) > m_max_value) {
               if (m_show) {
                 irs::mlog() << irsm("Stop Overvoltage") << endl;
               }
@@ -1689,6 +1691,14 @@ void hrm::ad7799_cread_t::result(adc_result_data_t* ap_result_data)
   ap_result_data->raw = m_result_data.raw;
   ap_result_data->measured_frequency = m_result_data.measured_frequency;
   ap_result_data->point_time = m_result_data.point_time;
+  ap_result_data->current_point = m_result_data.current_point;
+  ap_result_data->unnormalized_value = m_result_data.unnormalized_value;
+}
+
+void hrm::ad7799_cread_t::set_max_value(adc_value_t a_max_value) 
+{ 
+  m_max_value = a_max_value; 
+  irs::mlog() << irsm("АЦП насыщение ") << m_max_value << irsm(" В") << endl;
 }
 
 hrm::impf_type_t hrm::convert_to_impf_type(irs_u8 a_value)

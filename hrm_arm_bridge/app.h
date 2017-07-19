@@ -72,6 +72,7 @@ private:
     bs_dac_set,
     bs_termostat_off_dac_wait,
     bs_dac_wait,
+    bs_none_elab_prepare,
     bs_fast_elab_prepare,
     bs_fast_elab_dac_set,
     bs_fast_elab_adc_start,
@@ -172,7 +173,8 @@ private:
   enum elab_mode_t {
     em_linear = 0,
     em_pid = 1,
-    em_fast_2points = 2
+    em_fast_2points = 2,
+    em_none = 3
   };
 
   cfg_t* mp_cfg;
@@ -206,10 +208,10 @@ private:
   irs::loop_timer_t m_blink_timer;
   irs::timer_t m_service_timer;
   bool m_blink;
-  //bi_relay_t m_relay_bridge_pos;
-  //bi_relay_t m_relay_bridge_neg;
-  mono_relay_t m_relay_bridge_pos;
-  mono_relay_t m_relay_bridge_neg;
+  bi_relay_t m_relay_bridge_pos;
+  bi_relay_t m_relay_bridge_neg;
+  //mono_relay_t m_relay_bridge_pos;
+  //mono_relay_t m_relay_bridge_neg;
   mono_relay_t m_relay_prot;
 
   mode_t m_mode;
@@ -331,6 +333,10 @@ private:
   double m_elab_pid_target_sko;
   double m_elab_pid_target_sko_norm;
   double m_elab_pid_ref;
+  adc_value_t m_adc_max_value_prot;
+  adc_value_t m_adc_max_value_no_prot;
+  double m_bac_old_coefficient;
+  double m_bac_new_coefficient;
 
   void init_keyboard_drv();
   void init_encoder_drv();
@@ -367,6 +373,8 @@ private:
   adc_value_t adc_vx_to_th(adc_value_t a_voltage);
   //  Вывод текущих параметров эксперимента
   void show_experiment_parameters();
+  void show_last_result();
+  elab_mode_t convert_u8_to_elab_mode(irs_u8 a_mode);
 };
 
 } //  hrm

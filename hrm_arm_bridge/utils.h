@@ -361,6 +361,8 @@ struct adc_result_data_t {
   irs_i32 raw;
   double measured_frequency;
   double point_time;
+  size_t current_point;
+  adc_value_t unnormalized_value;
 };
 
 struct adc_param_data_t {
@@ -393,7 +395,7 @@ public:
 //  inline adc_value_t max_value() { return m_param_data.ref
 //     / (2.0 * m_param_data.additional_gain 
 //     * static_cast<adc_value_t>(1 << m_param_data.gain)); }
-  inline adc_value_t max_value() { return 0.4; }  //  Из-за реле защиты
+  inline adc_value_t max_value() { return m_max_value; }  //  Из-за реле защиты
   inline bool new_result() { return new_data(&m_new_result); }
   void result(adc_result_data_t* ap_result_data);
   //  Вывод в консоль
@@ -406,6 +408,7 @@ public:
   void set_params(adc_param_data_t* ap_param_data);
   //  Частота преобразований АЦП
   double get_reference_frequency();
+  void set_max_value(adc_value_t a_max_value);
   void tick();
 private:
   enum status_t {
@@ -527,6 +530,7 @@ private:
   adc_param_data_t m_param_data;
   adc_param_data_t m_user_param_data;
   u309m::filt_imp_noise_t m_imp_filt;
+  adc_value_t m_max_value;
   void event();
   inline adc_value_t convert_value(irs_i32 a_in_value)
   {
@@ -535,6 +539,22 @@ private:
       * m_param_data.additional_gain;
     return -(static_cast<adc_value_t>(a_in_value - (1 << 23))
       / static_cast<adc_value_t>(1 << 23)) * (m_param_data.ref / gain);
+  }
+  inline adc_value_t normalize_value(adc_value_t a_in_value)
+  {
+    adc_value_t gain
+      = static_cast<adc_value_t>(1 << m_param_data.gain) 
+      * m_param_data.additional_gain;
+    adc_value_t half_scale = pow(2.0, 23);
+    return ((a_in_value - half_scale)*m_param_data.ref) / (half_scale * gain);
+  }
+  inline adc_value_t unnormalize_value(adc_value_t a_in_value)
+  {
+    adc_value_t gain
+      = static_cast<adc_value_t>(1 << m_param_data.gain) 
+      * m_param_data.additional_gain;
+    adc_value_t half_scale = pow(2.0, 23);
+    return half_scale + (half_scale * a_in_value * gain) / m_param_data.ref;
   }
   adc_value_t calc_impf(deque<adc_value_t>* ap_value_deque, 
     impf_test_data_t* ap_test_data = 0);
