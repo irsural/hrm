@@ -337,6 +337,8 @@ private:
   adc_value_t m_adc_max_value_no_prot;
   double m_bac_old_coefficient;
   double m_bac_new_coefficient;
+  irs_i32 m_bac_new_int_coefficient;
+  irs_i32 m_bac_new_int_multiplier;
 
   void init_keyboard_drv();
   void init_encoder_drv();

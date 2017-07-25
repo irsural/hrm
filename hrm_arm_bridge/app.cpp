@@ -156,7 +156,9 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_adc_max_value_prot(0.4),
   m_adc_max_value_no_prot(1.0),
   m_bac_old_coefficient(0.0),
-  m_bac_new_coefficient(0.0)
+  m_bac_new_coefficient(1.0),
+  m_bac_new_int_coefficient(1),
+  m_bac_new_int_multiplier(1000.0)
 {
   init_keyboard_drv();
   init_encoder_drv();
@@ -319,6 +321,12 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   
   m_bac_new_coefficient = m_eeprom_data.bac_new_coefficient;
   m_eth_data.bac_new_coefficient = m_eeprom_data.bac_new_coefficient;
+  
+  m_bac_new_int_coefficient = m_eeprom_data.bac_new_int_coefficient;
+  m_eth_data.bac_new_int_coefficient = m_eeprom_data.bac_new_int_coefficient;
+  
+  m_bac_new_int_multiplier = m_eeprom_data.bac_new_int_multiplier;
+  m_eth_data.bac_new_int_multiplier = m_eeprom_data.bac_new_int_multiplier;
   
   mp_cfg->vben.set();
 
@@ -660,6 +668,16 @@ void hrm::app_t::tick()
     if (m_eth_data.bac_new_coefficient != m_eeprom_data.bac_new_coefficient) {
       m_eeprom_data.bac_new_coefficient = m_eth_data.bac_new_coefficient;
       m_bac_new_coefficient = m_eth_data.bac_new_coefficient;
+    }
+    if (m_eth_data.bac_new_int_coefficient != 
+      m_eeprom_data.bac_new_int_coefficient) {
+      m_eeprom_data.bac_new_int_coefficient = m_eth_data.bac_new_int_coefficient;
+      m_bac_new_int_coefficient = m_eth_data.bac_new_int_coefficient;
+    }
+    if (m_eth_data.bac_new_int_multiplier != 
+      m_eeprom_data.bac_new_int_multiplier) {
+      m_eeprom_data.bac_new_int_multiplier = m_eth_data.bac_new_int_multiplier;
+      m_bac_new_int_multiplier = m_eth_data.bac_new_int_multiplier;
     }
     
     
@@ -1994,44 +2012,44 @@ void hrm::app_t::tick()
           m_buzzer.bzz(2);
           switch (m_elab_mode) {
             case em_fast_2points: {
-              //
-              if (m_elab_iteration_count >= 2) {
-                irs::mlog() << irsm("Результаты уточнения") << endl;
-                for (size_t i = 0; i < m_elab_result_vector.size(); i++) {
-                  irs::mlog() << setw(2) << i + 1;
-                  irs::mlog() << irsm(" <");
-                  irs::mlog() << setw(1) << m_elab_result_vector[i].polarity;
-                  irs::mlog() << irsm("> ");
-                  irs::mlog() << setw(7) << m_elab_result_vector[i].start_code;
-                  irs::mlog() << irsm(" ");
-                  irs::mlog() << setw(8) << m_elab_result_vector[i].code;
-                  irs::mlog() << endl;
-                }
+              irs::mlog() << endl;
+              irs::mlog() << irsm("Результаты уточнения") << endl;
+              for (size_t i = 0; i < m_elab_result_vector.size(); i++) {
+                irs::mlog() << setw(2) << i + 1;
+                irs::mlog() << irsm(" <");
+                irs::mlog() << setw(1) << m_elab_result_vector[i].polarity;
+                irs::mlog() << irsm("> ");
+                irs::mlog() << setw(7) << m_elab_result_vector[i].start_code;
+                irs::mlog() << irsm(" ");
+                irs::mlog() << setw(8) << m_elab_result_vector[i].code;
+                irs::mlog() << endl;
               }
-              //m_checked_code = calc_elab_code(&m_elab_vector, bc_checked);
-              //m_etalon_code = calc_elab_code(&m_elab_vector, bc_etalon);
-              //m_result = 1. - (m_checked_code - m_etalon_code) / 2.;
-              //m_result = m_result * m_etalon;
+              //  ---------------      RESULTS         -------------------------
+              irs::mlog() << endl;
+              exp_t exp;
+              //  ---------------  OLD FORMULA RESULT  -------------------------
               m_checked_code /= pow(2., 19);
               m_etalon_code /= pow(2., 19);
-              
+              //  m_bac_old_coefficient - смещение в попугаях
               double A = 2.0 + (m_bac_old_coefficient / 1e8);
-              irs::mlog() << irsm("BAC OLD = ") << m_bac_old_coefficient << endl;
-              irs::mlog() << irsm("A   = ") << A << endl;
-              
               m_result = (A - m_checked_code + m_etalon_code);
               m_result /= (A + m_checked_code - m_etalon_code);
-              irs::mlog() << irsm("Старый результат ") << setw(14) <<
-                setprecision(14) << m_result << endl << endl;
-              //
               
-              exp_t exp;
+              irs::mlog() << irsm("Старый результат") << endl;
+              irs::mlog() << irsm("BAC OLD = ") << m_bac_old_coefficient;
+              irs::mlog() << endl;
+              irs::mlog() << irsm("A = ") << A << endl;
+              irs::mlog() << irsm("RESULT OLD = ");
+              irs::mlog() << setw(14) << setprecision(14);
+              irs::mlog() << m_result << endl << endl;
+              
               exp.result_old = m_result;
-              //exp.error = m_result_error;
               exp.ch_code = m_checked_code;
               exp.et_code = m_etalon_code;
+              //  --------------------------------------------------------------
               
-              irs::mlog() << irsm("Результаты быстрого уточнения") << endl;
+              //  ---------------  NEW FORMULA RESULT  -------------------------
+              irs::mlog() << irsm("Новый результат") << endl;
               const size_t index_1n = 2;
               const size_t index_2n = 3;
               const size_t index_1p = 0;
@@ -2053,8 +2071,11 @@ void hrm::app_t::tick()
               irs::mlog() << irsm("n1p = ") << n1p << endl;
               irs::mlog() << irsm("n2n = ") << n2n << endl;
               irs::mlog() << irsm("n2p = ") << n2p << endl;
+              irs::mlog() << endl;
               
-              adc_value_t mult = 1000.0;
+              adc_value_t mult = m_bac_new_int_multiplier;
+              irs::mlog() << irsm("MULT = ") << mult << endl;
+              
               irs_i64 M1N = static_cast<irs_i64>(m1n * mult);
               irs_i64 M1P = static_cast<irs_i64>(m1p * mult);
               irs_i64 M2N = static_cast<irs_i64>(m2n * mult);
@@ -2083,13 +2104,9 @@ void hrm::app_t::tick()
               irs::mlog() << irsm("M1P - M1N = ") << (M1P - M1N) << endl;
               irs::mlog() << irsm("N2P - N2N = ") << (N2P - N2N) << endl;
               
-              //irs::mlog() << irsm("Denom     = ") << (2.0 * ((m2p - m2n) - (m1p - m1n))) << endl;
-              //irs::mlog() << irsm("Numer     = ") << (m2p - m2n) * (n1p - n1n - 1.0) - (m1p - m1n) * (n2p - n2n - 1.0) << endl;
-              
-              
-              adc_value_t B = m_bac_new_coefficient; //1.0 + (m_bac_new_coefficient / 1e8);
-              irs::mlog() << irsm("BAC NEW = ") << m_bac_new_coefficient << endl;
-              irs::mlog() << irsm("B   = ") << B << endl;
+              adc_value_t B = m_bac_new_coefficient;
+              irs::mlog() << irsm("BAC NEW = ");
+              irs::mlog() << m_bac_new_coefficient << endl;
               
               adc_value_t n0 = 0.0;
               adc_value_t num_5 = 0.0;
@@ -2107,7 +2124,9 @@ void hrm::app_t::tick()
               //n0 /= (2.0 * ((m2p - m2n) - (m1p - m1n)));
               irs_i64 NUM_5 = 0;
               irs_i64 DENOM_5 = 0;
-              irs_i64 B_INT = static_cast<irs_i64>(B);
+              irs_i64 B_INT = m_bac_new_int_coefficient;
+              irs::mlog() << irsm("BAC NEW INT = ") << m_bac_new_int_coefficient << endl;
+              //irs::mlog() << irsm("B   = ") << B << endl;
               NUM_5 = (M2P - M2N) * (N1P - N1N - B_INT) - (M1P - M1N) * (N2P - N2N - B_INT);
               DENOM_5 = 2 * ((M2P - M2N) - (M1P - M1N));
               irs::mlog() << irsm("DENOM_5   = ") << DENOM_5 << endl;
@@ -3212,6 +3231,11 @@ void hrm::app_t::show_experiment_parameters()
   
   irs::mlog() << setw(18) << left << irsm("bac_new_coefficient ");
   irs::mlog() << setw(7) << left << m_bac_new_coefficient;
+  
+  irs::mlog() << endl;
+  
+  irs::mlog() << setw(18) << left << irsm("bac_new_int_coefficient ");
+  irs::mlog() << setw(7) << left << m_bac_new_int_coefficient;
   
   irs::mlog() << endl;
 }

@@ -1290,7 +1290,7 @@ void hrm::ad7799_cread_t::tick()
           
           m_result_data.sko = m_fast_sko / pow(2.0, 24);//max_non_normolized_value();
           m_result_data.avg = normalize_value(m_fast_sko.average());
-          m_result_data.unnormalized_value = m_fast_sko.average();
+          m_result_data.unnormalized_value = m_fast_sko.average() - pow(2.0, 23);
           m_result_data.current_point = m_cont_index + 1;
          
           show_points(m_show_points, adc_value);
