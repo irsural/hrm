@@ -91,6 +91,8 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_elab_vector(),
   m_fast_elab_vector(),
   m_fast_elab_dac_step(0.0),
+  m_fast_elab_dac_step_2(0.0),
+  m_fast_elab_dac_step_3(0.0),
   m_exp_cnt(1),
   m_exp_vector(),
   m_no_prot(false),
@@ -1667,17 +1669,60 @@ void hrm::app_t::tick()
         case bs_fast_elab_prepare: {
           //m_balanced_dac_code = 0.0;
           m_fast_elab_dac_step 
-            = abs(round(0.9 * m_dac_code) - m_balanced_dac_code);
+            = abs(round(0.85 * (m_dac_code - m_balanced_dac_code)));
           if (m_balanced_dac_code + m_fast_elab_dac_step > m_dac.max_code()) {
             m_fast_elab_dac_step = m_dac.max_code() - m_balanced_dac_code;
           } else if (m_balanced_dac_code - m_fast_elab_dac_step 
             < m_dac.min_code()) {
             m_fast_elab_dac_step = m_balanced_dac_code - m_dac.min_code();  
           }
+          
+          m_fast_elab_dac_step_2 
+            = abs(round(0.8 * (m_dac_code - m_balanced_dac_code)));
+          if (m_balanced_dac_code + m_fast_elab_dac_step_2 > m_dac.max_code()) {
+            m_fast_elab_dac_step_2 = m_dac.max_code() - m_balanced_dac_code;
+          } else if (m_balanced_dac_code - m_fast_elab_dac_step_2 
+            < m_dac.min_code()) {
+            m_fast_elab_dac_step_2 = m_balanced_dac_code - m_dac.min_code();  
+          }
+          
+          m_fast_elab_dac_step_3 
+            = abs(round(0.9 * (m_dac_code - m_balanced_dac_code)));
+          if (m_balanced_dac_code + m_fast_elab_dac_step_3 > m_dac.max_code()) {
+            m_fast_elab_dac_step_3 = m_dac.max_code() - m_balanced_dac_code;
+          } else if (m_balanced_dac_code - m_fast_elab_dac_step_3 
+            < m_dac.min_code()) {
+            m_fast_elab_dac_step_3 = m_balanced_dac_code - m_dac.min_code();  
+          }
+          
           irs::mlog() << irsm("------- Быстрое уточнение -------") << endl;
-          irs::mlog() << irsm("Величина прыжка ЦАП = ") 
-            << m_fast_elab_dac_step << endl;
-          m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step;
+          //irs::mlog() << irsm("Величина прыжка ЦАП = ") 
+            //<< m_fast_elab_dac_step << endl;
+          //  Внесение ассиметрии для нормальной работы новой формулы
+          switch (m_fast_elab_vector.size()) {
+            case 0: {
+              m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_2;
+              irs::mlog() << irsm("Величина прыжка ЦАП = ") 
+                << m_fast_elab_dac_step_2 << endl;
+              break;
+            }
+            case 2: {
+              m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_3;
+              irs::mlog() << irsm("Величина прыжка ЦАП = ") 
+                << m_fast_elab_dac_step_3 << endl;
+              break;
+            }
+            default: {
+              m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step;
+              irs::mlog() << irsm("Величина прыжка ЦАП = ") 
+                << m_fast_elab_dac_step << endl;
+            }
+          }
+          if (m_fast_elab_vector.size() < 1)  {
+            
+          } else {
+            
+          }
           
           m_adc.set_params(&m_adc_elab_param_data);
           irs::mlog() << irsm("Параметры АЦП m_adc_elab_param_data") << endl;
@@ -2031,9 +2076,9 @@ void hrm::app_t::tick()
               m_checked_code /= pow(2., 19);
               m_etalon_code /= pow(2., 19);
               //  m_bac_old_coefficient - смещение в попугаях
-              double A = 2.0 + (m_bac_old_coefficient / 1e8);
-              m_result = (A - m_checked_code + m_etalon_code);
-              m_result /= (A + m_checked_code - m_etalon_code);
+              double A = (m_bac_old_coefficient) / pow(2.0, 19);
+              m_result = (2.0 - m_checked_code + m_etalon_code - A);
+              m_result /= (2.0 + m_checked_code - m_etalon_code + A);
               
               irs::mlog() << irsm("Старый результат") << endl;
               irs::mlog() << irsm("BAC OLD = ") << m_bac_old_coefficient;
@@ -2050,6 +2095,8 @@ void hrm::app_t::tick()
               
               //  ---------------  NEW FORMULA RESULT  -------------------------
               irs::mlog() << irsm("Новый результат") << endl;
+              //  --------------------------------------------------------------
+              irs::mlog() << irsm("FLOAT") << endl;
               const size_t index_1n = 2;
               const size_t index_2n = 3;
               const size_t index_1p = 0;
@@ -2063,6 +2110,23 @@ void hrm::app_t::tick()
               adc_value_t n2n = m_fast_elab_vector[index_2n].dac;
               adc_value_t n2p = m_fast_elab_vector[index_2p].dac;
               
+              adc_value_t B = m_bac_new_coefficient;
+              
+              adc_value_t n0 = 0.0;
+              adc_value_t num = 0.0;
+              adc_value_t denom = 0.0;
+              adc_value_t h = pow(2.0, 19);
+              
+              num = (m2p - m2n) * (n1p - n1n - 1.0) 
+                    - (m1p - m1n) * (n2p - n2n - 1.0);
+                    
+              denom = (2.0 * ((m2p - m2n) - (m1p - m1n)));
+              
+              n0 = num / denom;
+              exp.n0_4 = n0;
+              exp.result_4 =  (1.0 + num / denom / h) 
+                            / (1.0 - ((1.0 - B) * denom + num) / denom / h);
+                            
               irs::mlog() << irsm("m1n = ") << m1n << endl;
               irs::mlog() << irsm("m1p = ") << m1p << endl;
               irs::mlog() << irsm("m2n = ") << m2n << endl;
@@ -2072,7 +2136,24 @@ void hrm::app_t::tick()
               irs::mlog() << irsm("n2n = ") << n2n << endl;
               irs::mlog() << irsm("n2p = ") << n2p << endl;
               irs::mlog() << endl;
-              
+              irs::mlog() << irsm("m2p - m2n = ") << (m2p - m2n) << endl;
+              irs::mlog() << irsm("n1p - n1n = ") << (n1p - n1n) << endl;
+              irs::mlog() << irsm("m1p - m1n = ") << (m1p - m1n) << endl;
+              irs::mlog() << irsm("n2p - n2n = ") << (n2p - n2n) << endl;
+              irs::mlog() << endl;
+              irs::mlog() << irsm("BAC NEW = ");
+              irs::mlog() << m_bac_new_coefficient << endl;
+              irs::mlog() << endl;
+              irs::mlog() << irsm("Denom     = ") << denom << endl;
+              irs::mlog() << irsm("Numer     = ") << num << endl;
+              irs::mlog() << endl;
+              irs::mlog() << irsm("n0 = ") << n0 << endl;
+              irs::mlog() << irsm("Результат NEW FLOAT ");
+              irs::mlog() << setw(12) << exp.result_4;
+              irs::mlog() << endl;
+              irs::mlog() << endl;
+              //  --------------------------------------------------------------
+              irs::mlog() << irsm("INT") << endl;
               adc_value_t mult = m_bac_new_int_multiplier;
               irs::mlog() << irsm("MULT = ") << mult << endl;
               
@@ -2085,6 +2166,29 @@ void hrm::app_t::tick()
               irs_i64 N2N = static_cast<irs_i64>(n2n);
               irs_i64 N2P = static_cast<irs_i64>(n2p);
               
+              irs_i64 NUM = 0;
+              irs_i64 DENOM = 0;
+              irs_i64 DENOM_CORR = 0;
+              //irs_i64 B_INT = m_bac_new_int_coefficient;
+              
+              NUM = (M2P - M2N) * (N1P - N1N - 1) 
+                  - (M1P - M1N) * (N2P - N2N - 1);
+                    
+              DENOM = 2 * ((M2P - M2N) - (M1P - M1N));
+              DENOM_CORR = 
+                static_cast<irs_i64>(static_cast<adc_value_t>(DENOM) * B);
+              
+              n0 =  static_cast<adc_value_t>(NUM) 
+                  / static_cast<adc_value_t>(DENOM);
+              
+              irs_i64 HALF = 1 << 19;
+              irs_i64 NUM_N0 = NUM + HALF * DENOM;
+              irs_i64 DENOM_N0 = (HALF - 1) * DENOM - NUM + DENOM_CORR;
+              
+              exp.n0_5 = n0;
+              exp.result_5 =  static_cast<adc_value_t>(NUM_N0) 
+                            / static_cast<adc_value_t>(DENOM_N0);
+                            
               irs::mlog() << irsm("M1N = ") << M1N << endl;
               irs::mlog() << irsm("M1P = ") << M1P << endl;
               irs::mlog() << irsm("M2N = ") << M2N << endl;
@@ -2093,85 +2197,46 @@ void hrm::app_t::tick()
               irs::mlog() << irsm("N1P = ") << N1P << endl;
               irs::mlog() << irsm("N2N = ") << N2N << endl;
               irs::mlog() << irsm("N2P = ") << N2P << endl;
-              
-              irs::mlog() << irsm("m2p - m2n = ") << (m2p - m2n) << endl;
-              irs::mlog() << irsm("n1p - n1n = ") << (n1p - n1n) << endl;
-              irs::mlog() << irsm("m1p - m1n = ") << (m1p - m1n) << endl;
-              irs::mlog() << irsm("n2p - n2n = ") << (n2p - n2n) << endl;
-              
+              irs::mlog() << endl;
               irs::mlog() << irsm("M2P - M2N = ") << (M2P - M2N) << endl;
               irs::mlog() << irsm("N1P - N1N = ") << (N1P - N1N) << endl;
               irs::mlog() << irsm("M1P - M1N = ") << (M1P - M1N) << endl;
               irs::mlog() << irsm("N2P - N2N = ") << (N2P - N2N) << endl;
+              irs::mlog() << endl;
+              irs::mlog() << irsm("BAC NEW INT = ");
+              irs::mlog() << m_bac_new_int_coefficient << endl;
+              irs::mlog() << endl;
+              irs::mlog() << irsm("DENOM   = ") << DENOM << endl;
+              irs::mlog() << irsm("NUM     = ") << NUM << endl;
+              irs::mlog() << endl;
+              irs::mlog() << irsm("N0 = ") << n0 << endl;
+              irs::mlog() << irsm("РЕЗУЛЬТАТ NEW INT ");
+              irs::mlog() << setw(12) << exp.result_5 << endl;
+              irs::mlog() << endl;
+              irs::mlog() << endl;
+              //  --------------------------------------------------------------
               
-              adc_value_t B = m_bac_new_coefficient;
-              irs::mlog() << irsm("BAC NEW = ");
-              irs::mlog() << m_bac_new_coefficient << endl;
-              
-              adc_value_t n0 = 0.0;
-              adc_value_t num_5 = 0.0;
-              adc_value_t denom_5 = 0.0;
-              
-                // << endl;
               // irs::mlog() << irsm("n0 = ") << n0 << endl;
               // irs::mlog() << irsm("Результат 4 ") << setw(12) << exp.result_4
-                // << endl;
-              
               // num_5 = ((m_fast_elab_vector[index_2p].adc - m_fast_elab_vector[index_2n].adc)) * (m_fast_elab_vector[index_1p].dac - m_fast_elab_vector[index_1n].dac - 1.0) - ((m_fast_elab_vector[index_1p].adc - m_fast_elab_vector[index_1n].adc)) * (m_fast_elab_vector[index_2p].dac - m_fast_elab_vector[index_2n].dac - 1.0);
-              
               // denom_5 = (2.0 * ((m_fast_elab_vector[index_2p].adc - m_fast_elab_vector[index_2n].adc) - (m_fast_elab_vector[index_1p].adc - m_fast_elab_vector[index_1n].adc)));
               //n0 = (m2p - m2n) * (n1p - n1n - 1.0) - (m1p - m1n) * (n2p - n2n - 1.0);
               //n0 /= (2.0 * ((m2p - m2n) - (m1p - m1n)));
-              irs_i64 NUM_5 = 0;
-              irs_i64 DENOM_5 = 0;
-              irs_i64 B_INT = m_bac_new_int_coefficient;
-              irs::mlog() << irsm("BAC NEW INT = ") << m_bac_new_int_coefficient << endl;
               //irs::mlog() << irsm("B   = ") << B << endl;
-              NUM_5 = (M2P - M2N) * (N1P - N1N - B_INT) - (M1P - M1N) * (N2P - N2N - B_INT);
-              DENOM_5 = 2 * ((M2P - M2N) - (M1P - M1N));
-              irs::mlog() << irsm("DENOM_5   = ") << DENOM_5 << endl;
-              irs::mlog() << irsm("NUM_5     = ") << NUM_5 << endl;
-              
-              num_5 = (m2p - m2n) * (n1p - n1n - B) - (m1p - m1n) * (n2p - n2n - B);
-              denom_5 = (2.0 * ((m2p - m2n) - (m1p - m1n)));
               //num_5 = static_cast<adc_value_t>(NUM_5);
               //denom_5 = static_cast<adc_value_t>(DENOM_5);
-              
-              irs::mlog() << irsm("Denom     = ") << denom_5 << endl;
-              irs::mlog() << irsm("Numer     = ") << num_5 << endl;
-              
-              n0 = num_5 / denom_5;
-              exp.n0_4 = n0;
-              adc_value_t h = pow(2.0, 19);
               //exp.result_5 = (n0 + pow(2.0, 19)) / (pow(2., 19) - 1.0 - n0);
               //exp.result_5 = (num_5 + pow(2.0, 19) * denom_5) / ((pow(2.0, 19) - 1.0) * denom_5 - num_5);
-              exp.result_4 = (1.0 + num_5 / denom_5 / h) / (1.0 - (denom_5 + num_5) / denom_5 / h);
-
               // irs::mlog() << irsm("Результат 5 via n0") << setw(12) << n0
-                // << endl;
-              irs::mlog() << endl;
-              irs::mlog() << irsm("n0 = ") << n0 << endl;
-              irs::mlog() << irsm("Результат 5 ") << setw(12) << exp.result_5
-                << endl << endl;
-              
-              n0 = static_cast<adc_value_t>(NUM_5) / static_cast<adc_value_t>(DENOM_5);
-              irs::mlog() << irsm("N0 = ") << n0 << endl;
-              exp.n0_5 = n0;
-              
-              irs_i64 HALF = 2 << 19;
-              irs_i64 NUM_N0 = NUM_5 + HALF * DENOM_5;
-              irs_i64 DENOM_N0 = (HALF - 1) * DENOM_5 - NUM_5;
-              exp.result_5 = static_cast<adc_value_t>(NUM_N0) / static_cast<adc_value_t>(DENOM_N0);
-              irs::mlog() << irsm("РЕЗУЛЬТАТ 5 ") << setw(12) << exp.result_5
-                << endl << endl;
+              // << endl;
               
               m_exp_vector.push_back(exp);
                 
               m_fast_elab_vector.clear();
               
-              m_eth_data.result = exp.result_old;
-              m_eth_data.ratio = exp.result_5;
-              m_eth_data.result_error = exp.result_4;
+              m_eth_data.result = exp.result_old;     //  Result OLD
+              m_eth_data.ratio = exp.result_5;        //  Result INT
+              m_eth_data.result_error = exp.result_4; //  Result FLOAT
               break;
             }
             case em_none: {

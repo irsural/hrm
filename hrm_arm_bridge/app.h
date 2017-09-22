@@ -243,7 +243,9 @@ private:
   irs_u32 m_prepare_current_time;
   vector<elab_point_t> m_elab_vector;
   vector<elab_point_t> m_fast_elab_vector;
-  double m_fast_elab_dac_step;
+  adc_value_t m_fast_elab_dac_step;
+  adc_value_t m_fast_elab_dac_step_2;
+  adc_value_t m_fast_elab_dac_step_3;
   irs_u8 m_exp_cnt;
   vector<exp_t> m_exp_vector;
   bool m_no_prot;
