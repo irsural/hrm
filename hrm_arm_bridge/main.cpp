@@ -11,7 +11,12 @@
 
 #include <irsfinal.h>
 
-enum { HRM_rev = 2, mxsrclib_rev = 667 };
+enum { 
+  hardware_rev = 2,
+  software_rev = 52,
+  mxsrclib_rev = 1344,
+  extern_libs_rev = 25
+};
 
 void app_start(hrm::cfg_t* ap_cfg);
 
@@ -43,8 +48,11 @@ void main()
   irs::mlog() << endl;
   irs::mlog() << endl;
   irs::mlog() << irsm("--------- INITIALIZATION --------") << endl;
-  irs::mlog() << irsm("HRM rev. ") << HRM_rev << irsm(", ");
+  irs::mlog() << irsm("hardware rev. ") << hardware_rev << endl;
+  irs::mlog() << irsm("software rev. ") << software_rev << endl;
   irs::mlog() << irsm("mxsrclib rev. ") << mxsrclib_rev << endl;
+  irs::mlog() << irsm("extern_libs rev. ") << extern_libs_rev << endl;
+  irs::mlog() << endl;
 
   irs::arm::io_pin_t m_memory_chip_select_pin(GPIO_PORTD, 7, irs::io_t::dir_out,
     irs::io_pin_on);
