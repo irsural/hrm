@@ -1,6 +1,10 @@
 # hrm ignore
 /extern_libs
 /mxsrclib
+List
+Obj
+settings
+*.out
 
 # irs global ignore
 *.*~
@@ -30,3 +34,4 @@ tmpprst.*
 /__history
 /Desktop.ini
 *.orig
+*.sim
