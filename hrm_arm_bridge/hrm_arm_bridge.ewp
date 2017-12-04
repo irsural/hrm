@@ -2514,9 +2514,6 @@
     <name>$PROJ_DIR$\imp_filt.h</name>
   </file>
   <file>
-    <name>$PROJ_DIR$\lwipopts_proj.h</name>
-  </file>
-  <file>
     <name>$PROJ_DIR$\main.cpp</name>
   </file>
   <file>

@@ -201,9 +201,6 @@ private:
   dac_t m_dac;
   ad7799_cread_t m_adc;
 
-  irs::th_lm95071_t m_ext_th;
-  irs::th_lm95071_data_t m_ext_th_data;
-
   irs::loop_timer_t m_eth_timer;
   irs::loop_timer_t m_blink_timer;
   irs::timer_t m_service_timer;

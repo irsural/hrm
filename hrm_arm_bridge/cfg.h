@@ -53,24 +53,24 @@ class adc_exti_t
 public:
   inline adc_exti_t()
   {
-    irs::clock_enable(IRS_PORTG_BASE);
-    irs::gpio_moder_input_enable(PG3);
-    SETENA0_bit.SETENA_EXTI3 = 1; //  exti3 линия 3
-    SYSCFG_EXTICR1_bit.EXTI3 = 6;     //  PORT G
-    EXTI_IMR_bit.MR3 = 0; // Изначально прерывание на линии 3 отключено
-    EXTI_FTSR_bit.TR3 = 1; // Включаем реакцию на задний фронт
+    irs::clock_enable(IRS_PORTF_BASE);
+    irs::gpio_moder_input_enable(PF1);
+    SETENA0_bit.SETENA_EXTI1 = 1;     //  exti1 линия 1
+    SYSCFG_EXTICR1_bit.EXTI1 = 5;     //  PORT F
+    EXTI_IMR_bit.MR1 = 0;   // Изначально прерывание на линии 1 отключено
+    EXTI_FTSR_bit.TR1 = 1;  // Включаем реакцию на задний фронт
   }
   inline ~adc_exti_t()
   {
-    SETENA0_bit.SETENA_EXTI3 = 0;
+    SETENA0_bit.SETENA_EXTI1 = 0;
   };
   inline void add_event(mxfact_event_t *ap_event)
   {
-    irs::interrupt_array()->int_event_gen(irs::arm::exti3_int)->add(ap_event);
+    irs::interrupt_array()->int_event_gen(irs::arm::exti1_int)->add(ap_event);
   }
-  inline void start()   { EXTI_IMR_bit.MR3 = 1; }
-  inline void stop()    { EXTI_IMR_bit.MR3 = 0; }
-  inline bool stopped() { return EXTI_IMR_bit.MR3; }
+  inline void start()   { EXTI_IMR_bit.MR1 = 1; }
+  inline void stop()    { EXTI_IMR_bit.MR1 = 0; }
+  inline bool stopped() { return EXTI_IMR_bit.MR1; }
 };
 
 class network_config_t
@@ -91,7 +91,7 @@ public:
 private:
   void reset();
   network_config_t();
-  enum { channel_max_count = 3 };
+  enum { channel_max_count = 10 };
   irs::arm::st_ethernet_t* mp_arm_eth;
   irs::handle_t<irs::lwip::ethernet_t>* mp_ethernet;
   irs::handle_t<irs::hardflow::lwip::udp_t>* mp_udp_client;
@@ -108,51 +108,70 @@ public:
 private:
   mxmac_t m_local_mac;
   irs::arm::st_ethernet_t::config_t m_config;
+  irs::arm::st_ethernet_t::config_t phy_config();
   irs::arm::st_ethernet_t m_arm_eth;
   irs::handle_t<irs::lwip::ethernet_t> lwip_ethernet;
   irs::handle_t<irs::hardflow::lwip::udp_t> udp_client;
 public:
+  //  Ethernet
   irs::hardflow::connector_t connector_hardflow;
   network_config_t network_config;
-
-  irs::arm::io_pin_t vben;
+  //  AUX
+  irs::arm::io_pin_t led_blink;
   irs::arm::io_pin_t ee_cs;
+  irs::arm::io_pin_t aux1;
+  irs::arm::io_pin_t aux2;
+  irs::arm::io_pin_t aux3;
+  irs::arm::io_pin_t mezzo1;
+  irs::arm::io_pin_t mezzo2;
+  irs::arm::io_pin_t mezzo3;
+  irs::arm::io_pin_t mezzo4;
+  //  UI
   irs::arm::io_port_t lcd_port;
   irs::arm::io_pin_t lcd_rs_pin;
   irs::arm::io_pin_t lcd_e_pin;
   vector<irs::handle_t<irs::gpio_pin_t> > key_drv_horizontal_pins;
   vector<irs::handle_t<irs::gpio_pin_t> > key_drv_vertical_pins;
-  gpio_channel_t encoder_gpio_channel_1;
-  gpio_channel_t encoder_gpio_channel_2;
+  gpio_channel_t enc_a;
+  gpio_channel_t enc_b;
   size_t encoder_timer_address;
-  irs::arm::io_pin_t key_encoder;
+  irs::arm::io_pin_t enc_sw;
+  irs::pwm_pin_t buzzer;
+  //  ADC
   irs::arm::io_pin_t adc_cs;
+  irs::arm::io_pin_t adc_reset;
+  irs::arm::io_pin_t adc_start;
+  irs::arm::io_pin_t adc_clk;
+  irs::arm::io_pin_t adc_en;
+  //  DAC
   irs::arm::io_pin_t dac_cs;
   irs::arm::io_pin_t dac_ldac;
   irs::arm::io_pin_t dac_clr;
   irs::arm::io_pin_t dac_reset;
-  irs::arm::io_pin_t dac_ti_cs;
-  irs::arm::io_pin_t th_cs;
+  irs::arm::io_pin_t dac_en;
+  irs::arm::io_pin_t dac_enctrl;
+  //  Relays
   irs::arm::io_pin_t relay_bridge_pos_on;
   irs::arm::io_pin_t relay_bridge_pos_off;
   irs::arm::io_pin_t relay_bridge_neg_on;
   irs::arm::io_pin_t relay_bridge_neg_off;
-  irs::arm::io_pin_t relay_gain_high;
-  irs::arm::io_pin_t relay_gain_low;
-  irs::arm::io_pin_t relay_voltage_high;
-  irs::arm::io_pin_t relay_voltage_low;
   irs::arm::io_pin_t relay_prot;
-  irs::arm::io_pin_t led_blink;
-  irs::arm::io_pin_t led_hf;
-  irs::arm::io_pin_t led_pon;
-  irs::pwm_pin_t buzzer;
-  irs::arm::io_pin_t thst_off;
-
+  //  SPI
   irs_u32 m_spi_bitrate;
-  irs::arm::arm_spi_t spi;
-  irs::arm::arm_spi_t spi_th;
-  
+  irs::arm::arm_spi_t spi_adc;
+  irs::arm::arm_spi_t spi_dac;
+  irs::arm::arm_spi_t spi_aux;
+  //  External interrupt
   adc_exti_t adc_exti;
+  //  Climate
+  irs::pwm_pin_t peltier_pwm1;
+  irs::pwm_pin_t peltier_pwm2;
+  irs::arm::io_pin_t peltier_pol1;
+  irs::arm::io_pin_t peltier_pol2;
+  irs::arm::io_pin_t fan_ac_on;
+  irs::arm::io_pin_t fan_dc_ls;
+  irs::arm::io_pin_t fan_dc_hs;
+  irs::arm::io_pin_t fan_dc_sen;
 };
 
 } //  hrm

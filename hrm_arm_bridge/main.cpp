@@ -12,8 +12,8 @@
 #include <irsfinal.h>
 
 enum { 
-  hardware_rev = 2,
-  software_rev = 52,
+  hardware_rev = 3,
+  software_rev = 53,
   mxsrclib_rev = 1344,
   extern_libs_rev = 25
 };
@@ -37,14 +37,11 @@ void main()
   param_pll.HSEBYP = 0; //HSE clock bypass External crystal/ceramic resonator
   irs::pll_on(param_pll);
 
-  static hard_fault_event_t hard_fault_event(GPIO_PORTF, 6);
+  static hard_fault_event_t hard_fault_event(GPIO_PORTD, 9);  //  Red LED
 
   static irs::arm::com_buf log_buf(1, 10, 115200);
   irs::loc();
   irs::mlog().rdbuf(&log_buf);
-  #ifdef HRM_DEBUG
-  static irs::mc_error_handler_t error_handler(GPIO_PORTD, 0, &irs::mlog());
-  #endif // HRM_DEBUG
   irs::mlog() << endl;
   irs::mlog() << endl;
   irs::mlog() << irsm("--------- INITIALIZATION --------") << endl;
@@ -53,9 +50,6 @@ void main()
   irs::mlog() << irsm("mxsrclib rev. ") << mxsrclib_rev << endl;
   irs::mlog() << irsm("extern_libs rev. ") << extern_libs_rev << endl;
   irs::mlog() << endl;
-
-  irs::arm::io_pin_t m_memory_chip_select_pin(GPIO_PORTD, 7, irs::io_t::dir_out,
-    irs::io_pin_on);
 
   irs::pause(irs::make_cnt_s(1));
   
@@ -67,7 +61,7 @@ void app_start(hrm::cfg_t* ap_cfg)
 {
   static hrm::app_t app(ap_cfg);
 
-  //irs::mlog() << irsm("------------- START -------------") << endl;
+  irs::mlog() << irsm("------------- START -------------") << endl;
   while(true) {
     #ifdef HRM_DEBUG
     static const counter_t period = irs::make_cnt_s(1);
@@ -78,8 +72,8 @@ void app_start(hrm::cfg_t* ap_cfg)
     tick_measure_time.start();
     #endif // HRM_DEBUG
     app.tick();
-    static irs::blink_t F0_blink(GPIO_PORTD, 1, irs::make_cnt_ms(100));
-    F0_blink(); // Мигание светодиодом на плате arm
+    static irs::blink_t green_led_blink(GPIO_PORTD, 8, irs::make_cnt_ms(100));
+    green_led_blink(); // Мигание зелёным светодиодом на плате arm
 
     #ifdef HRM_DEBUG
     count++;

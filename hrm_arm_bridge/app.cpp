@@ -12,15 +12,14 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_mxnet_server(
     mp_cfg->connector_hardflow,
     m_eth_data.connect(&m_mxnet_server, 0)/sizeof(irs_u32) + 1),
-  m_eeprom(&mp_cfg->spi, &mp_cfg->ee_cs, 4096, true, 0, 64,
+  m_eeprom(&mp_cfg->spi_aux, &mp_cfg->ee_cs, 4096, true, 0, 64,
     irs::make_cnt_s(1)),
   m_eeprom_data(&m_eeprom),
   m_init_eeprom(&m_eeprom, &m_eeprom_data),
   m_lcd_drv(irslcd_4x20, mp_cfg->lcd_port, mp_cfg->lcd_rs_pin,
     mp_cfg->lcd_e_pin),
   m_keyboard_drv(),
-  m_encoder_drv(mp_cfg->encoder_gpio_channel_1, mp_cfg->encoder_gpio_channel_2,
-    mp_cfg->encoder_timer_address),
+  m_encoder_drv(mp_cfg->enc_a, mp_cfg->enc_b, mp_cfg->encoder_timer_address),
 
   m_lcd_drv_service(),
   m_buzzer_kb_event(),
@@ -29,16 +28,14 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_keyboard_event_gen(),
 
   m_raw_dac(
-    &mp_cfg->spi,
+    &mp_cfg->spi_dac,
     &mp_cfg->dac_cs,
     &mp_cfg->dac_ldac,
     &mp_cfg->dac_clr,
     &mp_cfg->dac_reset,
     0),
   m_dac(&m_raw_dac),
-  m_adc(&mp_cfg->spi, &mp_cfg->adc_cs, &mp_cfg->adc_exti),
-  m_ext_th(&mp_cfg->spi_th, &mp_cfg->th_cs, irs::make_cnt_s(1)),
-  m_ext_th_data(&m_ext_th),
+  m_adc(&mp_cfg->spi_adc, &mp_cfg->adc_cs, &mp_cfg->adc_exti),
   m_eth_timer(irs::make_cnt_ms(100)),
   m_blink_timer(irs::make_cnt_ms(500)),
   m_service_timer(irs::make_cnt_ms(1000)),
@@ -141,7 +138,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   mp_menu(),
   m_escape_pressed_event(),
   m_r_standard_type(r_standard_type_original),
-  m_termostat(&mp_cfg->thst_off),
+  m_termostat(&mp_cfg->aux1),
   m_elab_pid_on(false),
   m_elab_pid_kp(0.0),
   m_elab_pid_ki(0.0),
@@ -330,8 +327,6 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_bac_new_int_multiplier = m_eeprom_data.bac_new_int_multiplier;
   m_eth_data.bac_new_int_multiplier = m_eeprom_data.bac_new_int_multiplier;
   
-  mp_cfg->vben.set();
-
   m_adc_fade_data.x1 = 0.0;
   m_adc_fade_data.y1 = 0.0;
   m_adc_fade_data.t = m_eeprom_data.adc_filter_constant;
@@ -390,7 +385,7 @@ void hrm::app_t::init_keyboard_drv()
 
 void hrm::app_t::init_encoder_drv()
 {
-  m_encoder_drv.add_press_down_pin(&mp_cfg->key_encoder);
+  m_encoder_drv.add_press_down_pin(&mp_cfg->enc_sw);
   irs::set_default_keys(&m_encoder_drv);
 }
 
@@ -402,7 +397,6 @@ void hrm::app_t::tick()
   m_raw_dac.tick();
   m_dac.tick();
   m_adc.tick();
-  m_ext_th.tick();
 
   m_relay_bridge_pos.tick();
   m_relay_bridge_neg.tick();
@@ -683,8 +677,8 @@ void hrm::app_t::tick()
     }
     
     
-    m_eth_data.external_temperature = m_ext_th_data.temperature_code *
-      m_ext_th.get_conv_koef();
+    //m_eth_data.external_temperature = m_ext_th_data.temperature_code *
+      //m_ext_th.get_conv_koef();
     //m_eth_data.adc_meas_freq = m_adc.get_adc_frequency();
 
     sync_first_to_second(&m_eth_data.ip_0, &m_eeprom_data.ip_0);
