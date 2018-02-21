@@ -338,6 +338,8 @@ private:
   double m_bac_new_coefficient;
   irs_i32 m_bac_new_int_coefficient;
   irs_i32 m_bac_new_int_multiplier;
+  //
+  device_condition_controller_t m_device_condition_controller;
 
   void init_keyboard_drv();
   void init_encoder_drv();

@@ -51,26 +51,46 @@ namespace hrm {
 class adc_exti_t
 {
 public:
+//  inline adc_exti_t()
+//  {
+//    irs::clock_enable(IRS_PORTF_BASE);
+//    irs::gpio_moder_input_enable(PF1);
+//    SETENA0_bit.SETENA_EXTI1 = 1;     //  exti1 линия 1
+//    SYSCFG_EXTICR1_bit.EXTI1 = 5;     //  PORT F
+//    EXTI_IMR_bit.MR1 = 0;   // Изначально прерывание на линии 1 отключено
+//    EXTI_FTSR_bit.TR1 = 1;  // Включаем реакцию на задний фронт
+//  }
+//  inline ~adc_exti_t()
+//  {
+//    SETENA0_bit.SETENA_EXTI1 = 0;
+//  };
+//  inline void add_event(mxfact_event_t *ap_event)
+//  {
+//    irs::interrupt_array()->int_event_gen(irs::arm::exti1_int)->add(ap_event);
+//  }
+//  inline void start()   { EXTI_IMR_bit.MR1 = 1; }
+//  inline void stop()    { EXTI_IMR_bit.MR1 = 0; }
+//  inline bool stopped() { return EXTI_IMR_bit.MR1; }
   inline adc_exti_t()
   {
     irs::clock_enable(IRS_PORTF_BASE);
-    irs::gpio_moder_input_enable(PF1);
-    SETENA0_bit.SETENA_EXTI1 = 1;     //  exti1 линия 1
-    SYSCFG_EXTICR1_bit.EXTI1 = 5;     //  PORT F
-    EXTI_IMR_bit.MR1 = 0;   // Изначально прерывание на линии 1 отключено
-    EXTI_FTSR_bit.TR1 = 1;  // Включаем реакцию на задний фронт
+    irs::gpio_moder_input_enable(PF0);
+    SETENA0_bit.SETENA_EXTI0 = 1;     //  exti1 линия 0
+    SYSCFG_EXTICR1_bit.EXTI0 = 5;     //  PORT F
+    EXTI_IMR_bit.MR0 = 0;   // Изначально прерывание на линии 0 отключено
+    EXTI_FTSR_bit.TR0 = 1;  // Включаем реакцию на задний фронт
   }
   inline ~adc_exti_t()
   {
-    SETENA0_bit.SETENA_EXTI1 = 0;
+    SETENA0_bit.SETENA_EXTI0 = 0;
   };
   inline void add_event(mxfact_event_t *ap_event)
   {
-    irs::interrupt_array()->int_event_gen(irs::arm::exti1_int)->add(ap_event);
+    irs::interrupt_array()->int_event_gen(irs::arm::exti0_int)->add(ap_event);
   }
-  inline void start()   { EXTI_IMR_bit.MR1 = 1; }
-  inline void stop()    { EXTI_IMR_bit.MR1 = 0; }
-  inline bool stopped() { return EXTI_IMR_bit.MR1; }
+  inline void start()   { EXTI_IMR_bit.MR0 = 1; }
+  inline void stop()    { EXTI_IMR_bit.MR0 = 0; }
+  inline bool stopped() { return EXTI_IMR_bit.MR0; }
 };
 
 class network_config_t
@@ -88,10 +108,12 @@ public:
   void get(mxip_t* ap_ip, mxip_t* ap_mask, mxip_t* ap_gateway,
     bool* ap_dhcp_enabled);
   void set(mxip_t a_ip, mxip_t a_mask, mxip_t a_gateway, bool a_dhcp_enabled);
+  void get_mac(mxmac_t* ap_mac);
 private:
   void reset();
   network_config_t();
-  enum { channel_max_count = 10 };
+  //enum { channel_max_count = 10 };
+  enum { channel_max_count = 3 };
   irs::arm::st_ethernet_t* mp_arm_eth;
   irs::handle_t<irs::lwip::ethernet_t>* mp_ethernet;
   irs::handle_t<irs::hardflow::lwip::udp_t>* mp_udp_client;

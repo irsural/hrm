@@ -11,7 +11,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_eth_data(),
   m_mxnet_server(
     mp_cfg->connector_hardflow,
-    m_eth_data.connect(&m_mxnet_server, 0)/sizeof(irs_u32) + 1),
+    m_eth_data.connect(&m_mxnet_server, 0)/sizeof(irs_u32)),
   m_eeprom(&mp_cfg->spi_aux, &mp_cfg->ee_cs, 4096, true, 0, 64,
     irs::make_cnt_s(1)),
   m_eeprom_data(&m_eeprom),
@@ -157,7 +157,27 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_bac_old_coefficient(0.0),
   m_bac_new_coefficient(1.0),
   m_bac_new_int_coefficient(1),
-  m_bac_new_int_multiplier(1000.0)
+  m_bac_new_int_multiplier(1000.0),
+  m_device_condition_controller(
+    &mp_cfg->fan_ac_on,
+    &mp_cfg->fan_dc_ls,
+    &mp_cfg->fan_dc_hs,
+    &mp_cfg->fan_dc_sen,
+    &m_eth_data.th_dac,
+    &m_eth_data.th_box_ldo,
+    &m_eth_data.th_box_adc,
+    &m_eth_data.th_mcu,
+    &m_eth_data.volt_box_neg,
+    &m_eth_data.volt_box_pos,
+    &m_eth_data.fan_mode,
+    &m_eeprom_data.fan_mode,
+    &m_eth_data.fan_status,
+    &m_eth_data.fan_ac_speed,
+    &m_eeprom_data.fan_ac_speed,
+    &m_eth_data.fan_dc_speed,
+    &m_eeprom_data.fan_dc_speed,
+    &m_eth_data.fan_dc_speed_sense
+  )
 {
   init_keyboard_drv();
   init_encoder_drv();
@@ -184,6 +204,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
 
   mp_cfg->network_config.set(ip, mask, gateway, dhcp_enabled);
 
+  show_network_params_t show_network_params(&mp_cfg->network_config);
 
   irs::mlog() << setprecision(8);
 
@@ -410,6 +431,7 @@ void hrm::app_t::tick()
   m_keyboard_event_gen.tick();
   
   m_termostat.tick();
+  m_device_condition_controller.tick();
 
   if (m_buzzer_kb_event.check()) {
     m_buzzer.bzz();
@@ -1299,6 +1321,7 @@ void hrm::app_t::tick()
           m_termostat.set_off(false);
           m_termostat.set_after_pause(
             DBLTIME_TO_CNT(m_eth_data.termostat_off_pause));
+          m_device_condition_controller.set_idle(true);
             
           m_elab_mode = convert_u8_to_elab_mode(m_eth_data.elab_mode);
           
@@ -1444,6 +1467,7 @@ void hrm::app_t::tick()
         case bs_termostat_off_adc_start: {
           if(m_dac.ready()) {
             m_termostat.set_off(true);
+            m_device_condition_controller.set_idle(false);
             m_balance_status = bs_adc_start;
           }
           break;
@@ -1462,6 +1486,7 @@ void hrm::app_t::tick()
             m_adc.result(&adc_result_data);
             adc_value_t adc_result = adc_result_data.avg;
             m_termostat.set_off(false);
+            m_device_condition_controller.set_idle(true);
             //bool m_prev_balance_completed = false;
             
             if (abs(adc_result) < 0.99 * m_adc.max_value() &&
@@ -1624,6 +1649,7 @@ void hrm::app_t::tick()
         case bs_termostat_off_dac_wait: {
           if (m_dac.ready()) {
             m_termostat.set_off(true);
+            m_device_condition_controller.set_idle(false);
             m_balance_status = bs_dac_wait;
           }
           break;
@@ -1936,6 +1962,7 @@ void hrm::app_t::tick()
         case bs_termostat_off_elab_adc_start: {
           if (m_dac.ready()) {
             m_termostat.set_off(true);
+            m_device_condition_controller.set_idle(false);
             m_balance_status = bs_elab_adc_start;
           }
           break;
@@ -1950,6 +1977,7 @@ void hrm::app_t::tick()
         case bs_elab_adc_wait: {
           if (m_adc.status() == irs_st_ready) {
             m_termostat.set_off(false);
+            m_device_condition_controller.set_idle(true);
             elab_point_t elab_point;
             elab_point.dac = m_dac.get_code();
             elab_point.adc = m_voltage;

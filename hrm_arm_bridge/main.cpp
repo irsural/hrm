@@ -22,13 +22,20 @@ void app_start(hrm::cfg_t* ap_cfg);
 
 void main()
 {
+  // Ethernet PHY clock 50 MHz
+  RCC_CFGR_bit.MCO1PRE = 5; //  101 = Div 3
+  RCC_CFGR_bit.MCO1 = 3;    //  11 = PLL
+  irs::clock_enable(PA8);
+  irs::gpio_moder_alternate_function_enable(PA8);
+  irs::gpio_alternate_function_select(PA8, GPIO_AF_MCO);
+  GPIOA_OSPEEDR_bit.OSPEEDR8 = 3; //100 MHz High speed on 30 pF
   //pll_on();
   irs::param_pll_t param_pll;
   param_pll.freq_quartz = 25000000;
-  param_pll.PLLM = 20;  // ƒелитель на входе PLL
-  param_pll.PLLN = 192; // ћножитель внутри PLL
-  param_pll.PLLP = 0;   // 0 это деление на 2, делитель дл€ €дра 120 ћ√ц
-  param_pll.PLLQ = 5;   // ƒелитель дл€ USB 48 ћ√ц
+  param_pll.PLLM = 25;  // ƒелитель на входе PLL, Fvco = 1 MHz
+  param_pll.PLLN = 300; // ћножитель внутри PLL, Fpll = 300 MHz
+  param_pll.PLLP = 0;   // 0 это деление на 2, делитель дл€ €дра 150 ћ√ц
+  param_pll.PLLQ = 3;   // ƒелитель дл€ USB 48 ћ√ц
   // APB Low speed prescaler (APB1). 101: AHB clock divided by 4
   param_pll.PPRE1 = 5;
   // APB high-speed prescaler (APB2). 101: 100: AHB clock divided by 2

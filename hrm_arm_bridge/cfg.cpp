@@ -63,6 +63,11 @@ void hrm::network_config_t::set(
   reset();
 }
 
+void hrm::network_config_t::get_mac(mxmac_t* ap_mac)
+{
+  *ap_mac = mp_arm_eth->get_local_mac();
+}
+
 void hrm::network_config_t::reset()
 {
   mp_udp_client->reset();
@@ -77,9 +82,9 @@ void hrm::network_config_t::reset()
   mp_ethernet->reset(new irs::lwip::ethernet_t(mp_arm_eth, eth_config));
 
   irs::hardflow::lwip::udp_t::configuration_t configuration;
-  configuration.connections_mode = irs::hardflow::udplc_mode_limited;
-  configuration.limit_downtime_enabled = true;
-  configuration.max_downtime_sec = 5;
+  //configuration.connections_mode = irs::hardflow::udplc_mode_limited;
+  //configuration.limit_downtime_enabled = true;
+  //configuration.max_downtime_sec = 5;
   mp_udp_client->reset(new irs::hardflow::lwip::udp_t(
     local_ip, 5005, remote_ip, 0, channel_max_count, configuration));
   (*mp_udp_client)->
@@ -117,13 +122,13 @@ hrm::cfg_t::cfg_t():
   encoder_timer_address(IRS_TIM3_BASE),
   enc_sw(GPIO_PORTC, 8, irs::io_t::dir_in),
   buzzer(irs::handle_t<irs::pwm_gen_t>(
-    new irs::arm::st_pwm_gen_t(PF6, IRS_TIM10_BASE, 4000, 0.5))),
+    new irs::arm::st_pwm_gen_t(PF6, IRS_TIM10_BASE, 40000, 0.05))),
   //  ADC
-  adc_cs(GPIO_PORTF, 0, irs::io_t::dir_out, irs::io_pin_on),
+  adc_cs(GPIO_PORTF, 1, irs::io_t::dir_out, irs::io_pin_on),
   adc_reset(GPIO_PORTC, 14, irs::io_t::dir_out, irs::io_pin_off),
   adc_start(GPIO_PORTC, 15, irs::io_t::dir_out, irs::io_pin_off),
   adc_clk(GPIO_PORTF, 8, irs::io_t::dir_out, irs::io_pin_off),
-  adc_en(GPIO_PORTF, 2, irs::io_t::dir_out, irs::io_pin_off),
+  adc_en(GPIO_PORTF, 2, irs::io_t::dir_out, irs::io_pin_on),
   //  DAC
   dac_cs(GPIO_PORTB, 6, irs::io_t::dir_out, irs::io_pin_on),
   dac_ldac(GPIO_PORTB, 9, irs::io_t::dir_out, irs::io_pin_off),

@@ -30,8 +30,20 @@ enum adc_default_params_t {
   adc_default_cont_mode = 0
 };
 
+enum fan_mode_t {
+  fan_already_off = 0,
+  fan_already_on = 1,
+  fan_idle_on = 2
+};
+
+enum fan_status_t {
+  fan_off_now = 0,
+  fan_on_now = 1
+};
+
 typedef double  adc_value_t;
 typedef double  dac_value_t;
+typedef double  th_value_t;
 
 const adc_value_t adc_additional_gain = 1.0;
 const adc_value_t adc_ref = 4.096;
@@ -257,6 +269,18 @@ struct eth_data_t {
   irs::conn_data_t<double> bac_new_coefficient;       //  8
   irs::conn_data_t<irs_i32> bac_new_int_coefficient;  //  4
   irs::conn_data_t<double> bac_new_int_multiplier;    //  8
+  //  OnBoard temperature sensors, voltages and fans
+  irs::conn_data_t<th_value_t> th_dac;                //  8
+  irs::conn_data_t<th_value_t> th_box_ldo;            //  8
+  irs::conn_data_t<th_value_t> th_box_adc;            //  8
+  irs::conn_data_t<th_value_t> th_mcu;                //  8
+  irs::conn_data_t<th_value_t> volt_box_neg;          //  8
+  irs::conn_data_t<th_value_t> volt_box_pos;          //  8
+  irs::conn_data_t<irs_u8> fan_mode;                  //  1
+  irs::conn_data_t<irs_u8> fan_status;                //  1
+  irs::conn_data_t<irs_u8> fan_ac_speed;              //  1
+  irs::conn_data_t<irs_u8> fan_dc_speed;              //  1
+  irs::conn_data_t<float> fan_dc_speed_sense;         //  4
   //------------------------------------------
 
   eth_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
@@ -511,6 +535,19 @@ struct eth_data_t {
     index = bac_new_coefficient.connect(ap_data, index);
     index = bac_new_int_coefficient.connect(ap_data, index);
     index = bac_new_int_multiplier.connect(ap_data, index);
+    //  OnBoard temperature sensors, voltages and fans
+    index = th_dac.connect(ap_data, index);
+    index = th_box_ldo.connect(ap_data, index);
+    index = th_box_adc.connect(ap_data, index);
+    index = th_mcu.connect(ap_data, index);
+    index = volt_box_neg.connect(ap_data, index);
+    index = volt_box_pos.connect(ap_data, index);
+    index = fan_mode.connect(ap_data, index);
+    index = fan_status.connect(ap_data, index);
+    index = fan_ac_speed.connect(ap_data, index);
+    index = fan_dc_speed.connect(ap_data, index);
+    index = fan_dc_speed_sense.connect(ap_data, index);
+    
     return index;
   }
 };  //  eth_data_t
@@ -645,6 +682,10 @@ struct eeprom_data_t {
   irs::conn_data_t<double> bac_new_coefficient;       //  8
   irs::conn_data_t<irs_i32> bac_new_int_coefficient;  //  4
   irs::conn_data_t<double> bac_new_int_multiplier;    //  8
+  //
+  irs::conn_data_t<irs_u8> fan_mode;                  //  1
+  irs::conn_data_t<irs_u8> fan_ac_speed;              //  1
+  irs::conn_data_t<irs_u8> fan_dc_speed;              //  1
   
   eeprom_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
@@ -787,6 +828,10 @@ struct eeprom_data_t {
     index = bac_new_coefficient.connect(ap_data, index);
     index = bac_new_int_coefficient.connect(ap_data, index);
     index = bac_new_int_multiplier.connect(ap_data, index);
+    
+    index = fan_mode.connect(ap_data, index);
+    index = fan_ac_speed.connect(ap_data, index);
+    index = fan_dc_speed.connect(ap_data, index);
     return index;
   }
   inline void reset_to_default()
@@ -923,6 +968,8 @@ struct eeprom_data_t {
     bac_new_coefficient = 1.0;
     bac_new_int_coefficient = 1;
     bac_new_int_multiplier = 1000.0;
+    //
+    fan_mode = fan_already_off;
   }
 };
 

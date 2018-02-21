@@ -1792,3 +1792,312 @@ void hrm::termostat_t::tick()
     //irs::mlog() << irsm("Термостат готов") << endl;
   }
 }
+
+//------------------------------------------------------------------------------
+
+hrm::show_network_params_t::show_network_params_t(network_config_t* ap_config)
+{
+  mxip_t ip;
+  mxip_t mask; 
+  mxip_t gateway;
+  bool dhcp_enabled;
+  mxmac_t mac;
+  
+  ap_config->get(&ip, &mask, &gateway, &dhcp_enabled);
+  ap_config->get_mac(&mac);
+  
+  irs::mlog() << endl;
+  irs::mlog() << irsm("Параметры сети") << endl;
+  irs::mlog() << irsm("IP:   ");
+  irs::mlog() << static_cast<int>(ip.val[0]) << irsm(".");
+  irs::mlog() << static_cast<int>(ip.val[1]) << irsm(".");
+  irs::mlog() << static_cast<int>(ip.val[2]) << irsm(".");
+  irs::mlog() << static_cast<int>(ip.val[3]) << endl;
+  irs::mlog() << irsm("MASK: ");
+  irs::mlog() << static_cast<int>(mask.val[0]) << irsm(".");
+  irs::mlog() << static_cast<int>(mask.val[1]) << irsm(".");
+  irs::mlog() << static_cast<int>(mask.val[2]) << irsm(".");
+  irs::mlog() << static_cast<int>(mask.val[3]) << endl;
+  irs::mlog() << irsm("GATE: ");
+  irs::mlog() << static_cast<int>(gateway.val[0]) << irsm(".");
+  irs::mlog() << static_cast<int>(gateway.val[1]) << irsm(".");
+  irs::mlog() << static_cast<int>(gateway.val[2]) << irsm(".");
+  irs::mlog() << static_cast<int>(gateway.val[3]) << endl;
+  irs::mlog() << irsm("DHCP: ");
+  irs::mlog() << static_cast<int>(dhcp_enabled) << endl;
+  irs::mlog() << irsm("MAC:  ");
+  irs::mlog().width(2);
+  irs::mlog() << hex << right << uppercase << setfill('0');
+  irs::mlog() << static_cast<int>(mac.val[0]) << irsm(":");
+  irs::mlog() << static_cast<int>(mac.val[1]) << irsm(":");
+  irs::mlog() << static_cast<int>(mac.val[2]) << irsm(":");
+  irs::mlog() << static_cast<int>(mac.val[3]) << irsm(":");
+  irs::mlog() << static_cast<int>(mac.val[4]) << irsm(":");
+  irs::mlog() << static_cast<int>(mac.val[5]) << endl;
+  irs::mlog() << endl;
+  irs::mlog() << dec;
+}
+
+//------------------------------------------------------------------------------
+
+hrm::device_condition_controller_t::device_condition_controller_t(
+  irs::gpio_pin_t* ap_fan_ac_on,
+  irs::gpio_pin_t* ap_fan_dc_ls,
+  irs::gpio_pin_t* ap_fan_dc_hs,
+  irs::gpio_pin_t* ap_fan_dc_sen,
+  irs::conn_data_t<th_value_t>* ap_th_dac_data,
+  irs::conn_data_t<th_value_t>* ap_th_box_ldo_data,
+  irs::conn_data_t<th_value_t>* ap_th_box_adc_data,
+  irs::conn_data_t<th_value_t>* ap_th_mcu_data,
+  irs::conn_data_t<th_value_t>* ap_volt_box_neg_data,
+  irs::conn_data_t<th_value_t>* ap_volt_box_pos_data,
+  irs::conn_data_t<irs_u8>* ap_fan_mode_data,
+  irs::conn_data_t<irs_u8>* ap_fan_mode_ee_data,
+  irs::conn_data_t<irs_u8>* ap_fan_status_data,
+  irs::conn_data_t<irs_u8>* ap_fan_ac_speed_data,
+  irs::conn_data_t<irs_u8>* ap_fan_ac_speed_ee_data,
+  irs::conn_data_t<irs_u8>* ap_fan_dc_speed_data,
+  irs::conn_data_t<irs_u8>* ap_fan_dc_speed_ee_data,
+  irs::conn_data_t<float>* ap_fan_dc_speed_sence_data):
+  m_fade_tau(50.0),
+  m_vref(3.3),
+  mp_fan_ac_on(ap_fan_ac_on),
+  mp_fan_dc_ls(ap_fan_dc_ls),
+  mp_fan_dc_hs(ap_fan_dc_hs),
+  mp_fan_dc_sen(ap_fan_dc_sen),
+  mp_fan_mode_data(ap_fan_mode_data),
+  mp_fan_mode_ee_data(ap_fan_mode_ee_data),
+  mp_fan_status_data(ap_fan_status_data),
+  mp_fan_ac_speed_data(ap_fan_ac_speed_data),
+  mp_fan_ac_speed_ee_data(ap_fan_ac_speed_ee_data),
+  mp_fan_dc_speed_data(ap_fan_dc_speed_data),
+  mp_fan_dc_speed_ee_data(ap_fan_dc_speed_ee_data),
+  mp_fan_dc_speed_sence_data(ap_fan_dc_speed_sence_data),
+  m_th_dac_channel_number(1),
+  m_th_box_ldo_channel_number(0),
+  m_th_box_adc_channel_number(0),
+  m_volt_box_neg_channel_number(2),
+  m_volt_box_pos_channel_number(1),
+  m_th_mcu_channel_number(3),
+  m_adc1(adc1_address, adc1_mask),
+  m_adc2(adc2_address, adc2_mask),
+  m_polling_timer(irs::make_cnt_ms(100)),
+  m_th_dac_conditioner(ap_th_dac_data, 0.5, 0.0195, m_vref, m_fade_tau),
+  m_th_box_ldo_conditioner(ap_th_box_ldo_data, 0.5, 0.0195, m_vref, m_fade_tau),
+  m_th_box_adc_conditioner(ap_th_box_adc_data, 0.5, 0.0195, m_vref, m_fade_tau),
+  m_volt_box_neg_conditioner(ap_volt_box_neg_data, 3.3,4.92,m_vref, m_fade_tau),
+  m_volt_box_pos_conditioner(ap_volt_box_pos_data,0.0,1.255,m_vref, m_fade_tau),
+  m_th_mcu_conditioner(ap_th_mcu_data, 1.0, 1.0, m_vref, m_fade_tau),
+  m_fan_mode(fan_already_off),
+  m_fan_status(fan_off_now),
+  m_fan_ac_speed(0),
+  m_fan_dc_speed(0),
+  m_idle(true),
+  m_need_changes(true)
+{
+  mp_fan_ac_on->clear();
+  mp_fan_dc_ls->clear();
+  mp_fan_dc_hs->clear();
+  m_fan_mode = convert_u8_to_fan_mode(*mp_fan_mode_ee_data);
+  *mp_fan_mode_data = convert_fan_mode_to_u8(m_fan_mode);
+  *mp_fan_status_data = convert_fan_status_to_u8(m_fan_status);
+  m_fan_ac_speed = *mp_fan_ac_speed_ee_data;
+  *mp_fan_ac_speed_data = m_fan_ac_speed;
+  m_fan_dc_speed = *mp_fan_dc_speed_ee_data;
+  *mp_fan_dc_speed_data = m_fan_dc_speed;
+}
+
+void hrm::device_condition_controller_t::set_fan_speed_ac(irs_u8 a_speed)
+{
+  if (a_speed > 0) {
+    mp_fan_ac_on->set();
+  } else {
+    mp_fan_ac_on->clear();
+  }
+}
+
+void hrm::device_condition_controller_t::set_fan_speed_dc(irs_u8 a_speed)
+{
+  if ((a_speed > 0) && (a_speed <= 1)) {
+    mp_fan_dc_ls->set();
+    mp_fan_dc_hs->clear();
+  } else if (a_speed > 1) {
+    mp_fan_dc_ls->clear();
+    mp_fan_dc_hs->set();
+  } else {
+    mp_fan_dc_ls->clear();
+    mp_fan_dc_hs->clear();
+  }
+}
+
+
+hrm::fan_mode_t hrm::device_condition_controller_t::convert_u8_to_fan_mode(
+  irs_u8 a_mode)
+{
+  fan_mode_t result = fan_already_off;
+  switch (a_mode) {
+    case 1: result = fan_already_on; break;
+    case 2: result = fan_idle_on; break;
+    default: result = fan_already_off;
+  };
+  return result;
+}
+
+irs_u8 hrm::device_condition_controller_t::convert_fan_mode_to_u8(
+  fan_mode_t a_fan_mode)
+{
+  irs_u8 result = 0;
+  switch (a_fan_mode) {
+    case fan_already_off: result = 0; break;
+    case fan_already_on: result = 1; break;
+    case fan_idle_on: result = 2; break;
+    default: result = 0;
+  }
+  return result;
+}
+
+
+irs_u8 hrm::device_condition_controller_t::convert_fan_status_to_u8(
+  fan_status_t a_fan_status)
+{
+  irs_u8 result = 0;
+  if (a_fan_status == fan_on_now) {
+    result = 1;
+  }
+  return result;
+}
+
+void hrm::device_condition_controller_t::tick()
+{
+  m_adc1.tick();
+  m_adc2.tick();
+  if (m_polling_timer.check()) {
+    //  Temperatures / Voltages
+    m_th_dac_conditioner.convert(m_adc1.get_u16_data(m_th_dac_channel_number));
+    m_th_box_ldo_conditioner.convert(
+      m_adc1.get_u16_data(m_th_box_ldo_channel_number));
+    m_th_box_adc_conditioner.convert(
+      m_adc2.get_u16_data(m_th_box_adc_channel_number));
+    m_volt_box_neg_conditioner.convert(
+      m_adc1.get_u16_data(m_volt_box_neg_channel_number));
+    m_volt_box_pos_conditioner.convert(
+      m_adc2.get_u16_data(m_th_box_adc_channel_number));
+    m_th_mcu_conditioner.convert(
+      m_adc1.get_temperature_degree_celsius(m_vref));
+    //  Fans
+    if (m_fan_mode != *mp_fan_mode_data) {
+      bool valid_mode = false;
+      switch (*mp_fan_mode_data) {
+        case fan_already_off: valid_mode = true; break;
+        case fan_already_on: valid_mode = true; break;
+        case fan_idle_on: valid_mode = true; break;
+      }
+      if (valid_mode) {
+        m_fan_mode = convert_u8_to_fan_mode(*mp_fan_mode_data);
+        *mp_fan_mode_ee_data = convert_fan_mode_to_u8(m_fan_mode);
+        m_need_changes = true;
+      } else {
+        *mp_fan_mode_data = m_fan_mode;
+      }
+    }
+    if (m_fan_ac_speed != *mp_fan_ac_speed_data) {
+      if (*mp_fan_ac_speed_data <= m_fan_ac_max_speed) {
+        m_fan_ac_speed = *mp_fan_ac_speed_data;
+        *mp_fan_ac_speed_ee_data = m_fan_ac_speed;
+        m_need_changes = true;
+      }
+    }
+    if (m_fan_dc_speed != *mp_fan_dc_speed_data) {
+      if (*mp_fan_dc_speed_data <= m_fan_dc_max_speed) {
+        m_fan_dc_speed = *mp_fan_dc_speed_data;
+        *mp_fan_dc_speed_ee_data = m_fan_dc_speed;
+        m_need_changes = true;
+      }
+    }
+    
+    if (m_need_changes) {
+      m_need_changes = false;
+      switch (m_fan_mode) {
+        case fan_already_off: {
+          set_fan_speed_ac(0);
+          set_fan_speed_dc(0);
+          m_fan_status = fan_off_now;
+          irs::mlog() << irsm("FAN OFF") << endl;
+          break;
+        }
+        case fan_already_on: {
+          set_fan_speed_ac(m_fan_ac_speed);
+          set_fan_speed_dc(m_fan_dc_speed);
+          m_fan_status = fan_on_now;
+          irs::mlog() << irsm("FAN AC ") << int(m_fan_ac_speed) << endl;
+          irs::mlog() << irsm("FAN DC ") << int(m_fan_dc_speed) << endl;
+          break;
+        }
+        case fan_idle_on: {
+          if (m_idle) {
+            set_fan_speed_ac(m_fan_ac_speed);
+            set_fan_speed_dc(m_fan_dc_speed);
+            m_fan_status = fan_on_now;
+            irs::mlog() << irsm("FAN IDLE AC ") << int(m_fan_ac_speed) << endl;
+            irs::mlog() << irsm("FAN IDLE DC ") << int(m_fan_dc_speed) << endl;
+          } else {
+            set_fan_speed_ac(0);
+            set_fan_speed_dc(0);
+            m_fan_status = fan_off_now;
+            irs::mlog() << irsm("FAN IDLE OFF") << endl;
+          }
+          break;
+        }
+      }
+    }
+    *mp_fan_status_data = convert_fan_status_to_u8(m_fan_status);
+  }
+}
+
+//------------------------------------------------------------------------------
+
+hrm::adc_conditioner_t::adc_conditioner_t(
+  irs::conn_data_t<th_value_t>* ap_out_data,
+  hrm::th_value_t a_sub, hrm::th_value_t a_div, 
+  th_value_t a_vref, th_value_t a_tau):
+  mp_out_data(ap_out_data),
+  m_sub(a_sub),
+  m_div(a_div),
+  m_fade_data(),
+  m_need_fade_preset(true),
+  m_fade_tau(a_tau),
+  m_vref(a_vref)
+{
+  m_fade_data.t = m_fade_tau;
+}
+
+hrm::th_value_t hrm::adc_conditioner_t::convert(irs_u16 a_value)
+{
+  th_value_t result = (static_cast<th_value_t>(a_value)*m_vref) / pow(2.0, 16);
+  result = (result - m_sub) / m_div;
+  if (m_need_fade_preset) {
+    m_fade_data.x1 = result;
+    m_fade_data.y1 = result;
+    fade(&m_fade_data, result);
+    m_need_fade_preset = false;
+  } else {
+    result = fade(&m_fade_data, result);
+  }
+  *mp_out_data = result;
+  return result;
+}
+
+hrm::th_value_t hrm::adc_conditioner_t::convert(hrm::th_value_t a_value)
+{
+  if (m_need_fade_preset) {
+    m_fade_data.x1 = a_value;
+    m_fade_data.y1 = a_value;
+    fade(&m_fade_data, a_value);
+    m_need_fade_preset = false;
+  } else {
+    a_value = fade(&m_fade_data, a_value);
+  }
+  *mp_out_data = a_value;
+  return a_value;
+}
+

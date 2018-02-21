@@ -591,6 +591,113 @@ private:
   irs_status_t m_status;
 };
 
+class show_network_params_t
+{
+public:
+  show_network_params_t(network_config_t* ap_config);
+};
+
+class adc_conditioner_t
+{
+public:
+  explicit adc_conditioner_t(irs::conn_data_t<th_value_t>* ap_out_data,
+    th_value_t a_sub, th_value_t a_div, th_value_t a_vref, th_value_t a_tau);
+  ~adc_conditioner_t() {};
+  th_value_t convert(irs_u16 a_value);
+  th_value_t convert(th_value_t a_value);
+private:
+  irs::conn_data_t<th_value_t>* mp_out_data;
+  th_value_t m_sub;
+  th_value_t m_div;
+  irs::fade_data_t m_fade_data;
+  bool m_need_fade_preset;
+  bool m_need_conditioning;
+  const th_value_t m_fade_tau;
+  const th_value_t m_vref;
+};
+
+class device_condition_controller_t
+{
+public:
+  explicit device_condition_controller_t(
+    irs::gpio_pin_t* ap_fan_ac_on,
+    irs::gpio_pin_t* ap_fan_dc_ls,
+    irs::gpio_pin_t* ap_fan_dc_hs,
+    irs::gpio_pin_t* ap_fan_dc_sen,
+    irs::conn_data_t<th_value_t>* ap_th_dac_data,
+    irs::conn_data_t<th_value_t>* ap_th_box_ldo_data,
+    irs::conn_data_t<th_value_t>* ap_th_box_adc_data,
+    irs::conn_data_t<th_value_t>* ap_th_mcu_data,
+    irs::conn_data_t<th_value_t>* ap_volt_box_neg_data,
+    irs::conn_data_t<th_value_t>* ap_volt_box_pos_data,
+    irs::conn_data_t<irs_u8>* ap_fan_mode_data,
+    irs::conn_data_t<irs_u8>* ap_fan_mode_ee_data,
+    irs::conn_data_t<irs_u8>* ap_fan_status_data,
+    irs::conn_data_t<irs_u8>* ap_fan_ac_speed_data,
+    irs::conn_data_t<irs_u8>* ap_fan_ac_speed_ee_data,
+    irs::conn_data_t<irs_u8>* ap_fan_dc_speed_data,
+    irs::conn_data_t<irs_u8>* ap_fan_dc_speed_ee_data,
+    irs::conn_data_t<float>* ap_fan_dc_speed_sence_data);
+  ~device_condition_controller_t() {};
+  void tick();
+  inline void set_idle(bool a_idle) { m_idle = a_idle; m_need_changes = true; }
+private:
+  enum {
+    adc1_address = IRS_ADC1_BASE,
+    adc2_address = IRS_ADC3_BASE,
+    th_dac_ch = irs::arm::st_adc_t::ADC12_PA4_CH4,
+    th_box_ldo_ch = irs::arm::st_adc_t::ADC123_PA3_CH3,
+    th_box_adc_ch = irs::arm::st_adc_t::ADC3_PF9_CH7,
+    volt_box_neg_ch = irs::arm::st_adc_t::ADC123_PC0_CH10,
+    volt_box_pos_ch = irs::arm::st_adc_t::ADC3_PF10_CH8,
+    th_mcu_ch = irs::arm::st_adc_t::ADC1_TEMPERATURE,
+    adc1_mask = th_dac_ch | th_box_ldo_ch | th_mcu_ch,
+    adc2_mask = th_box_adc_ch | volt_box_pos_ch,
+    m_fan_ac_max_speed = 1,
+    m_fan_dc_max_speed = 2
+  };
+  const th_value_t m_fade_tau;
+  const th_value_t m_vref;
+  irs::gpio_pin_t* mp_fan_ac_on;
+  irs::gpio_pin_t* mp_fan_dc_ls;
+  irs::gpio_pin_t* mp_fan_dc_hs;
+  irs::gpio_pin_t* mp_fan_dc_sen;
+  irs::conn_data_t<irs_u8>* mp_fan_mode_data;
+  irs::conn_data_t<irs_u8>* mp_fan_mode_ee_data;
+  irs::conn_data_t<irs_u8>* mp_fan_status_data;
+  irs::conn_data_t<irs_u8>* mp_fan_ac_speed_data;
+  irs::conn_data_t<irs_u8>* mp_fan_ac_speed_ee_data;
+  irs::conn_data_t<irs_u8>* mp_fan_dc_speed_data;
+  irs::conn_data_t<irs_u8>* mp_fan_dc_speed_ee_data;
+  irs::conn_data_t<float>* mp_fan_dc_speed_sence_data;
+  irs_u8 m_th_dac_channel_number;
+  irs_u8 m_th_box_ldo_channel_number;
+  irs_u8 m_th_box_adc_channel_number;
+  irs_u8 m_volt_box_neg_channel_number;
+  irs_u8 m_volt_box_pos_channel_number;
+  irs_u8 m_th_mcu_channel_number;
+  irs::arm::st_adc_t m_adc1;
+  irs::arm::st_adc_t m_adc2;
+  irs::loop_timer_t m_polling_timer;
+  adc_conditioner_t m_th_dac_conditioner;
+  adc_conditioner_t m_th_box_ldo_conditioner;
+  adc_conditioner_t m_th_box_adc_conditioner;
+  adc_conditioner_t m_volt_box_neg_conditioner;
+  adc_conditioner_t m_volt_box_pos_conditioner;
+  adc_conditioner_t m_th_mcu_conditioner;
+  fan_mode_t m_fan_mode;
+  fan_status_t m_fan_status;
+  irs_u8 m_fan_ac_speed;
+  irs_u8 m_fan_dc_speed;
+  bool m_idle;
+  bool m_need_changes;
+  void set_fan_speed_ac(irs_u8 a_speed);
+  void set_fan_speed_dc(irs_u8 a_speed);
+  fan_mode_t convert_u8_to_fan_mode(irs_u8 a_mode);
+  irs_u8 convert_fan_mode_to_u8(fan_mode_t a_fan_mode);
+  irs_u8 convert_fan_status_to_u8(fan_status_t a_fan_status);
+};
+
 }
 
 #endif  //  utilsH
