@@ -14,7 +14,7 @@
 enum { 
   hardware_rev = 3,
   software_rev = 53,
-  mxsrclib_rev = 1344,
+  mxsrclib_rev = 1353,
   extern_libs_rev = 25
 };
 

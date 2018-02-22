@@ -1885,8 +1885,11 @@ hrm::device_condition_controller_t::device_condition_controller_t(
   m_th_dac_conditioner(ap_th_dac_data, 0.5, 0.0195, m_vref, m_fade_tau),
   m_th_box_ldo_conditioner(ap_th_box_ldo_data, 0.5, 0.0195, m_vref, m_fade_tau),
   m_th_box_adc_conditioner(ap_th_box_adc_data, 0.5, 0.0195, m_vref, m_fade_tau),
-  m_volt_box_neg_conditioner(ap_volt_box_neg_data, 3.3,4.92,m_vref, m_fade_tau),
-  m_volt_box_pos_conditioner(ap_volt_box_pos_data,0.0,1.255,m_vref, m_fade_tau),
+//  m_volt_box_neg_conditioner(ap_volt_box_neg_data, 3.3,4.92,m_vref, m_fade_tau),
+//  m_volt_box_pos_conditioner(ap_volt_box_pos_data,0.0,1.255,m_vref, m_fade_tau),
+  m_volt_box_neg_conditioner(ap_volt_box_neg_data, 0.0,1.0, 1.0, m_fade_tau),
+  m_volt_box_pos_conditioner(ap_volt_box_pos_data,0.0,1.0, 1.0, m_fade_tau),
+  
   m_th_mcu_conditioner(ap_th_mcu_data, 1.0, 1.0, m_vref, m_fade_tau),
   m_fan_mode(fan_already_off),
   m_fan_status(fan_off_now),
