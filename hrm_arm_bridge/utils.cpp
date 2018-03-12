@@ -1835,7 +1835,7 @@ hrm::show_network_params_t::show_network_params_t(network_config_t* ap_config)
   irs::mlog() << static_cast<int>(mac.val[4]) << irsm(":");
   irs::mlog() << static_cast<int>(mac.val[5]) << endl;
   irs::mlog() << endl;
-  irs::mlog() << dec;
+  irs::mlog() << dec << setfill(' ');
 }
 
 //------------------------------------------------------------------------------
@@ -1849,6 +1849,8 @@ hrm::device_condition_controller_t::device_condition_controller_t(
   irs::conn_data_t<th_value_t>* ap_th_box_ldo_data,
   irs::conn_data_t<th_value_t>* ap_th_box_adc_data,
   irs::conn_data_t<th_value_t>* ap_th_mcu_data,
+  irs::conn_data_t<th_value_t>* ap_th_ext_1_data,
+  irs::conn_data_t<th_value_t>* ap_th_ext_2_data,
   irs::conn_data_t<th_value_t>* ap_volt_box_neg_data,
   irs::conn_data_t<th_value_t>* ap_volt_box_pos_data,
   irs::conn_data_t<irs_u8>* ap_fan_mode_data,
@@ -1873,30 +1875,34 @@ hrm::device_condition_controller_t::device_condition_controller_t(
   mp_fan_dc_speed_data(ap_fan_dc_speed_data),
   mp_fan_dc_speed_ee_data(ap_fan_dc_speed_ee_data),
   mp_fan_dc_speed_sence_data(ap_fan_dc_speed_sence_data),
-  m_th_dac_channel_number(1),
-  m_th_box_ldo_channel_number(0),
+  m_th_dac_channel_number(2),
+  m_th_box_ldo_channel_number(1),
   m_th_box_adc_channel_number(0),
   m_volt_box_neg_channel_number(2),
   m_volt_box_pos_channel_number(1),
-  m_th_mcu_channel_number(3),
+  m_th_mcu_channel_number(5),
+  m_th_ext_1_channel_number(0),
+  m_th_ext_2_channel_number(4),
   m_adc1(adc1_address, adc1_mask),
   m_adc2(adc2_address, adc2_mask),
   m_polling_timer(irs::make_cnt_ms(100)),
-  m_th_dac_conditioner(ap_th_dac_data, 0.5, 0.0195, m_vref, m_fade_tau),
-  m_th_box_ldo_conditioner(ap_th_box_ldo_data, 0.5, 0.0195, m_vref, m_fade_tau),
-  m_th_box_adc_conditioner(ap_th_box_adc_data, 0.5, 0.0195, m_vref, m_fade_tau),
+  m_th_dac_conditioner(ap_th_dac_data, 0.4, 0.0195, m_vref, m_fade_tau),
+  m_th_box_ldo_conditioner(ap_th_box_ldo_data, 0.4, 0.0195, m_vref, m_fade_tau),
+  m_th_box_adc_conditioner(ap_th_box_adc_data, 0.4, 0.0195, m_vref, m_fade_tau),
 //  m_volt_box_neg_conditioner(ap_volt_box_neg_data, 3.3,4.92,m_vref, m_fade_tau),
 //  m_volt_box_pos_conditioner(ap_volt_box_pos_data,0.0,1.255,m_vref, m_fade_tau),
   m_volt_box_neg_conditioner(ap_volt_box_neg_data, 0.0,1.0, 1.0, m_fade_tau),
   m_volt_box_pos_conditioner(ap_volt_box_pos_data,0.0,1.0, 1.0, m_fade_tau),
-  
   m_th_mcu_conditioner(ap_th_mcu_data, 1.0, 1.0, m_vref, m_fade_tau),
+  m_th_ext_1_conditioner(ap_th_ext_1_data, 0.4, 0.0195, m_vref, m_fade_tau),
+  m_th_ext_2_conditioner(ap_th_ext_2_data, 0.4, 0.0195, m_vref, m_fade_tau),
   m_fan_mode(fan_already_off),
   m_fan_status(fan_off_now),
   m_fan_ac_speed(0),
   m_fan_dc_speed(0),
   m_idle(true),
-  m_need_changes(true)
+  m_need_changes(true),
+  m_show(false)
 {
   mp_fan_ac_on->clear();
   mp_fan_dc_ls->clear();
@@ -1987,6 +1993,10 @@ void hrm::device_condition_controller_t::tick()
       m_adc2.get_u16_data(m_th_box_adc_channel_number));
     m_th_mcu_conditioner.convert(
       m_adc1.get_temperature_degree_celsius(m_vref));
+    m_th_ext_1_conditioner.convert(
+      m_adc1.get_u16_data(m_th_ext_1_channel_number));
+    m_th_ext_2_conditioner.convert(
+      m_adc1.get_u16_data(m_th_ext_2_channel_number));
     //  Fans
     if (m_fan_mode != *mp_fan_mode_data) {
       bool valid_mode = false;
@@ -2025,15 +2035,19 @@ void hrm::device_condition_controller_t::tick()
           set_fan_speed_ac(0);
           set_fan_speed_dc(0);
           m_fan_status = fan_off_now;
-          irs::mlog() << irsm("FAN OFF") << endl;
+          if (m_show) {
+            irs::mlog() << irsm("FAN OFF") << endl;
+          }
           break;
         }
         case fan_already_on: {
           set_fan_speed_ac(m_fan_ac_speed);
           set_fan_speed_dc(m_fan_dc_speed);
           m_fan_status = fan_on_now;
-          irs::mlog() << irsm("FAN AC ") << int(m_fan_ac_speed) << endl;
-          irs::mlog() << irsm("FAN DC ") << int(m_fan_dc_speed) << endl;
+          if (m_show) {
+            irs::mlog() << irsm("FAN AC ") << int(m_fan_ac_speed) << endl;
+            irs::mlog() << irsm("FAN DC ") << int(m_fan_dc_speed) << endl;
+          }
           break;
         }
         case fan_idle_on: {
@@ -2041,13 +2055,17 @@ void hrm::device_condition_controller_t::tick()
             set_fan_speed_ac(m_fan_ac_speed);
             set_fan_speed_dc(m_fan_dc_speed);
             m_fan_status = fan_on_now;
-            irs::mlog() << irsm("FAN IDLE AC ") << int(m_fan_ac_speed) << endl;
-            irs::mlog() << irsm("FAN IDLE DC ") << int(m_fan_dc_speed) << endl;
+            if (m_show) {
+              irs::mlog()<< irsm("FAN IDLE AC ") << int(m_fan_ac_speed) << endl;
+              irs::mlog()<< irsm("FAN IDLE DC ") << int(m_fan_dc_speed) << endl;
+            }
           } else {
             set_fan_speed_ac(0);
             set_fan_speed_dc(0);
             m_fan_status = fan_off_now;
-            irs::mlog() << irsm("FAN IDLE OFF") << endl;
+            if (m_show) {
+              irs::mlog() << irsm("FAN IDLE OFF") << endl;
+            }
           }
           break;
         }

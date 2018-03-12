@@ -14,7 +14,7 @@
 #include <mxdata.h>
 
 #include <irsconfig.h>
-#include <irstcpip.h>
+//#include <irstcpip.h>
 #include <irslwip.h>
 #include <hardflowg.h>
 

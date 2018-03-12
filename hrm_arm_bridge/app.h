@@ -153,17 +153,16 @@ private:
   };
   struct exp_t {
     double result_old;
-    double result_2;
-    double result_3;
-    double result_4;
-    double result_5;
-    double error;
+    double result_new;
     double et_code;
     double ch_code;
-    double n0_2;
-    double n0_3;
-    double n0_4;
-    double n0_5;
+    double n0;
+    double num;
+    double den;
+    double temperature_ext;
+    double temperature_dac;
+    double temperature_adc;
+    double temperature_ldo;
   };
   struct elab_result_t {
     balance_polarity_t polarity;

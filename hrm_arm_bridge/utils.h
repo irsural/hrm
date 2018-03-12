@@ -628,6 +628,8 @@ public:
     irs::conn_data_t<th_value_t>* ap_th_box_ldo_data,
     irs::conn_data_t<th_value_t>* ap_th_box_adc_data,
     irs::conn_data_t<th_value_t>* ap_th_mcu_data,
+    irs::conn_data_t<th_value_t>* ap_th_ext_1_data,
+    irs::conn_data_t<th_value_t>* ap_th_ext_2_data,
     irs::conn_data_t<th_value_t>* ap_volt_box_neg_data,
     irs::conn_data_t<th_value_t>* ap_volt_box_pos_data,
     irs::conn_data_t<irs_u8>* ap_fan_mode_data,
@@ -641,6 +643,7 @@ public:
   ~device_condition_controller_t() {};
   void tick();
   inline void set_idle(bool a_idle) { m_idle = a_idle; m_need_changes = true; }
+  inline void show(bool a_show) { m_show = a_show; }
 private:
   enum {
     adc1_address = IRS_ADC1_BASE,
@@ -651,7 +654,9 @@ private:
     volt_box_neg_ch = irs::arm::st_adc_t::ADC123_PC0_CH10,
     volt_box_pos_ch = irs::arm::st_adc_t::ADC3_PF10_CH8,
     th_mcu_ch = irs::arm::st_adc_t::ADC1_TEMPERATURE,
-    adc1_mask = th_dac_ch | th_box_ldo_ch | th_mcu_ch,
+    th_ext_1_ch = irs::arm::st_adc_t::ADC123_PA0_CH0,
+    th_ext_2_ch = irs::arm::st_adc_t::ADC12_PA6_CH6,
+    adc1_mask = th_dac_ch | th_box_ldo_ch | th_mcu_ch | th_ext_1_ch|th_ext_2_ch,
     adc2_mask = th_box_adc_ch | volt_box_pos_ch,
     m_fan_ac_max_speed = 1,
     m_fan_dc_max_speed = 2
@@ -676,6 +681,8 @@ private:
   irs_u8 m_volt_box_neg_channel_number;
   irs_u8 m_volt_box_pos_channel_number;
   irs_u8 m_th_mcu_channel_number;
+  irs_u8 m_th_ext_1_channel_number;
+  irs_u8 m_th_ext_2_channel_number;
   irs::arm::st_adc_t m_adc1;
   irs::arm::st_adc_t m_adc2;
   irs::loop_timer_t m_polling_timer;
@@ -685,12 +692,15 @@ private:
   adc_conditioner_t m_volt_box_neg_conditioner;
   adc_conditioner_t m_volt_box_pos_conditioner;
   adc_conditioner_t m_th_mcu_conditioner;
+  adc_conditioner_t m_th_ext_1_conditioner;
+  adc_conditioner_t m_th_ext_2_conditioner;
   fan_mode_t m_fan_mode;
   fan_status_t m_fan_status;
   irs_u8 m_fan_ac_speed;
   irs_u8 m_fan_dc_speed;
   bool m_idle;
   bool m_need_changes;
+  bool m_show;
   void set_fan_speed_ac(irs_u8 a_speed);
   void set_fan_speed_dc(irs_u8 a_speed);
   fan_mode_t convert_u8_to_fan_mode(irs_u8 a_mode);

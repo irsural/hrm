@@ -274,6 +274,8 @@ struct eth_data_t {
   irs::conn_data_t<th_value_t> th_box_ldo;            //  8
   irs::conn_data_t<th_value_t> th_box_adc;            //  8
   irs::conn_data_t<th_value_t> th_mcu;                //  8
+  irs::conn_data_t<th_value_t> th_ext_1;              //  8
+  irs::conn_data_t<th_value_t> th_ext_2;              //  8
   irs::conn_data_t<th_value_t> volt_box_neg;          //  8
   irs::conn_data_t<th_value_t> volt_box_pos;          //  8
   irs::conn_data_t<irs_u8> fan_mode;                  //  1
@@ -540,6 +542,8 @@ struct eth_data_t {
     index = th_box_ldo.connect(ap_data, index);
     index = th_box_adc.connect(ap_data, index);
     index = th_mcu.connect(ap_data, index);
+    index = th_ext_1.connect(ap_data, index);
+    index = th_ext_2.connect(ap_data, index);
     index = volt_box_neg.connect(ap_data, index);
     index = volt_box_pos.connect(ap_data, index);
     index = fan_mode.connect(ap_data, index);
