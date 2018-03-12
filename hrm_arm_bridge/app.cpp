@@ -2110,6 +2110,9 @@ void hrm::app_t::tick()
               double A = (m_bac_old_coefficient) / pow(2.0, 19);
               m_result = (2.0 - m_checked_code + m_etalon_code - A);
               m_result /= (2.0 + m_checked_code - m_etalon_code + A);
+              //
+              exp.result_old_uncorrect = (2.0 - m_checked_code + m_etalon_code);
+              exp.result_old_uncorrect /= (2.0 + m_checked_code - m_etalon_code);
               
               irs::mlog() << irsm("Ñòàðûé ðåçóëüòàò") << endl;
               irs::mlog() << irsm("BAC OLD = ") << m_bac_old_coefficient;
@@ -2117,7 +2120,9 @@ void hrm::app_t::tick()
               irs::mlog() << irsm("A = ") << A << endl;
               irs::mlog() << irsm("RESULT OLD = ");
               irs::mlog() << setw(14) << setprecision(14);
-              irs::mlog() << m_result << endl << endl;
+              irs::mlog() << m_result << endl;
+              irs::mlog() << irsm("RESULT OLD UNCORRECT = ");
+              irs::mlog() << exp.result_old_uncorrect << endl << endl;
               
               exp.result_old = m_result;
               exp.ch_code = m_checked_code;
@@ -2157,6 +2162,8 @@ void hrm::app_t::tick()
               exp.n0 = n0;
               exp.result_new =  (1.0 + num / denom / h) 
                             / (1.0 - ((1.0 - B) * denom + num) / denom / h);
+              exp.result_new_uncorrect = (1.0 + num / denom / h) 
+                            / (1.0 - ((1.0 - 0.0) * denom + num) / denom / h);
               exp.num = num;
               exp.den = denom;
                             
@@ -2181,8 +2188,11 @@ void hrm::app_t::tick()
               irs::mlog() << irsm("Numer     = ") << num << endl;
               irs::mlog() << endl;
               irs::mlog() << irsm("n0 = ") << n0 << endl;
-              irs::mlog() << irsm("Ðåçóëüòàò NEW FLOAT ");
-              irs::mlog() << setw(12) << exp.result_new;
+              irs::mlog() << irsm("Ðåçóëüòàò NEW = ");
+              irs::mlog() << setw(14) << setprecision(14);
+              irs::mlog() << exp.result_new;
+              irs::mlog() << irsm("Ðåçóëüòàò NEW UNCORRECT = ");
+              irs::mlog() << exp.result_new_uncorrect;
               irs::mlog() << endl;
               irs::mlog() << endl;
               //  --------------------------------------------------------------
@@ -3364,6 +3374,8 @@ void hrm::app_t::show_last_result()
   irs::mlog() << irsm("¹    ");
   irs::mlog() << irsm("OLD            ");
   irs::mlog() << irsm("NEW            ");
+  irs::mlog() << irsm("OLD_UNCORRECT  ");
+  irs::mlog() << irsm("NEW_UNCORRECT  ");
   irs::mlog() << irsm("t°ext  ");
   irs::mlog() << irsm("t°dac  ");
   irs::mlog() << irsm("t°adc  ");
@@ -3380,6 +3392,8 @@ void hrm::app_t::show_last_result()
     //irs::mlog() << irsm(" ") << setw(14) << m_exp_vector[i].n0;
     irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].result_old;
     irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].result_new;
+    irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].result_old_uncorrect;
+    irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].result_new_uncorrect;
     irs::mlog() << setprecision(5);
     irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].temperature_ext;
     irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].temperature_dac;
@@ -3402,10 +3416,10 @@ void hrm::app_t::show_last_result()
   for (size_t i = 0; i < m_exp_vector.size(); i++) {
     //irs::mlog() << setprecision(6);
     irs::mlog() << setw(3) << i + 1;irs::mlog() << irsm(" ");
+    irs::mlog() << setprecision(12);
     irs::mlog() << setw(13) << m_exp_vector[i].ch_code * pow(2., 19);
     irs::mlog() << irsm(" ");
     irs::mlog() << setw(13) << m_exp_vector[i].et_code * pow(2., 19);
-    irs::mlog() << setprecision(12);
     irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].n0;
     irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].num;
     irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].den;

@@ -154,6 +154,8 @@ private:
   struct exp_t {
     double result_old;
     double result_new;
+    double result_old_uncorrect;
+    double result_new_uncorrect;
     double et_code;
     double ch_code;
     double n0;
