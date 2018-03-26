@@ -153,8 +153,9 @@ hrm::cfg_t::cfg_t():
   //  External Interrupt
   adc_exti(),
   //  Climate
-  peltier_pwm1(irs::handle_t<irs::pwm_gen_t>(
-    new irs::arm::st_pwm_gen_t(PE6, IRS_TIM9_BASE, 25000, 0.5))),
+  peltier_pwm1_gen(peltier_pwm1_channel, IRS_TIM9_BASE, 25000, 0.5),
+//  peltier_pwm1(irs::handle_t<irs::pwm_gen_t>(
+//    new irs::arm::st_pwm_gen_t(peltier_pwm1_channel, IRS_TIM9_BASE, 25000, 0.5))),
   peltier_pwm2(irs::handle_t<irs::pwm_gen_t>(
     new irs::arm::st_pwm_gen_t(PE5, IRS_TIM9_BASE, 25000, 0.5))),
   peltier_pol1(GPIO_PORTD, 10, irs::io_t::dir_out, irs::io_pin_off),

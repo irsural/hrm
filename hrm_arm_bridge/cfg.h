@@ -55,10 +55,10 @@ public:
 //  {
 //    irs::clock_enable(IRS_PORTF_BASE);
 //    irs::gpio_moder_input_enable(PF1);
-//    SETENA0_bit.SETENA_EXTI1 = 1;     //  exti1 линия 1
+//    SETENA0_bit.SETENA_EXTI1 = 1;     //  exti1 пїЅпїЅпїЅпїЅпїЅ 1
 //    SYSCFG_EXTICR1_bit.EXTI1 = 5;     //  PORT F
-//    EXTI_IMR_bit.MR1 = 0;   // Изначально прерывание на линии 1 отключено
-//    EXTI_FTSR_bit.TR1 = 1;  // Включаем реакцию на задний фронт
+//    EXTI_IMR_bit.MR1 = 0;   // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ 1 пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+//    EXTI_FTSR_bit.TR1 = 1;  // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 //  }
 //  inline ~adc_exti_t()
 //  {
@@ -75,10 +75,10 @@ public:
   {
     irs::clock_enable(IRS_PORTF_BASE);
     irs::gpio_moder_input_enable(PF0);
-    SETENA0_bit.SETENA_EXTI0 = 1;     //  exti1 линия 0
+    SETENA0_bit.SETENA_EXTI0 = 1;     //  exti1 пїЅпїЅпїЅпїЅпїЅ 0
     SYSCFG_EXTICR1_bit.EXTI0 = 5;     //  PORT F
-    EXTI_IMR_bit.MR0 = 0;   // Изначально прерывание на линии 0 отключено
-    EXTI_FTSR_bit.TR0 = 1;  // Включаем реакцию на задний фронт
+    EXTI_IMR_bit.MR0 = 0;   // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅ 0 пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+    EXTI_FTSR_bit.TR0 = 1;  // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
   }
   inline ~adc_exti_t()
   {
@@ -186,7 +186,9 @@ public:
   //  External interrupt
   adc_exti_t adc_exti;
   //  Climate
-  irs::pwm_pin_t peltier_pwm1;
+  static const gpio_channel_t peltier_pwm1_channel = PE6;
+  irs::arm::st_pwm_gen_t peltier_pwm1_gen;
+  //irs::pwm_pin_t peltier_pwm1;
   irs::pwm_pin_t peltier_pwm2;
   irs::arm::io_pin_t peltier_pol1;
   irs::arm::io_pin_t peltier_pol2;

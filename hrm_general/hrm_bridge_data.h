@@ -283,6 +283,21 @@ struct eth_data_t {
   irs::conn_data_t<irs_u8> fan_ac_speed;              //  1
   irs::conn_data_t<irs_u8> fan_dc_speed;              //  1
   irs::conn_data_t<float> fan_dc_speed_sense;         //  4
+  //  Termoregulator
+  irs::conn_data_t<th_value_t> treg_ref;              //  8
+  irs::conn_data_t<th_value_t> treg_result;           //  8
+  irs::conn_data_t<th_value_t> treg_k;                //  8
+  irs::conn_data_t<th_value_t> treg_ki;               //  8
+  irs::conn_data_t<th_value_t> treg_kd;               //  8
+  irs::conn_data_t<th_value_t> treg_iso_k;            //  8
+  irs::conn_data_t<th_value_t> treg_iso_t;            //  8
+  irs::conn_data_t<th_value_t> treg_pwm_rate_slope;   //  8
+  irs::conn_data_t<th_value_t> treg_pid_out;          //  8
+  irs::conn_data_t<th_value_t> treg_amplitude_code_float;   //  8
+  irs::conn_data_t<irs_u32> treg_options;             //  4
+  irs::bit_data_as_bool_t treg_enabled;
+  irs::bit_data_as_bool_t treg_pid_reg_enabled;
+  irs::bit_data_as_bool_t treg_polarity_pin_bit_data;
   //------------------------------------------
 
   eth_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
@@ -551,6 +566,21 @@ struct eth_data_t {
     index = fan_ac_speed.connect(ap_data, index);
     index = fan_dc_speed.connect(ap_data, index);
     index = fan_dc_speed_sense.connect(ap_data, index);
+    //  Termoregulator
+    index = treg_ref.connect(ap_data, index);
+    index = treg_result.connect(ap_data, index);
+    index = treg_k.connect(ap_data, index);
+    index = treg_ki.connect(ap_data, index);
+    index = treg_kd.connect(ap_data, index);
+    index = treg_iso_k.connect(ap_data, index);
+    index = treg_iso_t.connect(ap_data, index);
+    index = treg_pwm_rate_slope.connect(ap_data, index);
+    index = treg_pid_out.connect(ap_data, index);
+    index = treg_amplitude_code_float.connect(ap_data, index);
+    treg_enabled.connect(ap_data, index, 0);
+    treg_pid_reg_enabled.connect(ap_data, index, 1);
+    treg_polarity_pin_bit_data.connect(ap_data, index, 2);
+    index = treg_options.connect(ap_data, index);
     
     return index;
   }
@@ -690,6 +720,18 @@ struct eeprom_data_t {
   irs::conn_data_t<irs_u8> fan_mode;                  //  1
   irs::conn_data_t<irs_u8> fan_ac_speed;              //  1
   irs::conn_data_t<irs_u8> fan_dc_speed;              //  1
+  //
+  irs::conn_data_t<th_value_t> treg_ref;              //  8
+  irs::conn_data_t<th_value_t> treg_k;                //  8
+  irs::conn_data_t<th_value_t> treg_ki;               //  8
+  irs::conn_data_t<th_value_t> treg_kd;               //  8
+  irs::conn_data_t<th_value_t> treg_iso_k;            //  8
+  irs::conn_data_t<th_value_t> treg_iso_t;            //  8
+  irs::conn_data_t<th_value_t> treg_pwm_rate_slope;   //  8
+  irs::conn_data_t<irs_u32> treg_options;             //  4
+  irs::bit_data_as_bool_t treg_enabled;
+  irs::bit_data_as_bool_t treg_pid_reg_enabled;
+  irs::bit_data_as_bool_t treg_polarity_pin_bit_data;
   
   eeprom_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
@@ -836,6 +878,19 @@ struct eeprom_data_t {
     index = fan_mode.connect(ap_data, index);
     index = fan_ac_speed.connect(ap_data, index);
     index = fan_dc_speed.connect(ap_data, index);
+    index++;
+    //  Termoregulator
+    index = treg_ref.connect(ap_data, index);
+    index = treg_k.connect(ap_data, index);
+    index = treg_ki.connect(ap_data, index);
+    index = treg_kd.connect(ap_data, index);
+    index = treg_iso_k.connect(ap_data, index);
+    index = treg_iso_t.connect(ap_data, index);
+    index = treg_pwm_rate_slope.connect(ap_data, index);
+    treg_enabled.connect(ap_data, index, 0);
+    treg_pid_reg_enabled.connect(ap_data, index, 1);
+    treg_polarity_pin_bit_data.connect(ap_data, index, 2);
+    index = treg_options.connect(ap_data, index);
     return index;
   }
   inline void reset_to_default()
@@ -974,6 +1029,17 @@ struct eeprom_data_t {
     bac_new_int_multiplier = 1000.0;
     //
     fan_mode = fan_already_off;
+    //
+    treg_ref = 20.0;
+    treg_k = 0.1;
+    treg_ki = 0.1;
+    treg_kd = 0.0;
+    treg_iso_k = 1.0;
+    treg_iso_t = 0.0;
+    treg_pwm_rate_slope = 0.4;
+    treg_enabled = 1;
+    treg_pid_reg_enabled = 1;
+    treg_polarity_pin_bit_data = 1;
   }
 };
 

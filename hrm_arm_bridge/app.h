@@ -150,6 +150,7 @@ private:
     double adc;
     double sko;
     double avg;
+    size_t num_of_adc_points;
   };
   struct exp_t {
     double result_old;
@@ -158,6 +159,8 @@ private:
     double result_new_uncorrect;
     double et_code;
     double ch_code;
+    double et_balanced_code;
+    double ch_balanced_code;
     double n0;
     double num;
     double den;
@@ -233,7 +236,9 @@ private:
   double m_result;
   double m_result_error;
   double m_checked_code;
+  double m_checked_balanced_code;
   double m_etalon_code;
+  double m_etalon_balanced_code;
   counter_t m_relay_after_pause;
   counter_t m_dac_after_pause;
   counter_t m_dac_elab_pause;
@@ -341,6 +346,15 @@ private:
   irs_i32 m_bac_new_int_multiplier;
   //
   device_condition_controller_t m_device_condition_controller;
+  const double m_treg_operating_duty_time_interval_s;
+  const double m_treg_operating_duty_deviation;
+  const double m_treg_pwm_max_code_float;
+  const double m_treg_polarity_map;
+  const double m_treg_temperature_setpoint;
+  temperature_sensor_conn_data_t m_treg_termosensor;
+  peltier_t::parameters_t m_treg_peltier_parameters;
+  peltier_t m_treg_peltier;
+  sync_treg_parameters_t m_treg_sync_parameters;
 
   void init_keyboard_drv();
   void init_encoder_drv();
