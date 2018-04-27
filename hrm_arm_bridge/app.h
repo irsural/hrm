@@ -63,6 +63,7 @@ private:
     bs_adc_show,
     bs_meas_temperature,
     bs_wait_temperature,
+    bs_adc_prepare,
     bs_dac_prepare,
     bs_termostat_off_adc_start,
     bs_adc_start,
@@ -355,6 +356,8 @@ private:
   peltier_t::parameters_t m_treg_peltier_parameters;
   peltier_t m_treg_peltier;
   sync_treg_parameters_t m_treg_sync_parameters;
+  
+  balance_action_t m_balance_action;
 
   void init_keyboard_drv();
   void init_encoder_drv();

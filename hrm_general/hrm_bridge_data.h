@@ -41,6 +41,16 @@ enum fan_status_t {
   fan_on_now = 1
 };
 
+enum balance_action_t {
+  ba_idle = 0,
+  ba_prepare = 1,
+  ba_prepare_pause = 2,
+  ba_balance_neg = 3,
+  ba_elab_neg = 4,
+  ba_balance_pos = 5,
+  ba_elab_pos = 6
+};
+
 typedef double  adc_value_t;
 typedef double  dac_value_t;
 typedef double  th_value_t;
@@ -133,7 +143,9 @@ struct eth_data_t {
   irs::bit_data_t adc_continious;
   irs::bit_data_t adc_show_points;
   irs::bit_data_t show_last_result;
-  irs::conn_data_t<irs_u32> impf_iterations_cnt;
+  irs::conn_data_t<irs_u8> balance_action;
+  irs::conn_data_t<irs_u8> reserve_1;
+  irs::conn_data_t<irs_u16> reserve_2;
   irs::conn_data_t<adc_value_t> adc_filter_constant;
   irs::conn_data_t<adc_value_t> adc_filter_value;
   irs::conn_data_t<irs_u32> adc_average_skip_cnt;
@@ -408,7 +420,9 @@ struct eth_data_t {
     show_last_result.connect(ap_data,       index + 3, 0);
     index = options.connect(ap_data,        index);
     
-    index= impf_iterations_cnt.connect(ap_data, index);
+    index= balance_action.connect(ap_data, index);
+    index= reserve_1.connect(ap_data, index);
+    index= reserve_2.connect(ap_data, index);
 
     index= adc_filter_constant.connect(ap_data, index);
     index= adc_filter_value.connect(ap_data, index);

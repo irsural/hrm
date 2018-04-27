@@ -474,7 +474,7 @@ void hrm::dac_t::set_normalize_code(hrm::dac_value_t a_code)
 void hrm::dac_t::set_code(dac_value_t a_code)
 {
   irs_i32 code = static_cast<irs_i32>(a_code);
-  m_dac_data.signed_voltage_code = code << 12;  //  ˜˜˜˜ unsigned_voltage_code
+  m_dac_data.signed_voltage_code = code << 12;
   m_status = st_wait;
   if (m_show) {
     irs::mlog() << irsm("DAC: code = ")

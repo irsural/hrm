@@ -153,14 +153,18 @@ private:
 
   irs_menu_string_item_t m_mode_item;
   irs_menu_string_item_t m_hint_item;
+  
+  double m_prepare_pause_value;
+  irs_menu_double_item_t m_prepare_pause_item;
+  mxfact_event_t m_prepare_pause_event;
 
   double m_r_standard;
   irs_menu_double_item_t m_r_standard_item;
   mxfact_event_t m_r_standard_changed_event;
-
-  irs_bool m_menu_r_standart_type;
-  irs_menu_bool_item_t m_r_standart_type_item;
-  mxfact_event_t m_r_standart_type_changed_event;
+  
+  double m_r_checked;
+  irs_menu_double_item_t m_r_checked_item;
+  mxfact_event_t m_r_checked_changed_event;
 
   static const irs_u8 m_user_str_len = 30;
   char mp_user_str[m_user_str_len + 1];
@@ -204,7 +208,7 @@ private:
   menu_str_item_t m_elapsed_time_item;
   menu_str_item_t m_remaining_time_item;
 
-  irs_menu_progress_bar_t  m_progress_bar_item;
+  irs_menu_progress_bar_t m_progress_bar_item;
 
   irs::loop_timer_t m_update_items;
 
@@ -392,14 +396,6 @@ private:
   char mp_user_str[buffer_str_len + 1];
 
   irs_advanced_tablo_t m_parent_menu;
-
-  double m_prepare_pause_value;
-  irs_menu_double_item_t m_prepare_pause_item;
-  mxfact_event_t m_prepare_pause_event;
-
-  double m_thermostat_temperature_value;
-  irs_menu_double_item_t m_thermostat_temperature_item;
-  mxfact_event_t m_thermostat_temperature_event;
 
   irs_advanced_tablo_t m_result_item;
   irs_advanced_tablo_t m_calculation_errors_item;

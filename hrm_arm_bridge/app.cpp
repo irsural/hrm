@@ -73,7 +73,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_dac_step(0.0),
   m_balanced_dac_code(0.0),
   m_initial_dac_code(0.0),
-  m_initial_dac_step(m_dac.max_code()),
+  m_initial_dac_step(pow(2.0, 18)),//m_dac.max_code()),
   m_balance_polarity(bp_neg),
   m_checked(1.),
   m_etalon(1.),
@@ -184,7 +184,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   ),
   m_treg_operating_duty_time_interval_s(1.0),
   m_treg_operating_duty_deviation(0.05),
-  m_treg_pwm_max_code_float(0.7),
+  m_treg_pwm_max_code_float(1.0),
   m_treg_polarity_map(peltier_t::default_polarity_map),
   m_treg_temperature_setpoint(25.0),
   m_treg_termosensor(&m_eth_data.th_box_adc, 15.0, 35.0),
@@ -232,7 +232,8 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
     &m_eeprom_data.treg_enabled,
     &m_eeprom_data.treg_pid_reg_enabled,
     &m_eeprom_data.treg_polarity_pin_bit_data
-  )
+  ),
+  m_balance_action(ba_idle)
 {
   init_keyboard_drv();
   init_encoder_drv();
@@ -242,7 +243,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   ip.val[1] = m_eeprom_data.ip_1;
   ip.val[2] = m_eeprom_data.ip_2;
   ip.val[3] = m_eeprom_data.ip_3;
-
+  
   mxip_t mask = mxip_t::zero_ip();
   mask.val[0] = m_eeprom_data.mask_0;
   mask.val[1] = m_eeprom_data.mask_1;
@@ -672,9 +673,6 @@ void hrm::app_t::tick()
     if (m_eth_data.use_impf != m_eeprom_data.use_impf) {
       m_eeprom_data.use_impf = m_eth_data.use_impf;
     }
-    if (m_eth_data.impf_iterations_cnt != m_eeprom_data.impf_iterations_cnt) {
-      m_eeprom_data.impf_iterations_cnt = m_eth_data.impf_iterations_cnt;
-    }
     if (m_eth_data.elab_max_delta != m_eeprom_data.elab_max_delta) {
       m_eeprom_data.elab_max_delta = m_eth_data.elab_max_delta;
     }
@@ -754,6 +752,15 @@ void hrm::app_t::tick()
       m_bac_new_int_multiplier = m_eth_data.bac_new_int_multiplier;
     }
     
+    switch (m_balance_action) {
+      case ba_prepare: m_eth_data.balance_action = 1; break;
+      case ba_prepare_pause: m_eth_data.balance_action = 2; break;
+      case ba_balance_neg: m_eth_data.balance_action = 3; break;
+      case ba_elab_neg: m_eth_data.balance_action = 4; break;
+      case ba_balance_pos: m_eth_data.balance_action = 5; break;
+      case ba_elab_pos: m_eth_data.balance_action = 6; break;
+      default: m_eth_data.balance_action = 0;
+    }
     
     //m_eth_data.external_temperature = m_ext_th_data.temperature_code *
       //m_ext_th.get_conv_koef();
@@ -1383,6 +1390,8 @@ void hrm::app_t::tick()
             
           m_elab_mode = convert_u8_to_elab_mode(m_eth_data.elab_mode);
           
+          m_balance_action = ba_prepare;
+          
           m_balance_status = bs_set_prot;
           break;
         }
@@ -1445,9 +1454,10 @@ void hrm::app_t::tick()
               irs::mlog() << irsm(" c") << endl;
               m_adc.hide();
               m_dac.hide();
+              m_balance_action = ba_prepare_pause;
               m_balance_status = bs_pause;
             } else {
-              m_balance_status = bs_meas_temperature;
+              m_balance_status = bs_adc_prepare;//bs_meas_temperature;
             }
           }
           break;
@@ -1465,6 +1475,7 @@ void hrm::app_t::tick()
             } else {
               irs::mlog() << endl;
               m_eth_data.prepare_pause = m_prepare_pause;
+              m_balance_action = ba_balance_neg;
               m_balance_status = bs_adc_show;
             }
           } else {
@@ -1485,7 +1496,7 @@ void hrm::app_t::tick()
             }
             //m_adc.show();
             m_dac.hide();
-            m_balance_status = bs_meas_temperature;
+            m_balance_status = bs_adc_prepare;//bs_meas_temperature;
           }
           break;
         }
@@ -1504,6 +1515,15 @@ void hrm::app_t::tick()
             m_temperature = adc_vx_to_th(m_voltage);
             irs::mlog() << irsm("Температура = ") << m_temperature;
             irs::mlog() << irsm(" °C") << endl;
+            m_adc.set_params(&m_adc_balance_param_data);
+            irs::mlog() << irsm("Параметры АЦП m_adc_balance_param_data")
+              << endl;
+            m_balance_status = bs_dac_prepare;
+          }
+          break;
+        }
+        case bs_adc_prepare: {
+          if (m_adc.status() == irs_st_ready) {
             m_adc.set_params(&m_adc_balance_param_data);
             irs::mlog() << irsm("Параметры АЦП m_adc_balance_param_data")
               << endl;
@@ -1557,13 +1577,13 @@ void hrm::app_t::tick()
                 m_max_unsaturated_voltage = abs(adc_result);
                 m_max_unsaturated_dac_code = abs(m_dac_code);
 
-                irs::mlog() << irsm(">>>> ") << setw(8);
-                irs::mlog() << m_max_unsaturated_dac_code;
-                irs::mlog() << irsm(" : ");
-                irs::mlog() << m_max_unsaturated_voltage;
-                irs::mlog() << irsm(" В ");
-                irs::mlog() << abs(adc_result_data.sko * 1e6);
-                irs::mlog() << irsm(" ppm ") << endl;
+//                irs::mlog() << irsm(">>>> ") << setw(8);
+//                irs::mlog() << m_max_unsaturated_dac_code;
+//                irs::mlog() << irsm(" : ");
+//                irs::mlog() << m_max_unsaturated_voltage;
+//                irs::mlog() << irsm(" В ");
+//                irs::mlog() << abs(adc_result_data.sko * 1e6);
+//                irs::mlog() << irsm(" ppm ") << endl;
               }
               elab_point_t elab_point;
               elab_point.dac = m_dac.get_code();
@@ -1586,8 +1606,8 @@ void hrm::app_t::tick()
                         m_prev_elab_vector[m_prev_elab_cnt-2].adc) / m_dac_code);
                   }
                 }
-                irs::mlog() << irsm(">DAC> ");
-                irs::mlog() << m_dac_step_amplitude << irsm(" В") << endl;
+                //irs::mlog() << irsm(">DAC> ");
+                //irs::mlog() << m_dac_step_amplitude << irsm(" В") << endl;
 
                 irs::mlog() << setw(2) << m_current_iteration+1 << irsm(" : ");
                 irs::mlog() << setw(8) << m_dac_code << irsm(" : ");
@@ -1601,8 +1621,10 @@ void hrm::app_t::tick()
                 //m_prev_balance_completed = true;
                 if (elab_point.dac >= 0) {
                   m_elab_polarity = bp_pos;
+                  m_balance_action = ba_elab_pos;
                 } else {
                   m_elab_polarity = bp_neg;
+                  m_balance_action = ba_elab_neg;
                 }
                 switch (m_elab_mode) {
                   case em_fast_2points: {
@@ -1790,7 +1812,12 @@ void hrm::app_t::tick()
               break;
             }
             case 2: {
-              m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_3;
+              if (m_dac_code > m_balanced_dac_code) {
+                m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_3;
+              } else {
+                m_dac_code = m_balanced_dac_code - m_fast_elab_dac_step_3;
+              }
+              //m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_3;
               irs::mlog() << irsm("Величина прыжка ЦАП = ") 
                 << m_fast_elab_dac_step_3 << endl;
               break;
@@ -1867,7 +1894,11 @@ void hrm::app_t::tick()
                 break;
               }
               case 3: {
-                m_dac_code = m_balanced_dac_code - m_fast_elab_dac_step_3;
+                if (m_dac_code > m_balanced_dac_code) {
+                  m_dac_code = m_balanced_dac_code - m_fast_elab_dac_step_3;
+                } else {
+                  m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_3;
+                }
                 break;
               }
               default: {
@@ -2148,8 +2179,10 @@ void hrm::app_t::tick()
               m_max_unsaturated_voltage = 0.0;
               m_max_unsaturated_dac_code = 0.0;
               m_pos_current_elab++;
+              m_balance_action = ba_balance_pos;
               m_balance_status = bs_set_coils;
             } else {
+              m_balance_action = ba_idle;
               m_balance_status = bs_report;
             }
           }
@@ -2489,6 +2522,7 @@ void hrm::app_t::tick()
         irs::mlog() << irsm("---------------------------------") << endl;
         irs::mlog() << irsm("------------- Сброс -------------") << endl;
         m_eth_data.reset = 0;
+        m_balance_action = ba_idle;
         if (m_mode == md_balance) {
           mp_menu->show_experiment_options();
           m_balance_status = bs_final_report;

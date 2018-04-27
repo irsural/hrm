@@ -112,7 +112,7 @@ hrm::cfg_t::cfg_t():
   mezzo3(GPIO_PORTB, 0, irs::io_t::dir_out, irs::io_pin_off),
   mezzo4(GPIO_PORTB, 1, irs::io_t::dir_out, irs::io_pin_off),
   //  UI
-  lcd_port(GPIO_PORTG, 0xFF, irs::io_t::dir_open_drain, 7),
+  lcd_port(GPIO_PORTG, 0xFF, irs::io_t::dir_open_drain, 8),
   lcd_rs_pin(GPIO_PORTG, 7, irs::io_t::dir_open_drain),
   lcd_e_pin(GPIO_PORTG, 6, irs::io_t::dir_open_drain),
   key_drv_horizontal_pins(),
@@ -175,13 +175,22 @@ hrm::cfg_t::cfg_t():
     new irs::arm::io_pin_t(GPIO_PORTG, 0, irs::io_t::dir_in)));
 
   key_drv_vertical_pins.push_back(irs::handle_t<irs::gpio_pin_t>(
-    new irs::arm::io_pin_t(GPIO_PORTG, 1, irs::io_t::dir_open_drain)));
-  key_drv_vertical_pins.push_back(irs::handle_t<irs::gpio_pin_t>(
-    new irs::arm::io_pin_t(GPIO_PORTE, 7, irs::io_t::dir_open_drain)));
-  key_drv_vertical_pins.push_back(irs::handle_t<irs::gpio_pin_t>(
-    new irs::arm::io_pin_t(GPIO_PORTE, 8, irs::io_t::dir_open_drain)));
-  key_drv_vertical_pins.push_back(irs::handle_t<irs::gpio_pin_t>(
     new irs::arm::io_pin_t(GPIO_PORTE, 9, irs::io_t::dir_open_drain)));
+  key_drv_vertical_pins.push_back(irs::handle_t<irs::gpio_pin_t>(
+    new irs::arm::io_pin_t(GPIO_PORTE, 8, irs::io_t::dir_open_drain)));  
+  key_drv_vertical_pins.push_back(irs::handle_t<irs::gpio_pin_t>(
+    new irs::arm::io_pin_t(GPIO_PORTE, 7, irs::io_t::dir_open_drain)));  
+  key_drv_vertical_pins.push_back(irs::handle_t<irs::gpio_pin_t>(
+    new irs::arm::io_pin_t(GPIO_PORTG, 1, irs::io_t::dir_open_drain)));
+  
+//  key_drv_vertical_pins.push_back(irs::handle_t<irs::gpio_pin_t>(
+//    new irs::arm::io_pin_t(GPIO_PORTG, 1, irs::io_t::dir_open_drain)));
+//  key_drv_vertical_pins.push_back(irs::handle_t<irs::gpio_pin_t>(
+//    new irs::arm::io_pin_t(GPIO_PORTE, 7, irs::io_t::dir_open_drain)));
+//  key_drv_vertical_pins.push_back(irs::handle_t<irs::gpio_pin_t>(
+//    new irs::arm::io_pin_t(GPIO_PORTE, 8, irs::io_t::dir_open_drain)));
+//  key_drv_vertical_pins.push_back(irs::handle_t<irs::gpio_pin_t>(
+//    new irs::arm::io_pin_t(GPIO_PORTE, 9, irs::io_t::dir_open_drain)));
 
   irs::pause(irs::make_cnt_ms(100));
 }
