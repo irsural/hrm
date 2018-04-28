@@ -403,14 +403,6 @@ private:
 
   irs_advanced_tablo_t m_parent_menu;
 
-//  double m_prepare_pause_value;
-//  irs_menu_double_item_t m_prepare_pause_item;
-//  mxfact_event_t m_prepare_pause_event;
-
-  double m_thermostat_temperature_value;
-  irs_menu_double_item_t m_thermostat_temperature_item;
-  mxfact_event_t m_thermostat_temperature_event;
-
   irs_advanced_tablo_t m_result_item;
   irs_advanced_tablo_t m_calculation_errors_item;
 

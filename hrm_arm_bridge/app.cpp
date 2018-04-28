@@ -2390,7 +2390,7 @@ void hrm::app_t::tick()
               
               
               if (m_eth_data.result != 0.0) {
-                m_eth_data.checked_prev = m_eth_data.result;
+                //m_eth_data.checked_prev = m_eth_data.result;
               }
               m_eth_data.result = exp.result_old * m_eth_data.etalon;//  Result OLD
               //m_eth_data.ratio = exp.result_5;        //  Result INT
@@ -2420,7 +2420,7 @@ void hrm::app_t::tick()
               
               
               if (m_eth_data.result != 0.0) {
-                m_eth_data.checked_prev = m_eth_data.result;
+                //m_eth_data.checked_prev = m_eth_data.result;
               }
               m_eth_data.result = exp.result_old * m_eth_data.etalon;
               //m_eth_data.ratio = exp.result_new;
@@ -2465,7 +2465,7 @@ void hrm::app_t::tick()
               
               
               if (m_eth_data.result != 0.0) {
-                m_eth_data.checked_prev = m_eth_data.result;
+                //m_eth_data.checked_prev = m_eth_data.result;
               }
               m_eth_data.result = exp.result_old * m_eth_data.etalon;
               //m_eth_data.ratio = exp.result_new;
@@ -2474,6 +2474,8 @@ void hrm::app_t::tick()
               m_exp_vector.push_back(exp);
             }
           }
+          m_eth_data.ratio = m_result;
+          m_eth_data.result = m_result * m_eth_data.etalon;
           m_result *= m_etalon;
           m_result_error = ((m_result - m_checked) / m_checked) * 100.;
           irs::mlog() << irsm("Результат ") << m_result
@@ -2481,10 +2483,8 @@ void hrm::app_t::tick()
           irs::mlog() << irsm("Отклонение ") << m_result_error
             << irsm(" %") << endl;
           if (m_eth_data.result != 0.0) {
-            m_eth_data.checked_prev = m_eth_data.result;
-          }
-          m_eth_data.result = m_result * m_eth_data.etalon;
-          m_eth_data.ratio = m_result;
+            //m_eth_data.checked_prev = m_eth_data.result;
+          }          
           //m_eth_data.result_error = m_result_error;
           m_balance_status = bs_next_exp;
           break;
