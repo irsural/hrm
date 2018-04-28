@@ -85,7 +85,7 @@ struct eth_data_t {
   irs::conn_data_t<double> result;          //  8 byte
   irs::conn_data_t<double> result_error;    //  8 byte
   irs::conn_data_t<double> ratio;           //  8 byte
-  irs::conn_data_t<double> prev_user_result;
+  irs::conn_data_t<double> checked_prev;    //  8 byte
   //  manual
   irs::bit_data_t relay_1g;
   irs::bit_data_t relay_100m;
@@ -354,7 +354,7 @@ struct eth_data_t {
     index = result.connect(ap_data, index);
     index = result_error.connect(ap_data, index);
     index = ratio.connect(ap_data, index);
-    index = prev_user_result.connect(ap_data, index);
+    index = checked_prev.connect(ap_data, index);
 
     relay_1g.connect(ap_data, index, 0);
     relay_100m.connect(ap_data, index, 1);
@@ -637,7 +637,7 @@ struct eeprom_data_t {
   irs::conn_data_t<dac_value_t> elab_step_multiplier; //  8
   irs::conn_data_t<dac_value_t> elab_max_delta;       //  8
   irs::conn_data_t<double> ratio;                     //  8
-  irs::conn_data_t<double> prev_user_result;          //  8 64
+  irs::conn_data_t<double> checked_prev;          //  8 64
   irs::conn_data_t<irs_u8> ip_0;          //  1 byte
   irs::conn_data_t<irs_u8> ip_1;          //  1 byte
   irs::conn_data_t<irs_u8> ip_2;          //  1 byte
@@ -794,7 +794,7 @@ struct eeprom_data_t {
     index = elab_step_multiplier.connect(ap_data, index);
     index = elab_max_delta.connect(ap_data, index);
     index = ratio.connect(ap_data, index);
-    index = prev_user_result.connect(ap_data, index);
+    index = checked_prev.connect(ap_data, index);
     index = ip_0.connect(ap_data, index);
     index = ip_1.connect(ap_data, index);
     index = ip_2.connect(ap_data, index);
@@ -943,7 +943,7 @@ struct eeprom_data_t {
     adc_continious = 0;
     elab_max_delta = 1.0;
     ratio = 1.0;
-    prev_user_result = 1.0;
+    checked_prev = 1.0;
     ip_0 = IP_0;
     ip_1 = IP_1;
     ip_2 = IP_2;

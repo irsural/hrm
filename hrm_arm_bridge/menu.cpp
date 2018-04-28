@@ -93,10 +93,10 @@ hrm::screensaver_t::screensaver_t(
   mp_cur_menu(&m_main_screen),
   m_timeout(irs::make_cnt_s(5))
 {
-  m_str_1_item.set_parametr_string("     Компаратор");
+  m_str_1_item.set_parametr_string("  www.irsural.ru");
   m_str_2_item.set_parametr_string("       У401М");
-  m_str_3_item.set_parametr_string("     ООО \"РЭС\"");
-  m_str_4_item.set_parametr_string("  www.irsural.ru");
+  m_str_3_item.set_parametr_string(" Хэш **** Вер. ****");
+  m_str_4_item.set_parametr_string("     ООО \"РЭС\"");
 
   m_main_screen.set_disp_drv(ap_lcd_drv_service);
   m_main_screen.set_key_event(ap_menu_kb_event);
@@ -135,21 +135,25 @@ hrm::experiment_options_dialog_t::experiment_options_dialog_t(
   m_hint_item(),
   
   m_prepare_pause_value(mp_eth_data->prepare_pause),
-  m_prepare_pause_item(&m_prepare_pause_value, true),
+  m_prepare_pause_item(&m_prepare_pause_value, item_edited),
   m_prepare_pause_event(),
-
+  
+  m_r_checked_prev(mp_eth_data->checked_prev),
+  m_r_checked_prev_item(&m_r_checked_prev, item_edited),
+  m_r_checked_prev_event(),
+  
   m_r_standard(mp_eth_data->etalon),
   m_r_standard_item(&m_r_standard, true),
   m_r_standard_changed_event(),
-  
-  m_r_checked(mp_eth_data->etalon),
+
+  m_r_checked(mp_eth_data->checked),
   m_r_checked_item(&m_r_checked, true),
   m_r_checked_changed_event(),
-
+  
   m_main_screen(),
   mp_cur_menu(&m_main_screen)
 {
-  m_mode_item.set_parametr_string("Ввод значений");
+  m_mode_item.set_parametr_string("Ввод эталона");
   m_hint_item.set_parametr_string("€-Пуск");
 
   m_prepare_pause_item.set_header("Предварит. пауза");
@@ -158,6 +162,20 @@ hrm::experiment_options_dialog_t::experiment_options_dialog_t(
   m_prepare_pause_item.set_min_value(1);
   m_prepare_pause_item.add_change_event(&m_prepare_pause_event);
   m_prepare_pause_item.set_key_type(IMK_DIGITS);
+  m_prepare_pause_item.set_disp_drv(ap_lcd_drv_service);
+  m_prepare_pause_item.set_key_event(ap_menu_kb_event);
+  m_prepare_pause_item.set_cursor_symbol(0x01);
+  
+  m_r_checked_prev_item.set_header("Пред. поверяемая");
+  m_r_checked_prev_item.set_str(mp_user_str, "Rпп", "Ом", r_width, r_precision,
+    irs::num_mode_general);
+  m_r_checked_prev_item.set_max_value(r_max);
+  m_r_checked_prev_item.set_min_value(r_min);
+  m_r_checked_prev_item.add_change_event(&m_r_checked_prev_event);
+  m_r_checked_prev_item.set_key_type(IMK_DIGITS);
+  m_r_checked_prev_item.set_disp_drv(ap_lcd_drv_service);
+  m_r_checked_prev_item.set_key_event(ap_menu_kb_event);
+  m_r_checked_prev_item.set_cursor_symbol(0x01);
   
   m_r_standard_item.set_header("Ввод эталона");
   m_r_standard_item.set_str(mp_user_str, "Rэ ", "Ом", r_width, r_precision,
@@ -166,7 +184,6 @@ hrm::experiment_options_dialog_t::experiment_options_dialog_t(
   m_r_standard_item.set_min_value(r_min);
   m_r_standard_item.add_change_event(&m_r_standard_changed_event);
   m_r_standard_item.set_key_type(IMK_DIGITS);
-  m_r_standard_item.set_hint("Эталон - слева");
   
   m_r_checked_item.set_header("Ввод поверяемой");
   m_r_checked_item.set_str(mp_user_str, "Rп ", "Ом", r_width, r_precision,
@@ -175,7 +192,6 @@ hrm::experiment_options_dialog_t::experiment_options_dialog_t(
   m_r_checked_item.set_min_value(r_min);
   m_r_checked_item.add_change_event(&m_r_checked_changed_event);
   m_r_checked_item.set_key_type(IMK_DIGITS);
-  m_r_checked_item.set_hint("Поверяемая - справа");
 
   m_main_screen.set_disp_drv(ap_lcd_drv_service);
   m_main_screen.set_key_event(ap_menu_kb_event);
@@ -206,6 +222,9 @@ void hrm::experiment_options_dialog_t::menu_check()
   if (m_r_checked_changed_event.check()) {
     mp_eth_data->checked = m_r_checked;
   }
+  if (m_r_checked_prev_event.check()) {
+    mp_eth_data->checked_prev = m_r_checked_prev;
+  }
   if (m_prepare_pause_event.check()) {
     mp_eth_data->prepare_pause =
       irs::round<double, irs_i32>(m_prepare_pause_value);
@@ -220,6 +239,9 @@ void hrm::experiment_options_dialog_t::menu_check()
     }
     if (mp_eth_data->prepare_pause != m_prepare_pause_value) {
       m_prepare_pause_value = mp_eth_data->prepare_pause;
+    }
+    if (mp_eth_data->checked_prev != m_r_checked_prev) {
+      m_r_checked_prev = mp_eth_data->checked_prev;
     }
     irskey_t key = mp_menu_kb_event->check();
     switch (key) {
@@ -237,6 +259,11 @@ void hrm::experiment_options_dialog_t::menu_check()
         mp_cur_menu = &m_prepare_pause_item;
         m_prepare_pause_item.set_master_menu(&m_main_screen);
         m_prepare_pause_item.show();
+      } break;
+      case irskey_9: {
+        mp_cur_menu = &m_r_checked_prev_item;
+        m_r_checked_prev_item.set_master_menu(&m_main_screen);
+        m_r_checked_prev_item.show();
       } break;
       case irskey_enter: {
         mp_eth_data->mode = md_balance;
@@ -308,32 +335,6 @@ void hrm::experiment_progress_t::menu_check()
   if (m_update_items.check()) {
     set_str_item(mp_eth_data->sum_time, &m_elapsed_time_item);
     set_str_item(mp_eth_data->remaining_time, &m_remaining_time_item);
-    switch (mp_eth_data->balance_action) {
-      case ba_prepare: {
-        m_mode_item.set_parametr_string("Подготовка"); 
-        break;
-      }
-      case ba_prepare_pause: {
-        m_mode_item.set_parametr_string("Предварит. пауза"); 
-        break;
-      }
-      case ba_balance_neg: {
-        m_mode_item.set_parametr_string("Уравновешивание -"); 
-        break;
-      }
-      case ba_elab_neg: {
-        m_mode_item.set_parametr_string("Уточнение -"); 
-        break;
-      }
-      case ba_balance_pos: {
-        m_mode_item.set_parametr_string("Уравновешивание +"); 
-        break;
-      }
-      case ba_elab_pos: {
-        m_mode_item.set_parametr_string("Уточнение +"); 
-        break;
-      }
-    }
     update_progress();
   }
 }
@@ -613,7 +614,7 @@ void hrm::calculation_errors_dialog_t::menu_check()
     mp_eth_data->checked = m_r_nominal;
   }
   if(m_r_prev_user_changed_event.check()) {
-    mp_eth_data->prev_user_result = m_r_prev_user;
+    mp_eth_data->checked_prev = m_r_prev_user;
   }
 
   if(m_r_standard_changed_event.check()) {
@@ -622,7 +623,7 @@ void hrm::calculation_errors_dialog_t::menu_check()
 
   if (mp_cur_menu == &m_main_screen) {
     sync_first_to_second(&mp_eth_data->checked, &m_r_nominal);
-    sync_first_to_second(&mp_eth_data->prev_user_result, &m_r_prev_user);
+    sync_first_to_second(&mp_eth_data->checked_prev, &m_r_prev_user);
     sync_first_to_second(&mp_eth_data->etalon, &m_r_standard);
 
     if (m_recalculation_period_timer.check()) {
@@ -811,6 +812,14 @@ hrm::options_dialog_t::options_dialog_t(
 
   m_parent_menu(),
 
+//  m_prepare_pause_value(mp_eth_data->prepare_pause),
+//  m_prepare_pause_item(&m_prepare_pause_value, item_edited),
+//  m_prepare_pause_event(),
+
+  m_thermostat_temperature_value(40),
+  m_thermostat_temperature_item(&m_thermostat_temperature_value, item_edited),
+  m_thermostat_temperature_event(),
+
   m_result_item(),
   m_calculation_errors_item(),
   m_network_options_item(),
@@ -821,6 +830,22 @@ hrm::options_dialog_t::options_dialog_t(
   m_parent_menu.set_disp_drv(ap_lcd_drv_service);
   m_parent_menu.set_key_event(ap_menu_kb_event);
   m_parent_menu.creep_stop();
+
+//  m_prepare_pause_item.set_header("Пауза после термос.");
+//  m_prepare_pause_item.set_str(mp_user_str, "Пауза", "с", 6, 0);
+//  m_prepare_pause_item.set_max_value(100000);
+//  m_prepare_pause_item.set_min_value(0.1);
+//  m_prepare_pause_item.add_change_event(&m_prepare_pause_event);
+//  m_prepare_pause_item.set_key_type(IMK_DIGITS);
+
+  m_thermostat_temperature_item.set_header("Темп. термостата");
+  m_thermostat_temperature_item.set_str(mp_user_str, "Темп.", "град.",
+    2, 0);
+  m_thermostat_temperature_item.set_max_value(99);
+  m_thermostat_temperature_item.set_min_value(1);
+  m_thermostat_temperature_item.add_change_event(
+    &m_thermostat_temperature_event);
+  m_thermostat_temperature_item.set_key_type(IMK_DIGITS);
 
   m_result_item.set_disp_drv(ap_lcd_drv_service);
   m_result_item.set_key_event(ap_menu_kb_event);
@@ -842,6 +867,8 @@ hrm::options_dialog_t::options_dialog_t(
   m_main_menu.set_cursor_symbol(0x01);
   m_main_menu.set_master_menu(&m_parent_menu);
   m_main_menu.set_header(irst("Настройки"));
+//  m_main_menu.add(&m_prepare_pause_item);
+  m_main_menu.add(&m_thermostat_temperature_item);
   m_main_menu.add(&m_result_item);
   m_main_menu.add(&m_calculation_errors_item);
   m_main_menu.add(&m_network_options_item);
@@ -860,17 +887,22 @@ void hrm::options_dialog_t::draw()
 
 void hrm::options_dialog_t::menu_check()
 {
-  
+//  if(m_prepare_pause_event.check()) {
+//    mp_eth_data->prepare_pause =
+//      irs::round<double, irs_i32>(m_prepare_pause_value);
+//  }
   if (mp_cur_menu == &m_main_menu) {
-    if (mp_cur_menu == &m_parent_menu) {
-      set_command(command_show_experiment_options_dialog);
-    } else if (mp_cur_menu == &m_result_item) {
-      set_command(command_show_experiment_result);
-    } else if (mp_cur_menu == &m_calculation_errors_item) {
-      set_command(command_show_calculation_errors_dialog);
-    } else if (mp_cur_menu == &m_network_options_item) {
-      set_command(command_show_network_options);
+    if (/*mp_eth_data->prepare_pause != m_prepare_pause_value*/false) {
+      //m_prepare_pause_value = mp_eth_data->prepare_pause;
     }
+  } else if (mp_cur_menu == &m_parent_menu) {
+    set_command(command_show_experiment_options_dialog);
+  } else if (mp_cur_menu == &m_result_item) {
+    set_command(command_show_experiment_result);
+  } else if (mp_cur_menu == &m_calculation_errors_item) {
+    set_command(command_show_calculation_errors_dialog);
+  } else if (mp_cur_menu == &m_network_options_item) {
+    set_command(command_show_network_options);
   }
 }
 

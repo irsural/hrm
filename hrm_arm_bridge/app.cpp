@@ -275,7 +275,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
 
   m_eth_data.ratio = m_eeprom_data.ratio;
 
-  m_eth_data.prev_user_result = m_eeprom_data.prev_user_result;
+  m_eth_data.checked_prev = m_eeprom_data.checked_prev;
 
   m_dac.set_lin(m_eeprom_data.dac_lin);
   m_eth_data.dac_lin = m_dac.get_lin();
@@ -590,8 +590,8 @@ void hrm::app_t::tick()
     if (m_eth_data.ratio != m_eeprom_data.ratio) {
       m_eeprom_data.ratio = m_eth_data.ratio;
     }
-    if (m_eth_data.prev_user_result != m_eeprom_data.prev_user_result) {
-      m_eeprom_data.prev_user_result = m_eth_data.prev_user_result;
+    if (m_eth_data.checked_prev != m_eeprom_data.checked_prev) {
+      m_eeprom_data.checked_prev = m_eth_data.checked_prev;
     }
     if (m_eth_data.dac_lin != m_eeprom_data.dac_lin) {
       m_eeprom_data.dac_lin = m_eth_data.dac_lin;
