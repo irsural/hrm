@@ -2388,9 +2388,13 @@ void hrm::app_t::tick()
                 
               m_fast_elab_vector.clear();
               
-              m_eth_data.result = exp.result_old;     //  Result OLD
+              
+              if (m_eth_data.result != 0.0) {
+                m_eth_data.checked_prev = m_eth_data.result;
+              }
+              m_eth_data.result = exp.result_old * m_eth_data.etalon;//  Result OLD
               //m_eth_data.ratio = exp.result_5;        //  Result INT
-              m_eth_data.result_error = exp.result_new; //  Result FLOAT
+              m_eth_data.result_error = exp.result_new * m_eth_data.etalon; //  Result FLOAT
               m_eth_data.ratio = m_result;
               break;
             }
@@ -2414,7 +2418,11 @@ void hrm::app_t::tick()
                 
               m_fast_elab_vector.clear();
               
-              m_eth_data.result = exp.result_old;
+              
+              if (m_eth_data.result != 0.0) {
+                m_eth_data.checked_prev = m_eth_data.result;
+              }
+              m_eth_data.result = exp.result_old * m_eth_data.etalon;
               //m_eth_data.ratio = exp.result_new;
               m_eth_data.ratio = m_result;
               break;
@@ -2455,7 +2463,11 @@ void hrm::app_t::tick()
               
               m_fast_elab_vector.clear();
               
-              m_eth_data.result = exp.result_old;
+              
+              if (m_eth_data.result != 0.0) {
+                m_eth_data.checked_prev = m_eth_data.result;
+              }
+              m_eth_data.result = exp.result_old * m_eth_data.etalon;
               //m_eth_data.ratio = exp.result_new;
               m_eth_data.ratio = m_result;
               
@@ -2468,7 +2480,11 @@ void hrm::app_t::tick()
             << irsm(" Ом") << endl;
           irs::mlog() << irsm("Отклонение ") << m_result_error
             << irsm(" %") << endl;
-          m_eth_data.result = m_result;
+          if (m_eth_data.result != 0.0) {
+            m_eth_data.checked_prev = m_eth_data.result;
+          }
+          m_eth_data.result = m_result * m_eth_data.etalon;
+          m_eth_data.ratio = m_result;
           //m_eth_data.result_error = m_result_error;
           m_balance_status = bs_next_exp;
           break;

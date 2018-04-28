@@ -335,6 +335,32 @@ void hrm::experiment_progress_t::menu_check()
   if (m_update_items.check()) {
     set_str_item(mp_eth_data->sum_time, &m_elapsed_time_item);
     set_str_item(mp_eth_data->remaining_time, &m_remaining_time_item);
+    switch (mp_eth_data->balance_action) {
+      case ba_prepare: {
+        m_mode_item.set_parametr_string("Подготовка"); 
+        break;
+      }
+      case ba_prepare_pause: {
+        m_mode_item.set_parametr_string("Предварит. пауза"); 
+        break;
+      }
+      case ba_balance_neg: {
+        m_mode_item.set_parametr_string("Уравновешивание -"); 
+        break;
+      }
+      case ba_elab_neg: {
+        m_mode_item.set_parametr_string("Уточнение -"); 
+        break;
+      }
+      case ba_balance_pos: {
+        m_mode_item.set_parametr_string("Уравновешивание +"); 
+        break;
+      }
+      case ba_elab_pos: {
+        m_mode_item.set_parametr_string("Уточнение +"); 
+        break;
+      }
+    }
     update_progress();
   }
 }
