@@ -2391,6 +2391,7 @@ void hrm::app_t::tick()
               m_eth_data.result = exp.result_old;     //  Result OLD
               //m_eth_data.ratio = exp.result_5;        //  Result INT
               m_eth_data.result_error = exp.result_new; //  Result FLOAT
+              m_eth_data.ratio = m_result;
               break;
             }
             case em_none: {
@@ -2414,7 +2415,8 @@ void hrm::app_t::tick()
               m_fast_elab_vector.clear();
               
               m_eth_data.result = exp.result_old;
-              m_eth_data.ratio = exp.result_new;
+              //m_eth_data.ratio = exp.result_new;
+              m_eth_data.ratio = m_result;
               break;
             }
             default: {
@@ -2454,7 +2456,8 @@ void hrm::app_t::tick()
               m_fast_elab_vector.clear();
               
               m_eth_data.result = exp.result_old;
-              m_eth_data.ratio = exp.result_new;
+              //m_eth_data.ratio = exp.result_new;
+              m_eth_data.ratio = m_result;
               
               m_exp_vector.push_back(exp);
             }

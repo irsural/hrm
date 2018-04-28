@@ -178,7 +178,7 @@ hrm::experiment_options_dialog_t::experiment_options_dialog_t(
   m_r_checked_prev_item.set_cursor_symbol(0x01);
   
   m_r_standard_item.set_header("¬вод эталона");
-  m_r_standard_item.set_str(mp_user_str, "Rэ ", "ќм", r_width, r_precision,
+  m_r_standard_item.set_str(mp_user_str, "Rэн", "ќм", r_width, r_precision,
     irs::num_mode_general);
   m_r_standard_item.set_max_value(r_max);
   m_r_standard_item.set_min_value(r_min);
@@ -186,7 +186,7 @@ hrm::experiment_options_dialog_t::experiment_options_dialog_t(
   m_r_standard_item.set_key_type(IMK_DIGITS);
   
   m_r_checked_item.set_header("¬вод повер€емой");
-  m_r_checked_item.set_str(mp_user_str, "Rп ", "ќм", r_width, r_precision,
+  m_r_checked_item.set_str(mp_user_str, "Rпн", "ќм", r_width, r_precision,
     irs::num_mode_general);
   m_r_checked_item.set_max_value(r_max);
   m_r_checked_item.set_min_value(r_min);
@@ -383,6 +383,8 @@ hrm::experiment_result_t::experiment_result_t(
   mp_menu_kb_event(ap_menu_kb_event),
   mp_eth_data(ap_eth_data),
   m_mode_item(),
+  m_ratio(mp_eth_data->ratio),
+  m_ratio_item(&m_ratio, item_read_only),
   m_r_standard(mp_eth_data->etalon),
   m_r_standard_item(&m_r_standard, item_read_only),
   m_r_verifiable(mp_eth_data->result),
@@ -393,7 +395,13 @@ hrm::experiment_result_t::experiment_result_t(
 {
   m_mode_item.set_parametr_string("–езультат:");
 
-  m_r_standard_item.set_str(mp_r_standard_str, "Rэ ", "ќм",
+  m_ratio_item.set_str(mp_r_standard_str, "D  ", "  ",
+    r_width, r_precision, irs::num_mode_general);
+  m_ratio_item.set_max_value(11.0);
+  m_ratio_item.set_min_value(-11.0);
+  m_ratio_item.set_key_type(IMK_DIGITS);
+  
+  m_r_standard_item.set_str(mp_r_standard_str, "Rэн", "ќм",
     r_width, r_precision, irs::num_mode_general);
   m_r_standard_item.set_max_value(r_max);
   m_r_standard_item.set_min_value(r_min);
@@ -411,7 +419,7 @@ hrm::experiment_result_t::experiment_result_t(
   m_main_screen.set_key_event(ap_menu_kb_event);
   m_main_screen.set_cursor_symbol(0x01);
   m_main_screen.creep_stop();
-  m_main_screen.add(&m_mode_item, 0, 0, IMM_FULL);
+  m_main_screen.add(&m_ratio_item, 0, 0, IMM_FULL);
   m_main_screen.add(&m_r_standard_item, 0, 1, IMM_FULL);
   m_main_screen.add(&m_r_verifiable_item, 0, 2, IMM_FULL);
   m_main_screen.add(&m_hint_item, 0, 3, IMM_FULL);

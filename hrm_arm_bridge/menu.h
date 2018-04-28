@@ -246,6 +246,8 @@ private:
 
   irs_menu_string_item_t m_mode_item;
 
+  double m_ratio;
+  irs_menu_double_item_t m_ratio_item;
   double m_r_standard;
   irs_menu_double_item_t m_r_standard_item;
   enum { r_standard_str_len = 30 };
