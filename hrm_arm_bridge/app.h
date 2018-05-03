@@ -184,12 +184,9 @@ private:
 
   cfg_t* mp_cfg;
   eth_data_t m_eth_data;
-  irs::mxnet_t m_mxnet_server;
-
-  irs::eeprom_at25128_data_t m_eeprom;
-  eeprom_data_t m_eeprom_data;
-  init_eeprom_t m_init_eeprom;
-
+  
+  buzzer_t m_buzzer;
+  
   mxdisplay_drv_gen_t m_lcd_drv;
 
   irs::mxkey_drv_mc_t m_keyboard_drv;
@@ -201,6 +198,16 @@ private:
   mxkey_event_t m_hot_kb_event;
   mxkey_event_t m_menu_kb_event;
   mxkey_event_gen_t m_keyboard_event_gen;
+
+  irs::handle_t<menu_t> mp_menu;
+
+  irs::event_t m_escape_pressed_event;
+  
+  irs::mxnet_t m_mxnet_server;
+
+  irs::eeprom_at25128_data_t m_eeprom;
+  eeprom_data_t m_eeprom_data;
+  init_eeprom_t m_init_eeprom;
 
   irs::dac_ad5791_t m_raw_dac;
   dac_t m_dac;
@@ -315,13 +322,11 @@ private:
 
   irs::timer_t m_relay_pause_timer;
 
-  buzzer_t m_buzzer;
-
-  irs::handle_t<menu_t> mp_menu;
-
-  irs::event_t m_escape_pressed_event;
-
-  r_standard_type_t m_r_standard_type;
+//  buzzer_t m_buzzer;
+//
+//  irs::handle_t<menu_t> mp_menu;
+//
+//  irs::event_t m_escape_pressed_event;
   
   termostat_t m_termostat;
   irs::pid_data_t m_elab_pid;

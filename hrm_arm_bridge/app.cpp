@@ -9,13 +9,7 @@
 hrm::app_t::app_t(cfg_t* ap_cfg):
   mp_cfg(ap_cfg),
   m_eth_data(),
-  m_mxnet_server(
-    mp_cfg->connector_hardflow,
-    m_eth_data.connect(&m_mxnet_server, 0)/sizeof(irs_u32)),
-  m_eeprom(&mp_cfg->spi_aux, &mp_cfg->ee_cs, 4096, true, 0, 64,
-    irs::make_cnt_s(1)),
-  m_eeprom_data(&m_eeprom),
-  m_init_eeprom(&m_eeprom, &m_eeprom_data),
+  m_buzzer(&mp_cfg->buzzer),
   m_lcd_drv(irslcd_4x20, mp_cfg->lcd_port, mp_cfg->lcd_rs_pin,
     mp_cfg->lcd_e_pin),
   m_keyboard_drv(),
@@ -26,7 +20,15 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_hot_kb_event(),
   m_menu_kb_event(),
   m_keyboard_event_gen(),
-
+  mp_menu(),
+  m_escape_pressed_event(),
+  m_mxnet_server(
+    mp_cfg->connector_hardflow,
+    m_eth_data.connect(&m_mxnet_server, 0)/sizeof(irs_u32)),
+  m_eeprom(&mp_cfg->spi_aux, &mp_cfg->ee_cs, 4096, true, 0, 64,
+    irs::make_cnt_s(1)),
+  m_eeprom_data(&m_eeprom),
+  m_init_eeprom(&m_eeprom, &m_eeprom_data),
   m_raw_dac(
     &mp_cfg->spi_dac,
     &mp_cfg->dac_cs,
@@ -136,10 +138,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_new_adc_param_balance(false),
   m_new_adc_param_elab(false),
   m_relay_pause_timer(m_relay_after_pause),
-  m_buzzer(&mp_cfg->buzzer),
-  mp_menu(),
-  m_escape_pressed_event(),
-  m_r_standard_type(r_standard_type_original),
+//
   m_termostat(&mp_cfg->aux1),
   m_elab_pid_on(false),
   m_elab_pid_kp(0.0),
