@@ -143,6 +143,7 @@ struct eth_data_t {
   irs::bit_data_t adc_continious;
   irs::bit_data_t adc_show_points;
   irs::bit_data_t show_last_result;
+  irs::bit_data_t use_adc_adaptive_sko;
   irs::conn_data_t<irs_u8> balance_action;
   irs::conn_data_t<irs_u8> reserve_1;
   irs::conn_data_t<irs_u16> reserve_2;
@@ -310,6 +311,8 @@ struct eth_data_t {
   irs::bit_data_as_bool_t treg_enabled;
   irs::bit_data_as_bool_t treg_pid_reg_enabled;
   irs::bit_data_as_bool_t treg_polarity_pin_bit_data;
+  //  Service info
+  irs::conn_data_t<irs_u32> version_info;             //  4
   //------------------------------------------
 
   eth_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
@@ -418,6 +421,7 @@ struct eth_data_t {
     adc_continious.connect(ap_data,         index + 2, 6);
     adc_show_points.connect(ap_data,        index + 2, 7);
     show_last_result.connect(ap_data,       index + 3, 0);
+    use_adc_adaptive_sko.connect(ap_data,   index + 3, 1);
     index = options.connect(ap_data,        index);
     
     index= balance_action.connect(ap_data, index);
@@ -595,6 +599,8 @@ struct eth_data_t {
     treg_pid_reg_enabled.connect(ap_data, index, 1);
     treg_polarity_pin_bit_data.connect(ap_data, index, 2);
     index = treg_options.connect(ap_data, index);
+    //  Service info
+    index = version_info.connect(ap_data, index);
     
     return index;
   }
@@ -630,6 +636,7 @@ struct eeprom_data_t {
   irs::bit_data_t adc_show_points;
   irs::bit_data_t adc_continious;
   irs::conn_data_t<irs_u8> elab_mode;
+  irs::bit_data_t use_adc_adaptive_sko;
   irs::conn_data_t<irs_i32> elab_step;                //  4
   irs::conn_data_t<irs_i32> min_elab_cnt;             //  4
   irs::conn_data_t<irs_i32> max_elab_cnt;             //  4
@@ -786,6 +793,7 @@ struct eeprom_data_t {
     adc_show_points.connect(ap_data, index, 6);
     adc_continious.connect(ap_data, index, 7);
     elab_mode.connect(ap_data, index + 1);
+    use_adc_adaptive_sko.connect(ap_data, index + 2, 0);
     index = options.connect(ap_data, index);
     index = elab_step.connect(ap_data, index);
     index = min_elab_cnt.connect(ap_data, index);

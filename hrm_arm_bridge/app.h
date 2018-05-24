@@ -35,7 +35,7 @@ public:
 class app_t
 {
 public:
-  app_t(cfg_t* ap_cfg);
+  app_t(cfg_t* ap_cfg, irs_u32 a_version);
   void tick();
 
 private:
@@ -181,9 +181,29 @@ private:
     em_fast_2points = 2,
     em_none = 3
   };
+  class remaining_time_calculator_t {
+    enum {
+      default_exp_time = 300
+    };
+    irs_u32 m_meas_prepare_time;
+    irs_u32 m_meas_balance_time;
+    irs_u32 m_meas_elab_time;
+    balance_action_t m_balance_action;
+    irs_u32 m_remaining_time;
+    irs_u32 m_current_time;
+  public:
+    remaining_time_calculator_t();
+    void reset();
+    void start(irs_u32 a_prepare_pause);
+    void secund_tick();
+    irs_u32 get_remaining_time();
+    void change_balance_action(balance_action_t a_balance_action);
+  };
 
   cfg_t* mp_cfg;
   eth_data_t m_eth_data;
+  
+  irs_u32 m_version;
   
   buzzer_t m_buzzer;
   
@@ -276,6 +296,7 @@ private:
   irs_u32 m_prev_exp_time;
   irs_u32 m_sum_time;
   irs_u32 m_remaining_time;
+  remaining_time_calculator_t m_remaining_time_calculator;
   bool m_is_exp;
   irs::loop_timer_t m_exp_timer;
   bool m_optimize_balance;

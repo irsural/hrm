@@ -13,12 +13,12 @@
 
 enum { 
   hardware_rev = 3,
-  software_rev = 64,
+  software_rev = 65,
   mxsrclib_rev = 1360,
   extern_libs_rev = 25
 };
 
-void app_start(hrm::cfg_t* ap_cfg);
+void app_start(hrm::cfg_t* ap_cfg, irs_u32 a_version);
 
 void main()
 {
@@ -61,12 +61,12 @@ void main()
   irs::pause(irs::make_cnt_s(1));
   
   static hrm::cfg_t cfg;
-  app_start(&cfg);
+  app_start(&cfg, software_rev);
 }
 
-void app_start(hrm::cfg_t* ap_cfg)
+void app_start(hrm::cfg_t* ap_cfg, irs_u32 a_version)
 {
-  static hrm::app_t app(ap_cfg);
+  static hrm::app_t app(ap_cfg, a_version);
 
   irs::mlog() << irsm("------------- START -------------") << endl;
   while(true) {

@@ -6,9 +6,10 @@
 
 #include <irsfinal.h>
 
-hrm::app_t::app_t(cfg_t* ap_cfg):
+hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   mp_cfg(ap_cfg),
   m_eth_data(),
+  m_version(a_version),
   m_buzzer(&mp_cfg->buzzer),
   m_lcd_drv(irslcd_4x20, mp_cfg->lcd_port, mp_cfg->lcd_rs_pin,
     mp_cfg->lcd_e_pin),
@@ -110,6 +111,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_prev_exp_time(0),
   m_sum_time(0),
   m_remaining_time(),
+  m_remaining_time_calculator(),
   m_is_exp(false),
   m_exp_timer(irs::make_cnt_ms(1000)),
   m_optimize_balance(false),
@@ -450,6 +452,8 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_buzzer.bzz();
   irs::mlog() << irsm("sizeof(adc_value_t) = ");
   irs::mlog() << sizeof(adc_value_t) << endl;
+  //
+  m_eth_data.version_info = m_version;
 }
 
 void hrm::app_t::init_keyboard_drv()
@@ -799,6 +803,10 @@ void hrm::app_t::tick()
       m_eth_data.show_last_result = 0;
       show_last_result();
     }
+    //  Version info
+    if (m_eth_data.version_info != m_version) {
+      m_eth_data.version_info = m_version;
+    }
   }
   if (m_blink_timer.check()) {
     if (m_blink) {
@@ -817,8 +825,10 @@ void hrm::app_t::tick()
       m_sum_time++;
       m_remaining_time = irs::bound<irs_u32>(m_remaining_time - 1,
         0, m_remaining_time);
+      m_remaining_time_calculator.secund_tick();
       m_eth_data.sum_time = m_sum_time;
-      m_eth_data.remaining_time = m_remaining_time;
+      m_eth_data.remaining_time = 
+        m_remaining_time_calculator.get_remaining_time();//m_remaining_time;
     }
   }
   switch (m_mode) {
@@ -1370,7 +1380,11 @@ void hrm::app_t::tick()
           m_exp_time = 0;
           m_sum_time = 0;
           m_eth_data.sum_time = 0;
-          m_remaining_time = 50; // Пока не реализован расчет времени!!!!!
+          m_remaining_time_calculator.reset();
+          //m_remaining_time = 50; // Пока не реализован расчет времени!!!!!
+          //m_remaining_time = m_prepare_pause + rtd_full_time;
+          //m_remaining_time_data.balance_action = ba_prepare;
+          
           m_optimize_balance = m_eth_data.optimize_balance;
 
           m_max_unsaturated_voltage = 0.0;
@@ -1390,6 +1404,7 @@ void hrm::app_t::tick()
           m_elab_mode = convert_u8_to_elab_mode(m_eth_data.elab_mode);
           
           m_balance_action = ba_prepare;
+          m_remaining_time_calculator.change_balance_action(m_balance_action);
           
           m_balance_status = bs_set_prot;
           break;
@@ -1454,6 +1469,8 @@ void hrm::app_t::tick()
               m_adc.hide();
               m_dac.hide();
               m_balance_action = ba_prepare_pause;
+              m_remaining_time_calculator.change_balance_action(
+                m_balance_action);
               m_balance_status = bs_pause;
             } else {
               m_balance_status = bs_adc_prepare;//bs_meas_temperature;
@@ -1475,6 +1492,8 @@ void hrm::app_t::tick()
               irs::mlog() << endl;
               m_eth_data.prepare_pause = m_prepare_pause;
               m_balance_action = ba_balance_neg;
+              m_remaining_time_calculator.change_balance_action(
+                                                                m_balance_action);
               m_balance_status = bs_adc_show;
             }
           } else {
@@ -1621,9 +1640,13 @@ void hrm::app_t::tick()
                 if (elab_point.dac >= 0) {
                   m_elab_polarity = bp_pos;
                   m_balance_action = ba_elab_pos;
+                  m_remaining_time_calculator.change_balance_action(
+                    m_balance_action);
                 } else {
                   m_elab_polarity = bp_neg;
                   m_balance_action = ba_elab_neg;
+                  m_remaining_time_calculator.change_balance_action(
+                    m_balance_action);
                 }
                 switch (m_elab_mode) {
                   case em_fast_2points: {
@@ -2179,9 +2202,13 @@ void hrm::app_t::tick()
               m_max_unsaturated_dac_code = 0.0;
               m_pos_current_elab++;
               m_balance_action = ba_balance_pos;
+              m_remaining_time_calculator.change_balance_action(
+                m_balance_action);
               m_balance_status = bs_set_coils;
             } else {
               m_balance_action = ba_idle;
+              m_remaining_time_calculator.change_balance_action(
+                m_balance_action);
               m_balance_status = bs_report;
             }
           }
@@ -2541,6 +2568,8 @@ void hrm::app_t::tick()
         irs::mlog() << irsm("------------- Сброс -------------") << endl;
         m_eth_data.reset = 0;
         m_balance_action = ba_idle;
+        m_remaining_time_calculator.change_balance_action(
+          m_balance_action);
         if (m_mode == md_balance) {
           mp_menu->show_experiment_options();
           m_balance_status = bs_final_report;
@@ -3581,4 +3610,107 @@ hrm::app_t::elab_mode_t hrm::app_t::convert_u8_to_elab_mode(irs_u8 a_mode)
     default:return_mode = em_none;
   }
   return return_mode;
+}
+
+hrm::app_t::remaining_time_calculator_t::remaining_time_calculator_t():
+  m_meas_prepare_time(0),
+  m_meas_balance_time(0),
+  m_meas_elab_time(0),
+  m_balance_action(ba_prepare),
+  m_remaining_time(0),
+  m_current_time(0)
+{
+}
+
+void hrm::app_t::remaining_time_calculator_t::reset()
+{
+  m_balance_action = ba_prepare;
+  m_meas_prepare_time = 0;
+  m_meas_balance_time = 0;
+  m_meas_elab_time = 0;
+  m_remaining_time = 0;
+  m_current_time = 0;
+}
+
+void hrm::app_t::remaining_time_calculator_t::start(irs_u32 a_prepare_pause)
+{
+  m_remaining_time = a_prepare_pause + default_exp_time;
+  m_current_time = 0;
+}
+
+void hrm::app_t::remaining_time_calculator_t::secund_tick()
+{
+  m_current_time++;
+  switch (m_balance_action) {
+    case ba_prepare: {
+      m_remaining_time = irs::bound<irs_u32>(m_remaining_time - 1,
+        0, m_remaining_time);
+      break;
+    }
+    case ba_prepare_pause: {
+      m_remaining_time = irs::bound<irs_u32>(m_remaining_time - 1,
+        0, m_remaining_time);
+      break;
+    }
+    case ba_balance_neg: {
+      m_remaining_time = irs::bound<irs_u32>(m_remaining_time - 1,
+        (default_exp_time * 3) / 4, m_remaining_time);
+      break;
+    }
+    case ba_elab_neg: {
+      m_remaining_time = irs::bound<irs_u32>(m_remaining_time - 1,
+        ((default_exp_time * 2) / 4) + m_meas_balance_time, m_remaining_time);
+      break;
+    }
+    case ba_balance_pos: {
+      m_remaining_time = irs::bound<irs_u32>(m_remaining_time - 1,
+        ((default_exp_time * 1) / 4) + m_meas_balance_time + m_meas_elab_time,
+        m_remaining_time);
+      break;
+    }
+    case ba_elab_pos: {
+      m_remaining_time = irs::bound<irs_u32>(m_remaining_time - 1,
+        m_meas_balance_time + m_meas_balance_time + m_meas_elab_time,
+        m_remaining_time);
+      break;
+    }
+  }
+}
+
+irs_u32 hrm::app_t::remaining_time_calculator_t::get_remaining_time()
+{
+  return m_remaining_time;
+}
+
+void hrm::app_t::remaining_time_calculator_t::change_balance_action(
+  balance_action_t a_balance_action)
+{
+  m_balance_action = a_balance_action;
+  switch (m_balance_action) {
+    case ba_prepare: {
+      //
+      break;
+    }
+    case ba_prepare_pause: {
+      //
+      break;
+    }
+    case ba_balance_neg: {
+      m_meas_prepare_time = m_current_time;
+      break;
+    }
+    case ba_elab_neg: {
+      m_meas_balance_time = m_current_time - m_meas_prepare_time;
+      break;
+    }
+    case ba_balance_pos: {
+      m_meas_elab_time = 
+        m_current_time - m_meas_prepare_time - m_meas_balance_time;
+      break;
+    }
+    case ba_elab_pos: {
+      //
+      break;
+    }
+  }
 }
