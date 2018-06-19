@@ -89,7 +89,7 @@ hrm::screensaver_t::screensaver_t(
   m_str_2_item(),
   m_str_3_item(),
   m_str_4_item(),
-  m_version(mp_eth_data->version_info),
+  m_version(1.0f),
   m_version_item(&m_version),
   m_main_screen(),
   mp_cur_menu(&m_main_screen),
@@ -97,11 +97,13 @@ hrm::screensaver_t::screensaver_t(
 {
   m_str_1_item.set_parametr_string("  www.irsural.ru");
   m_str_2_item.set_parametr_string("       У401М");
-  m_str_3_item.set_parametr_string(" Хэш ****");
+  m_str_3_item.set_parametr_string(" Хэш CAB2");
   m_str_4_item.set_parametr_string("     ООО \"РЭС\"");
   
+  m_version = 1.0 + static_cast<float>(mp_eth_data->version_info) / 1000.0;
+  
   m_version_item.set_header("Версия");
-  m_version_item.set_str(mp_user_str, "Вер.", "", 4, 0);
+  m_version_item.set_str(mp_user_str, "Вер.", "", 5, 3);
 
   m_main_screen.set_disp_drv(ap_lcd_drv_service);
   m_main_screen.set_key_event(ap_menu_kb_event);
@@ -126,7 +128,7 @@ void hrm::screensaver_t::tick()
 
 void hrm::screensaver_t::draw()
 {
-  m_version = mp_eth_data->version_info;
+  m_version = 1.0 + static_cast<float>(mp_eth_data->version_info) / 1000.0;
   mp_cur_menu->draw(&mp_cur_menu);
 }
 

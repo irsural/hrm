@@ -313,6 +313,18 @@ struct eth_data_t {
   irs::bit_data_as_bool_t treg_polarity_pin_bit_data;
   //  Service info
   irs::conn_data_t<irs_u32> version_info;             //  4
+  //  Show options
+  irs::conn_data_t<irs_u32> show_options;             //  4
+  irs::bit_data_as_bool_t show_old_result;
+  irs::bit_data_as_bool_t show_new_result;
+  irs::bit_data_as_bool_t show_old_unc_result;
+  irs::bit_data_as_bool_t show_new_unc_result;
+  irs::bit_data_as_bool_t show_th_ext;
+  irs::bit_data_as_bool_t show_th_dac;
+  irs::bit_data_as_bool_t show_th_adc;
+  irs::bit_data_as_bool_t show_th_ldo;
+  irs::bit_data_as_bool_t show_exp_time;
+  irs::bit_data_as_bool_t show_intersections;
   //------------------------------------------
 
   eth_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
@@ -601,6 +613,18 @@ struct eth_data_t {
     index = treg_options.connect(ap_data, index);
     //  Service info
     index = version_info.connect(ap_data, index);
+    //  Show options
+    show_old_result.connect(ap_data, index, 0);
+    show_new_result.connect(ap_data, index, 1);
+    show_old_unc_result.connect(ap_data, index, 2);
+    show_new_unc_result.connect(ap_data, index, 3);
+    show_th_ext.connect(ap_data, index, 4);
+    show_th_dac.connect(ap_data, index, 5);
+    show_th_adc.connect(ap_data, index, 6);
+    show_th_ldo.connect(ap_data, index, 7);
+    show_exp_time.connect(ap_data, index + 1, 0);
+    show_intersections.connect(ap_data, index + 1, 1);
+    index = show_options.connect(ap_data, index);
     
     return index;
   }
@@ -753,6 +777,18 @@ struct eeprom_data_t {
   irs::bit_data_as_bool_t treg_enabled;
   irs::bit_data_as_bool_t treg_pid_reg_enabled;
   irs::bit_data_as_bool_t treg_polarity_pin_bit_data;
+  //  Show options
+  irs::conn_data_t<irs_u32> show_options;             //  4
+  irs::bit_data_as_bool_t show_old_result;
+  irs::bit_data_as_bool_t show_new_result;
+  irs::bit_data_as_bool_t show_old_unc_result;
+  irs::bit_data_as_bool_t show_new_unc_result;
+  irs::bit_data_as_bool_t show_th_ext;
+  irs::bit_data_as_bool_t show_th_dac;
+  irs::bit_data_as_bool_t show_th_adc;
+  irs::bit_data_as_bool_t show_th_ldo;
+  irs::bit_data_as_bool_t show_exp_time;
+  irs::bit_data_as_bool_t show_intersections;
   
   eeprom_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
@@ -913,6 +949,18 @@ struct eeprom_data_t {
     treg_pid_reg_enabled.connect(ap_data, index, 1);
     treg_polarity_pin_bit_data.connect(ap_data, index, 2);
     index = treg_options.connect(ap_data, index);
+    //  Show options
+    show_old_result.connect(ap_data, index, 0);
+    show_new_result.connect(ap_data, index, 1);
+    show_old_unc_result.connect(ap_data, index, 2);
+    show_new_unc_result.connect(ap_data, index, 3);
+    show_th_ext.connect(ap_data, index, 4);
+    show_th_dac.connect(ap_data, index, 5);
+    show_th_adc.connect(ap_data, index, 6);
+    show_th_ldo.connect(ap_data, index, 7);
+    show_exp_time.connect(ap_data, index + 1, 0);
+    show_intersections.connect(ap_data, index + 1, 1);
+    index = show_options.connect(ap_data, index);
     return index;
   }
   inline void reset_to_default()
@@ -1062,6 +1110,17 @@ struct eeprom_data_t {
     treg_enabled = 1;
     treg_pid_reg_enabled = 1;
     treg_polarity_pin_bit_data = 1;
+    //
+    show_old_result = 1;
+    show_new_result = 0;
+    show_old_unc_result = 0;
+    show_new_unc_result = 0;
+    show_th_ext = 1;
+    show_th_dac = 0;
+    show_th_adc = 1;
+    show_th_ldo = 0;
+    show_exp_time = 1;
+    show_intersections = 0;
   }
 };
 

@@ -169,6 +169,7 @@ private:
     double temperature_dac;
     double temperature_adc;
     double temperature_ldo;
+    irs_u32 exp_time;
   };
   struct elab_result_t {
     balance_polarity_t polarity;
@@ -198,6 +199,16 @@ private:
     void secund_tick();
     irs_u32 get_remaining_time();
     void change_balance_action(balance_action_t a_balance_action);
+  };
+  class adaptive_sko_calc_t {
+    adc_value_t m_min_sko;
+    //
+  public:
+    adaptive_sko_calc_t(eth_data_t* ap_eth_data, eeprom_data_t ap_ee_data);
+    void reset();
+    void add(adc_value_t a_sko);
+    adc_value_t get();
+    void tick();
   };
 
   cfg_t* mp_cfg;
@@ -384,6 +395,8 @@ private:
   sync_treg_parameters_t m_treg_sync_parameters;
   
   balance_action_t m_balance_action;
+  //bool m_use_adaptive_sko;
+  //adc_data_t m_adaptive_sko;
 
   void init_keyboard_drv();
   void init_encoder_drv();

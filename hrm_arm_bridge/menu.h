@@ -133,8 +133,8 @@ private:
   irs_menu_string_item_t m_str_3_item;
   irs_menu_string_item_t m_str_4_item;
   
-  irs_u32 m_version;
-  irs_menu_simply_item_t<irs_u32> m_version_item;
+  float m_version;
+  irs_menu_simply_item_t<float> m_version_item;
 
   irs_advanced_tablo_t m_main_screen;
   irs_menu_base_t* mp_cur_menu;

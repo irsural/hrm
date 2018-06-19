@@ -234,7 +234,9 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
     &m_eeprom_data.treg_pid_reg_enabled,
     &m_eeprom_data.treg_polarity_pin_bit_data
   ),
-  m_balance_action(ba_idle)
+  m_balance_action(ba_idle)//,
+  //m_use_adaptive_sko(false),
+  //m_adaptive_sko(0.0)
 {
   init_keyboard_drv();
   init_encoder_drv();
@@ -304,6 +306,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   m_eth_data.prepare_pause = m_prepare_pause;
   // Загрузка параметров АЦП из eeprom и выгрузка в ethernet
   adc_params_load_from_eeprom();
+  m_adc.set_params(&m_adc_free_vx_param_data);
   //  Параметры уточнения
   m_eth_data.elab_pid_kp = m_eeprom_data.elab_pid_kp;
   m_elab_pid_kp = m_eeprom_data.elab_pid_kp;
@@ -454,6 +457,8 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   irs::mlog() << sizeof(adc_value_t) << endl;
   //
   m_eth_data.version_info = m_version;
+  //
+  m_eth_data.show_options = m_eeprom_data.show_options;
 }
 
 void hrm::app_t::init_keyboard_drv()
@@ -807,6 +812,10 @@ void hrm::app_t::tick()
     if (m_eth_data.version_info != m_version) {
       m_eth_data.version_info = m_version;
     }
+    //  Show options
+    if (m_eth_data.show_options != m_eeprom_data.show_options) {
+      m_eeprom_data.show_options = m_eth_data.show_options;
+    }
   }
   if (m_blink_timer.check()) {
     if (m_blink) {
@@ -903,7 +912,9 @@ void hrm::app_t::tick()
             }
           } else {
             if (m_adc.status() == irs_st_ready) {
-              if (m_meas_temperature) {
+              m_voltage = m_adc_result_data.avg;
+              m_adc.start_conversion();
+              /*if (m_meas_temperature) {
                 m_temperature = adc_vx_to_th(m_adc_result_data.avg);
                 m_adc.set_params(&m_adc_free_vx_param_data);
                 m_adc.start_conversion();
@@ -913,7 +924,7 @@ void hrm::app_t::tick()
                 m_adc.set_params(&m_adc_free_th_param_data);
                 m_adc.start_conversion();
                 m_meas_temperature = true;
-              }
+              }*/
             }
           }
           break;
@@ -1381,6 +1392,7 @@ void hrm::app_t::tick()
           m_sum_time = 0;
           m_eth_data.sum_time = 0;
           m_remaining_time_calculator.reset();
+          m_remaining_time_calculator.start(m_prepare_pause);
           //m_remaining_time = 50; // Пока не реализован расчет времени!!!!!
           //m_remaining_time = m_prepare_pause + rtd_full_time;
           //m_remaining_time_data.balance_action = ba_prepare;
@@ -1493,7 +1505,7 @@ void hrm::app_t::tick()
               m_eth_data.prepare_pause = m_prepare_pause;
               m_balance_action = ba_balance_neg;
               m_remaining_time_calculator.change_balance_action(
-                                                                m_balance_action);
+                m_balance_action);
               m_balance_status = bs_adc_show;
             }
           } else {
@@ -1639,14 +1651,11 @@ void hrm::app_t::tick()
                 //m_prev_balance_completed = true;
                 if (elab_point.dac >= 0) {
                   m_elab_polarity = bp_pos;
-                  m_balance_action = ba_elab_pos;
-                  m_remaining_time_calculator.change_balance_action(
-                    m_balance_action);
                 } else {
                   m_elab_polarity = bp_neg;
-                  m_balance_action = ba_elab_neg;
-                  m_remaining_time_calculator.change_balance_action(
-                    m_balance_action);
+//                  m_balance_action = ba_elab_neg;
+//                  m_remaining_time_calculator.change_balance_action(
+//                    m_balance_action);
                 }
                 switch (m_elab_mode) {
                   case em_fast_2points: {
@@ -1831,6 +1840,9 @@ void hrm::app_t::tick()
               m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_2;
               irs::mlog() << irsm("Величина прыжка ЦАП = ") 
                 << m_fast_elab_dac_step_2 << endl;
+              m_balance_action = ba_elab_neg;
+              m_remaining_time_calculator.change_balance_action(
+                m_balance_action);
               break;
             }
             case 2: {
@@ -1842,6 +1854,9 @@ void hrm::app_t::tick()
               //m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_3;
               irs::mlog() << irsm("Величина прыжка ЦАП = ") 
                 << m_fast_elab_dac_step_3 << endl;
+              m_balance_action = ba_elab_pos;
+              m_remaining_time_calculator.change_balance_action(
+                m_balance_action);
               break;
             }
             default: {
@@ -2217,6 +2232,10 @@ void hrm::app_t::tick()
         case bs_report: {
           irs::mlog() << irsm("---------------------------------") << endl;
           m_buzzer.bzz(2);
+          m_prev_exp_time = m_exp_time;
+          m_eth_data.prev_exp_time = m_prev_exp_time;
+          m_exp_time = 0;
+          m_eth_data.exp_time = m_exp_time;
           switch (m_elab_mode) {
             case em_fast_2points: {
               irs::mlog() << endl;
@@ -2234,6 +2253,7 @@ void hrm::app_t::tick()
               //  ---------------      RESULTS         -------------------------
               irs::mlog() << endl;
               exp_t exp;
+              exp.exp_time = m_prev_exp_time;
               exp.temperature_ext = m_eth_data.th_ext_1;
               exp.temperature_dac = m_eth_data.th_dac;
               exp.temperature_adc = m_eth_data.th_box_adc;
@@ -2433,6 +2453,7 @@ void hrm::app_t::tick()
                 setprecision(14) << m_result << endl << endl;
               
               exp_t exp;
+              exp.exp_time = m_prev_exp_time;
               exp.result_old = m_result;
               exp.ch_code = m_checked_code;
               exp.et_code = m_etalon_code;
@@ -2480,6 +2501,7 @@ void hrm::app_t::tick()
               m_result /= (2. + m_checked_code + m_etalon_code);
               
               exp_t exp;
+              exp.exp_time = m_prev_exp_time;
               exp.result_old = m_result;
               exp.ch_code = m_checked_code;
               exp.et_code = m_etalon_code;
@@ -2526,10 +2548,7 @@ void hrm::app_t::tick()
           m_eth_data.current_exp_cnt--;
           
           //irs::mlog() << int(m_eth_data.current_exp_cnt) << endl;
-          m_prev_exp_time = m_exp_time;
-          m_eth_data.prev_exp_time = m_prev_exp_time;
-          m_exp_time = 0;
-          m_eth_data.exp_time = m_exp_time;
+          //  exp_time was here
           if (m_exp_vector.size() >= m_exp_cnt) {
             m_eth_data.complete = 1;
             mp_menu->show_experiment_result();
@@ -3531,70 +3550,105 @@ void hrm::app_t::show_last_result()
   irs::mlog() << irsm("----------- Результат серии экспериментов");
   irs::mlog() << irsm(" -----------") << endl;
   irs::mlog() << irsm("№    ");
-  irs::mlog() << irsm("OLD            ");
-  irs::mlog() << irsm("NEW            ");
-  irs::mlog() << irsm("OLD_UNCORRECT  ");
-  irs::mlog() << irsm("NEW_UNCORRECT  ");
-  irs::mlog() << irsm("t°ext  ");
-  irs::mlog() << irsm("t°dac  ");
-  irs::mlog() << irsm("t°adc  ");
-  irs::mlog() << irsm("t°ldo  ");
+  if (m_eth_data.show_old_result) {
+    irs::mlog() << irsm("OLD            ");
+  }
+  if (m_eth_data.show_new_result) {
+    irs::mlog() << irsm("NEW            ");
+  }
+  if (m_eth_data.show_old_unc_result) {
+    irs::mlog() << irsm("OLD_UNCORRECT  ");
+  }
+  if (m_eth_data.show_new_unc_result) {
+    irs::mlog() << irsm("NEW_UNCORRECT  ");
+  }
+  if (m_eth_data.show_th_ext) {
+    irs::mlog() << irsm("t°ext  ");
+  }
+  if (m_eth_data.show_th_dac) {
+    irs::mlog() << irsm("t°dac  ");
+  }
+  if (m_eth_data.show_th_adc) {
+    irs::mlog() << irsm("t°adc  ");
+  }
+  if (m_eth_data.show_th_ldo) {
+    irs::mlog() << irsm("t°ldo  ");
+  }
+  if (m_eth_data.show_exp_time) {
+    irs::mlog() << irsm("Texp");
+  }
   irs::mlog() << endl;
   
   for (size_t i = 0; i < m_exp_vector.size(); i++) {
     irs::mlog() << setprecision(10);
     irs::mlog() << setw(3) << i + 1;irs::mlog() << irsm(" ");
-    //irs::mlog() << setw(12) << m_exp_vector[i].ch_code * pow(2., 19);
-    //irs::mlog() << irsm(" ");
-    //irs::mlog() << setw(12) << m_exp_vector[i].et_code * pow(2., 19);
     irs::mlog() << setprecision(12);
-    //irs::mlog() << irsm(" ") << setw(14) << m_exp_vector[i].n0;
-    irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].result_old;
-    irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].result_new;
-    irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].result_old_uncorrect;
-    irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].result_new_uncorrect;
+    if (m_eth_data.show_old_result) {
+      irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].result_old;
+    }
+    if (m_eth_data.show_new_result) {
+      irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].result_new;
+    }
+    if (m_eth_data.show_old_unc_result) {
+      irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].result_old_uncorrect;
+    }
+    if (m_eth_data.show_new_unc_result) {
+      irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].result_new_uncorrect;
+    }
     irs::mlog() << setprecision(5);
-    irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].temperature_ext;
-    irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].temperature_dac;
-    irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].temperature_adc;
-    irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].temperature_ldo;
+    if (m_eth_data.show_th_ext) {
+      irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].temperature_ext;
+    }
+    if (m_eth_data.show_th_dac) {
+      irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].temperature_dac;
+    }
+    if (m_eth_data.show_th_adc) {
+      irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].temperature_adc;
+    }
+    if (m_eth_data.show_th_ldo) {
+      irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].temperature_ldo;
+    }
+    if (m_eth_data.show_exp_time) {
+      irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].exp_time;
+    }
     irs::mlog() << endl;
   }
   
-  irs::mlog() << endl;
-  irs::mlog() << irsm("----------- Пересечения серии экспериментов");
-  irs::mlog() << irsm(" -----------") << endl;
-  irs::mlog() << irsm("№     ");
-  irs::mlog() << irsm("NEG            ");
-  irs::mlog() << irsm("NEG_0          ");
-  irs::mlog() << irsm("POS            ");
-  irs::mlog() << irsm("POS_0          ");
-  irs::mlog() << irsm("n0             ");
-  irs::mlog() << irsm("num            ");
-  irs::mlog() << irsm("den            ");
-  irs::mlog() << endl;
-  
-  for (size_t i = 0; i < m_exp_vector.size(); i++) {
-    //irs::mlog() << setprecision(6);
-    irs::mlog() << setw(3) << i + 1;irs::mlog() << irsm(" ");
-    irs::mlog() << setprecision(12);
-    irs::mlog() << setw(13) << m_exp_vector[i].ch_code * pow(2., 19);
-    irs::mlog() << irsm(" ");
-    irs::mlog() << setw(13) << m_exp_vector[i].ch_balanced_code;
-    irs::mlog() << irsm(" ");
-    irs::mlog() << setw(13) << m_exp_vector[i].et_code * pow(2., 19);
-    irs::mlog() << irsm(" ");
-    irs::mlog() << setw(13) << m_exp_vector[i].et_balanced_code;
-    irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].n0;
-    irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].num;
-    irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].den;
+  if (m_eth_data.show_intersections) {
+    irs::mlog() << endl;
+    irs::mlog() << irsm("----------- Пересечения серии экспериментов");
+    irs::mlog() << irsm(" -----------") << endl;
+    irs::mlog() << irsm("№     ");
+    irs::mlog() << irsm("NEG            ");
+    irs::mlog() << irsm("NEG_0          ");
+    irs::mlog() << irsm("POS            ");
+    irs::mlog() << irsm("POS_0          ");
+    irs::mlog() << irsm("n0             ");
+    irs::mlog() << irsm("num            ");
+    irs::mlog() << irsm("den            ");
+    irs::mlog() << endl;
+    
+    for (size_t i = 0; i < m_exp_vector.size(); i++) {
+      irs::mlog() << setw(3) << i + 1;irs::mlog() << irsm(" ");
+      irs::mlog() << setprecision(12);
+      irs::mlog() << setw(13) << m_exp_vector[i].ch_code * pow(2., 19);
+      irs::mlog() << irsm(" ");
+      irs::mlog() << setw(13) << m_exp_vector[i].ch_balanced_code;
+      irs::mlog() << irsm(" ");
+      irs::mlog() << setw(13) << m_exp_vector[i].et_code * pow(2., 19);
+      irs::mlog() << irsm(" ");
+      irs::mlog() << setw(13) << m_exp_vector[i].et_balanced_code;
+      irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].n0;
+      irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].num;
+      irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].den;
+      irs::mlog() << endl;
+    }
+    
+    irs::mlog() << setprecision(8);
+    irs::mlog() << irsm("-------------------------------------------");
+    irs::mlog() << irsm("--------------");
     irs::mlog() << endl;
   }
-  
-  irs::mlog() << setprecision(8);
-  irs::mlog() << irsm("-------------------------------------------");
-  irs::mlog() << irsm("--------------");
-  irs::mlog() << endl;
   
   show_experiment_parameters();
 }
@@ -3630,17 +3684,20 @@ void hrm::app_t::remaining_time_calculator_t::reset()
   m_meas_elab_time = 0;
   m_remaining_time = 0;
   m_current_time = 0;
+  irs::mlog() << irsm("rem reset") << endl;
 }
 
 void hrm::app_t::remaining_time_calculator_t::start(irs_u32 a_prepare_pause)
 {
   m_remaining_time = a_prepare_pause + default_exp_time;
   m_current_time = 0;
+  //irs::mlog() << irsm("rem start = ") << m_remaining_time << endl;
 }
 
 void hrm::app_t::remaining_time_calculator_t::secund_tick()
 {
   m_current_time++;
+  //irs::mlog() << irsm("rem = ") << m_remaining_time;
   switch (m_balance_action) {
     case ba_prepare: {
       m_remaining_time = irs::bound<irs_u32>(m_remaining_time - 1,
@@ -3675,6 +3732,7 @@ void hrm::app_t::remaining_time_calculator_t::secund_tick()
       break;
     }
   }
+  //irs::mlog() << irsm(" ") << m_remaining_time << endl;
 }
 
 irs_u32 hrm::app_t::remaining_time_calculator_t::get_remaining_time()
