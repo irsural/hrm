@@ -1625,8 +1625,8 @@ void hrm::ad7799_cread_t::show_verify_message(bool a_show, irs_u8 a_status_reg,
   if (channel != a_channel) {
     irs::mlog() << irsm("---------------------------------") << endl;
     irs::mlog() << irsm("ADC Invalid channel:") << endl;
-    irs::mlog() << irsm("Write = ") << irs_u32(a_channel) << endl;
-    irs::mlog() << irsm("Read =  ") << irs_u32(channel) << endl;
+    irs::mlog() << irsm("Write = ") << static_cast<irs_u32>(a_channel) << endl;
+    irs::mlog() << irsm("Read =  ") << static_cast<irs_u32>(channel) << endl;
     a_show = true;
   }
   if (err) {
@@ -1640,7 +1640,8 @@ void hrm::ad7799_cread_t::show_verify_message(bool a_show, irs_u8 a_status_reg,
     irs_u8 rdy = (a_status_reg >> 7) & 0x01;
     irs::mlog() << irsm("---------------------------------") << endl;
     irs::mlog() << irsm("STATUS register:") << endl;
-    irs::mlog() << irsm("RAW =     0x") << hex << static_cast<int>(a_status_reg);
+    irs::mlog() << irsm("RAW =     0x");
+    irs::mlog() << hex << static_cast<int>(a_status_reg);
     irs::mlog() << endl;
     irs::mlog() << irsm("Channel:  ") << dec << static_cast<int>(channel);
     irs::mlog() << endl;
@@ -2043,8 +2044,10 @@ void hrm::device_condition_controller_t::tick()
           set_fan_speed_dc(m_fan_dc_speed);
           m_fan_status = fan_on_now;
           if (m_show) {
-            irs::mlog() << irsm("FAN AC ") << int(m_fan_ac_speed) << endl;
-            irs::mlog() << irsm("FAN DC ") << int(m_fan_dc_speed) << endl;
+            irs::mlog() << irsm("FAN AC ");
+            irs::mlog() << static_cast<int>(m_fan_ac_speed) << endl;
+            irs::mlog() << irsm("FAN DC ");
+            irs::mlog() << static_cast<int>(m_fan_dc_speed) << endl;
           }
           break;
         }
@@ -2054,8 +2057,10 @@ void hrm::device_condition_controller_t::tick()
             set_fan_speed_dc(m_fan_dc_speed);
             m_fan_status = fan_on_now;
             if (m_show) {
-              irs::mlog()<< irsm("FAN IDLE AC ") << int(m_fan_ac_speed) << endl;
-              irs::mlog()<< irsm("FAN IDLE DC ") << int(m_fan_dc_speed) << endl;
+              irs::mlog() << irsm("FAN IDLE AC ");
+              irs::mlog() << static_cast<int>(m_fan_ac_speed) << endl;
+              irs::mlog() << irsm("FAN IDLE DC ");
+              irs::mlog() << static_cast<int>(m_fan_dc_speed) << endl;
             }
           } else {
             set_fan_speed_ac(0);

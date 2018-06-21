@@ -1693,7 +1693,7 @@ void hrm::app_t::tick()
             double log_ratio = floor(log2(ratio) - 1.0);
             irs_u32 int_log_ratio = static_cast<size_t>(log_ratio);
             m_current_iteration = m_iteration_count - int_log_ratio - 1;
-            irs_i32 int_dac_code = static_cast<irs_u32>(pow(2.0,int_log_ratio));
+            irs_i32 int_dac_code = static_cast<irs_u32>(pow(2, log_ratio));
             irs_i32 int_dac_step = int_dac_code;
             if (adc_result > 0.0) {
               int_dac_code = -int_dac_code;

@@ -13,9 +13,9 @@
 
 enum { 
   hardware_rev = 3,
-  software_rev = 66,
-  mxsrclib_rev = 1360,
-  extern_libs_rev = 25
+  software_rev = 67,
+  mxsrclib_rev = 1361,
+  extern_libs_rev = 26
 };
 
 void app_start(hrm::cfg_t* ap_cfg, irs_u32 a_version);
