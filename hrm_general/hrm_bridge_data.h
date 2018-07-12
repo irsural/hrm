@@ -325,6 +325,9 @@ struct eth_data_t {
   irs::bit_data_as_bool_t show_th_ldo;
   irs::bit_data_as_bool_t show_exp_time;
   irs::bit_data_as_bool_t show_intersections;
+  irs::bit_data_as_bool_t show_target_sko;
+  irs::bit_data_as_bool_t show_target_balance_sko;
+  irs::bit_data_as_bool_t show_target_elab_sko;
   //------------------------------------------
 
   eth_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
@@ -624,6 +627,9 @@ struct eth_data_t {
     show_th_ldo.connect(ap_data, index, 7);
     show_exp_time.connect(ap_data, index + 1, 0);
     show_intersections.connect(ap_data, index + 1, 1);
+    show_target_sko.connect(ap_data, index + 1, 2);
+    show_target_balance_sko.connect(ap_data, index + 1, 3);
+    show_target_elab_sko.connect(ap_data, index + 1, 4);
     index = show_options.connect(ap_data, index);
     
     return index;
@@ -789,6 +795,9 @@ struct eeprom_data_t {
   irs::bit_data_as_bool_t show_th_ldo;
   irs::bit_data_as_bool_t show_exp_time;
   irs::bit_data_as_bool_t show_intersections;
+  irs::bit_data_as_bool_t show_target_sko;
+  irs::bit_data_as_bool_t show_target_balance_sko;
+  irs::bit_data_as_bool_t show_target_elab_sko;
   
   eeprom_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
@@ -960,6 +969,9 @@ struct eeprom_data_t {
     show_th_ldo.connect(ap_data, index, 7);
     show_exp_time.connect(ap_data, index + 1, 0);
     show_intersections.connect(ap_data, index + 1, 1);
+    show_target_sko.connect(ap_data, index + 1, 2);
+    show_target_balance_sko.connect(ap_data, index + 1, 3);
+    show_target_elab_sko.connect(ap_data, index + 1, 4);
     index = show_options.connect(ap_data, index);
     return index;
   }
@@ -1121,6 +1133,9 @@ struct eeprom_data_t {
     show_th_ldo = 0;
     show_exp_time = 1;
     show_intersections = 0;
+    show_target_sko = 0;
+    show_target_balance_sko = 0;
+    show_target_elab_sko = 0;
   }
 };
 

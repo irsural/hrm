@@ -170,6 +170,9 @@ private:
     double temperature_adc;
     double temperature_ldo;
     irs_u32 exp_time;
+    double target_sko;
+    double target_balance_sko;
+    double target_elab_sko;
   };
   struct elab_result_t {
     balance_polarity_t polarity;
@@ -201,14 +204,27 @@ private:
     void change_balance_action(balance_action_t a_balance_action);
   };
   class adaptive_sko_calc_t {
-    adc_value_t m_min_sko;
-    //
+    enum {
+      default_len = 10
+    };
+    eth_data_t* mp_eth_data;
+    eeprom_data_t* mp_ee_data;
+    adc_value_t m_target_sko;
+    bool m_started;
+    bool m_used;
+    adc_value_t m_target_balance_sko;
+    adc_value_t m_target_elab_sko;
+    irs::fast_sko_t<adc_value_t, adc_value_t> m_sko_calc;
   public:
-    adaptive_sko_calc_t(eth_data_t* ap_eth_data, eeprom_data_t ap_ee_data);
-    void reset();
+    adaptive_sko_calc_t(eth_data_t* ap_eth_data, eeprom_data_t* ap_ee_data);
+    void reset(size_t a_len);
+    void stop();
     void add(adc_value_t a_sko);
-    adc_value_t get();
-    void tick();
+    adc_value_t get_target_sko();
+    adc_value_t get_target_balance_sko();
+    adc_value_t get_target_elab_sko();
+    void sync_parameters();
+    inline bool used() { return m_used; }
   };
 
   cfg_t* mp_cfg;
@@ -345,9 +361,11 @@ private:
   bool m_new_adc_param_manual;
   //  Параметры АЦП в режиме измерения при уравновешивании
   adc_param_data_t m_adc_balance_param_data;
+  adc_param_data_t m_adc_adaptive_balance_param_data;
   bool m_new_adc_param_balance;
   //  Параметры АЦП в режиме измерения при уточнении
   adc_param_data_t m_adc_elab_param_data;
+  adc_param_data_t m_adc_adaptive_elab_param_data;
   bool m_new_adc_param_elab;
   //  Результаты измерения АЦП
   adc_result_data_t m_adc_result_data;
@@ -395,8 +413,7 @@ private:
   sync_treg_parameters_t m_treg_sync_parameters;
   
   balance_action_t m_balance_action;
-  //bool m_use_adaptive_sko;
-  //adc_data_t m_adaptive_sko;
+  adaptive_sko_calc_t m_adaptive_sko_calc;
 
   void init_keyboard_drv();
   void init_encoder_drv();

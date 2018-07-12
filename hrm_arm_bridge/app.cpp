@@ -234,7 +234,8 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
     &m_eeprom_data.treg_pid_reg_enabled,
     &m_eeprom_data.treg_polarity_pin_bit_data
   ),
-  m_balance_action(ba_idle)//,
+  m_balance_action(ba_idle),
+  m_adaptive_sko_calc(&m_eth_data, &m_eeprom_data)
   //m_use_adaptive_sko(false),
   //m_adaptive_sko(0.0)
 {
@@ -555,6 +556,8 @@ void hrm::app_t::tick()
         //double iso_out = isodr(&m_elab_iso, m_voltage);
         m_eth_data.elab_iso_out = m_adc_result_data.unnormalized_value;//iso_out;
       }
+      
+      m_adaptive_sko_calc.add(abs(m_adc_result_data.sko));
     }
     if (m_eth_data.adc_value != m_voltage) {
       m_eth_data.adc_value = m_voltage;
@@ -816,6 +819,8 @@ void hrm::app_t::tick()
     if (m_eth_data.show_options != m_eeprom_data.show_options) {
       m_eeprom_data.show_options = m_eth_data.show_options;
     }
+    //  Adaptive sko
+    m_adaptive_sko_calc.sync_parameters();
   }
   if (m_blink_timer.check()) {
     if (m_blink) {
@@ -857,6 +862,8 @@ void hrm::app_t::tick()
           m_dac.set_code(0);
           //
           m_adc.hide();
+          //  restore adc parametres
+          m_adc.set_params(&m_adc_free_vx_param_data);
           //
           //m_relay_bridge_pos.set_wild(false);
           //m_relay_bridge_neg.set_wild(false);
@@ -1483,6 +1490,7 @@ void hrm::app_t::tick()
               m_balance_action = ba_prepare_pause;
               m_remaining_time_calculator.change_balance_action(
                 m_balance_action);
+              m_adaptive_sko_calc.reset(m_adc_balance_param_data.cnv_cnt);
               m_balance_status = bs_pause;
             } else {
               m_balance_status = bs_adc_prepare;//bs_meas_temperature;
@@ -1499,6 +1507,7 @@ void hrm::app_t::tick()
               if (m_prepare_current_time % 60 == 0) {
                 irs::mlog() << endl;
               }
+              //m_adaptive_sko_calc.add();
               m_eth_data.prepare_pause = m_prepare_current_time;
             } else {
               irs::mlog() << endl;
@@ -1506,6 +1515,32 @@ void hrm::app_t::tick()
               m_balance_action = ba_balance_neg;
               m_remaining_time_calculator.change_balance_action(
                 m_balance_action);
+              m_adaptive_sko_calc.stop();
+              adc_value_t target_sko = m_adaptive_sko_calc.get_target_sko();
+              irs::mlog() << irsm("Target sko = ") << target_sko * 1.0e6;
+              irs::mlog() << irsm(" ppm") << endl;
+              if (m_adaptive_sko_calc.used()) {
+                irs::mlog() << irsm("Adaptive sko used") << endl;
+                adc_value_t elab_sko = 
+                  m_adaptive_sko_calc.get_target_elab_sko();
+                adc_value_t balance_sko = 
+                  m_adaptive_sko_calc.get_target_balance_sko();
+                if (balance_sko > m_adc_balance_param_data.cont_sko) {
+                  m_adc_adaptive_balance_param_data.copy(
+                    &m_adc_balance_param_data);
+                  m_adc_adaptive_elab_param_data.copy(
+                    &m_adc_elab_param_data);
+                  m_adc_adaptive_balance_param_data.cont_sko = balance_sko;
+                  m_adc_adaptive_elab_param_data.cont_sko = elab_sko;
+                  irs::mlog() << irsm("Balance sko = ");
+                  irs::mlog() << m_adc_adaptive_balance_param_data.cont_sko * 1.0e6;
+                  irs::mlog() << irsm(" ppm") << endl;
+                  irs::mlog() << irsm("Elab sko = ");
+                  irs::mlog() << m_adc_adaptive_elab_param_data.cont_sko * 1.0e6;
+                  irs::mlog() << irsm(" ppm") << endl;
+                  irs::mlog() << endl;
+                }
+              }
               m_balance_status = bs_adc_show;
             }
           } else {
@@ -1545,18 +1580,30 @@ void hrm::app_t::tick()
             m_temperature = adc_vx_to_th(m_voltage);
             irs::mlog() << irsm("Температура = ") << m_temperature;
             irs::mlog() << irsm(" °C") << endl;
-            m_adc.set_params(&m_adc_balance_param_data);
-            irs::mlog() << irsm("Параметры АЦП m_adc_balance_param_data")
-              << endl;
+            if (m_adaptive_sko_calc.used()) {
+              m_adc.set_params(&m_adc_adaptive_balance_param_data);
+              irs::mlog() << 
+              irsm("Параметры АЦП m_adc_adaptive_balance_param_data") << endl;
+            } else {
+              m_adc.set_params(&m_adc_balance_param_data);
+              irs::mlog() << irsm("Параметры АЦП m_adc_balance_param_data")
+                << endl;
+            }
             m_balance_status = bs_dac_prepare;
           }
           break;
         }
         case bs_adc_prepare: {
           if (m_adc.status() == irs_st_ready) {
-            m_adc.set_params(&m_adc_balance_param_data);
-            irs::mlog() << irsm("Параметры АЦП m_adc_balance_param_data")
-              << endl;
+            if (m_adaptive_sko_calc.used()) {
+              m_adc.set_params(&m_adc_adaptive_balance_param_data);
+              irs::mlog() << 
+              irsm("Параметры АЦП m_adc_adaptive_balance_param_data") << endl;
+            } else {
+              m_adc.set_params(&m_adc_balance_param_data);
+              irs::mlog() << irsm("Параметры АЦП m_adc_balance_param_data")
+                << endl;
+            }
             m_balance_status = bs_dac_prepare;
           }
           break;
@@ -1865,14 +1912,15 @@ void hrm::app_t::tick()
                 << m_fast_elab_dac_step << endl;
             }
           }
-          if (m_fast_elab_vector.size() < 1)  {
-            
+          if (m_adaptive_sko_calc.used()) {
+            m_adc.set_params(&m_adc_adaptive_elab_param_data);
+            irs::mlog() << 
+            irsm("Параметры АЦП m_adc_adaptive_elab_param_data") << endl;
           } else {
-            
+            m_adc.set_params(&m_adc_elab_param_data);
+            irs::mlog() << irsm("Параметры АЦП m_adc_elab_param_data")
+              << endl;
           }
-          
-          m_adc.set_params(&m_adc_elab_param_data);
-          irs::mlog() << irsm("Параметры АЦП m_adc_elab_param_data") << endl;
           m_dac.set_after_pause(m_dac_elab_pause);
           m_current_iteration = 0;
           m_elab_iteration_count = 2;
@@ -2253,6 +2301,18 @@ void hrm::app_t::tick()
               //  ---------------      RESULTS         -------------------------
               irs::mlog() << endl;
               exp_t exp;
+              if (m_adaptive_sko_calc.used()) {
+                exp.target_sko = 
+                  m_adaptive_sko_calc.get_target_sko() * 1.0e6;
+                exp.target_balance_sko = 
+                  m_adaptive_sko_calc.get_target_balance_sko() * 1.0e6;
+                exp.target_elab_sko = 
+                  m_adaptive_sko_calc.get_target_elab_sko() * 1.0e6;
+              } else {
+                exp.target_sko = 0.0;
+                exp.target_balance_sko = 0.0;
+                exp.target_elab_sko = 0.0;
+              }
               exp.exp_time = m_prev_exp_time;
               exp.temperature_ext = m_eth_data.th_ext_1;
               exp.temperature_dac = m_eth_data.th_dac;
@@ -3546,7 +3606,7 @@ void hrm::app_t::show_experiment_parameters()
 
 void hrm::app_t::show_last_result()
 {
-  irs::mlog() << endl;
+  irs::mlog() << fixed << endl;
   irs::mlog() << irsm("----------- Результат серии экспериментов");
   irs::mlog() << irsm(" -----------") << endl;
   irs::mlog() << irsm("№    ");
@@ -3575,7 +3635,16 @@ void hrm::app_t::show_last_result()
     irs::mlog() << irsm("t°ldo  ");
   }
   if (m_eth_data.show_exp_time) {
-    irs::mlog() << irsm("Texp");
+    irs::mlog() << irsm("Texp ");
+  }
+  if (m_eth_data.show_target_sko) {
+    irs::mlog() << irsm("tSKO ");
+  }
+  if (m_eth_data.show_target_balance_sko) {
+    irs::mlog() << irsm("tSKOb ");
+  }
+  if (m_eth_data.show_target_elab_sko) {
+    irs::mlog() << irsm("tSKOe");
   }
   irs::mlog() << endl;
   
@@ -3595,21 +3664,32 @@ void hrm::app_t::show_last_result()
     if (m_eth_data.show_new_unc_result) {
       irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].result_new_uncorrect;
     }
-    irs::mlog() << setprecision(5);
+    irs::mlog() << setprecision(1);
     if (m_eth_data.show_th_ext) {
-      irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].temperature_ext;
+      irs::mlog() << irsm(" ") << setw(3) << m_exp_vector[i].temperature_ext;
     }
     if (m_eth_data.show_th_dac) {
-      irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].temperature_dac;
+      irs::mlog() << irsm("   ") << setw(3) << m_exp_vector[i].temperature_dac;
     }
     if (m_eth_data.show_th_adc) {
-      irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].temperature_adc;
+      irs::mlog() << irsm("   ") << setw(3) << m_exp_vector[i].temperature_adc;
     }
     if (m_eth_data.show_th_ldo) {
-      irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].temperature_ldo;
+      irs::mlog() << irsm("   ") << setw(3) << m_exp_vector[i].temperature_ldo;
     }
+    irs::mlog() << setprecision(0);
     if (m_eth_data.show_exp_time) {
       irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].exp_time;
+    }
+    irs::mlog() << setprecision(2);
+    if (m_eth_data.show_target_sko) {
+      irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].target_sko;
+    }
+    if (m_eth_data.show_target_balance_sko) {
+      irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].target_balance_sko;
+    }
+    if (m_eth_data.show_target_elab_sko) {
+      irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].target_elab_sko;
     }
     irs::mlog() << endl;
   }
@@ -3769,6 +3849,81 @@ void hrm::app_t::remaining_time_calculator_t::change_balance_action(
     case ba_elab_pos: {
       //
       break;
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+hrm::app_t::adaptive_sko_calc_t::adaptive_sko_calc_t(eth_data_t* ap_eth_data, 
+  eeprom_data_t* ap_ee_data):
+  mp_eth_data(ap_eth_data),
+  mp_ee_data(ap_ee_data),
+  m_target_sko(0.0),
+  m_used(false),
+  m_target_balance_sko(0.0),
+  m_target_elab_sko(0.0),
+  m_sko_calc(default_len, default_len)
+{
+  mp_eth_data->use_adc_adaptive_sko = mp_ee_data->use_adc_adaptive_sko;
+}
+
+void hrm::app_t::adaptive_sko_calc_t::reset(size_t a_len)
+{
+  if (mp_eth_data->use_adc_adaptive_sko) {
+    m_used = true;
+    m_started = true;
+    m_target_sko = 0.0;
+    m_sko_calc.clear();
+    m_sko_calc.resize(a_len);
+  } else {
+    m_used = false;
+  }
+}
+
+void hrm::app_t::adaptive_sko_calc_t::stop()
+{
+  m_started = false;
+}
+
+void hrm::app_t::adaptive_sko_calc_t::add(adc_value_t a_sko)
+{
+  if (m_started) {
+    m_sko_calc.add(a_sko);
+    m_target_sko = m_sko_calc.average();
+    /*if (m_target_sko <= 0.0) {
+      m_target_sko = a_sko;
+    } else {
+      if (m_target_sko > a_sko) {
+        m_target_sko = a_sko;
+      }
+    }*/
+  }
+}
+
+hrm::adc_value_t hrm::app_t::adaptive_sko_calc_t::get_target_sko()
+{
+  return m_target_sko;
+}
+
+hrm::adc_value_t hrm::app_t::adaptive_sko_calc_t::get_target_balance_sko()
+{
+  return m_target_sko * 10.0;
+}
+
+hrm::adc_value_t hrm::app_t::adaptive_sko_calc_t::get_target_elab_sko()
+{
+  return m_target_sko * 2.0;
+}
+
+void hrm::app_t::adaptive_sko_calc_t::sync_parameters()
+{
+  if (mp_eth_data->use_adc_adaptive_sko != mp_ee_data->use_adc_adaptive_sko) {
+    mp_ee_data->use_adc_adaptive_sko = mp_eth_data->use_adc_adaptive_sko;
+  }
+  if (!m_started) {
+    if (!mp_eth_data->use_adc_adaptive_sko) {
+      m_used = false;
     }
   }
 }

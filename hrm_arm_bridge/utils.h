@@ -377,6 +377,7 @@ struct adc_param_data_t {
   impf_type_t impf_type;
   cont_mode_t cont_mode;
   adc_value_t cont_sko;
+  void copy(adc_param_data_t* ap_data);
 };
 
 class ad7799_cread_t

@@ -929,6 +929,21 @@ void hrm::buzzer_t::tick()
 
 //------------------------------------------------------------------------------
 
+void hrm::adc_param_data_t::copy(adc_param_data_t* ap_data)
+{
+  gain = ap_data->gain;
+  filter = ap_data->filter;
+  channel = ap_data->channel;
+  cnv_cnt = ap_data->cnv_cnt;
+  additional_gain = ap_data->additional_gain;
+  ref = ap_data->ref;
+  cont_cnv_cnt = ap_data->cont_cnv_cnt;
+  impf_iterations_cnt = ap_data->impf_iterations_cnt;
+  impf_type = ap_data->impf_type;
+  cont_mode = ap_data->cont_mode;
+  cont_sko = ap_data->cont_sko;
+}
+
 hrm::ad7799_cread_t::ad7799_cread_t(irs::spi_t *ap_spi,
   irs::gpio_pin_t* ap_cs_pin, adc_exti_t* ap_adc_exti):
   mp_spi(ap_spi),
