@@ -122,7 +122,7 @@ hrm::cfg_t::cfg_t():
   encoder_timer_address(IRS_TIM3_BASE),
   enc_sw(GPIO_PORTC, 8, irs::io_t::dir_in),
   buzzer(irs::handle_t<irs::pwm_gen_t>(
-    new irs::arm::st_pwm_gen_t(PF6, IRS_TIM10_BASE, 4000, 0.05))),
+    new irs::arm::st_pwm_gen_t(PF6, IRS_TIM10_BASE, 4000, 0.5))),
   //  ADC
   adc_cs(GPIO_PORTF, 1, irs::io_t::dir_out, irs::io_pin_on),
   adc_reset(GPIO_PORTC, 14, irs::io_t::dir_out, irs::io_pin_off),
@@ -156,8 +156,9 @@ hrm::cfg_t::cfg_t():
   peltier_pwm1_gen(peltier_pwm1_channel, IRS_TIM9_BASE, 25000, 0.5),
 //  peltier_pwm1(irs::handle_t<irs::pwm_gen_t>(
 //    new irs::arm::st_pwm_gen_t(peltier_pwm1_channel, IRS_TIM9_BASE, 25000, 0.5))),
-  peltier_pwm2(irs::handle_t<irs::pwm_gen_t>(
-    new irs::arm::st_pwm_gen_t(PE5, IRS_TIM9_BASE, 25000, 0.5))),
+  peltier_pwm2_gen(peltier_pwm2_channel, IRS_TIM9_BASE, 25000, 0.5),
+//  peltier_pwm2(irs::handle_t<irs::pwm_gen_t>(
+//    new irs::arm::st_pwm_gen_t(PE5, IRS_TIM9_BASE, 25000, 0.5))),
   peltier_pol1(GPIO_PORTD, 10, irs::io_t::dir_out, irs::io_pin_off),
   peltier_pol2(GPIO_PORTB, 15, irs::io_t::dir_out, irs::io_pin_off),
   fan_ac_on(GPIO_PORTG, 5, irs::io_t::dir_out, irs::io_pin_off),

@@ -60,7 +60,8 @@ protected:
   enum { item_edited = 1 };
   enum { item_read_only = 0 };
   enum { r_width = 13 };
-  enum { r_precision = 8 };
+  enum { r_precision = 8,
+          r_precision_D = 12};
   const double r_min;
   const double r_max;
   virtual void draw() = 0;
@@ -211,7 +212,7 @@ private:
     string_type prefix;
   };
 
-
+  irs_menu_string_item_t m_caption_item;
   irs_menu_string_item_t m_mode_item;
 
   menu_str_item_t m_elapsed_time_item;

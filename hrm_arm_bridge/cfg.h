@@ -189,7 +189,9 @@ public:
   static const gpio_channel_t peltier_pwm1_channel = PE6;
   irs::arm::st_pwm_gen_t peltier_pwm1_gen;
   //irs::pwm_pin_t peltier_pwm1;
-  irs::pwm_pin_t peltier_pwm2;
+  static const gpio_channel_t peltier_pwm2_channel = PE5;
+  irs::arm::st_pwm_gen_t peltier_pwm2_gen;
+  //irs::pwm_pin_t peltier_pwm2;
   irs::arm::io_pin_t peltier_pol1;
   irs::arm::io_pin_t peltier_pol2;
   irs::arm::io_pin_t fan_ac_on;

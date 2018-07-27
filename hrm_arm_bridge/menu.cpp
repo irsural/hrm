@@ -294,6 +294,7 @@ hrm::experiment_progress_t::experiment_progress_t(
   form_t(),
   mp_menu_kb_event(ap_menu_kb_event),
   mp_eth_data(ap_eth_data),
+  m_caption_item(),
   m_mode_item(),
   m_elapsed_time_item(),
   m_remaining_time_item(),
@@ -302,7 +303,8 @@ hrm::experiment_progress_t::experiment_progress_t(
   m_main_screen(),
   mp_cur_menu(&m_main_screen)
 {
-  m_mode_item.set_parametr_string("Идет измерение");
+  m_caption_item.set_parametr_string("Идет измерение");
+  m_mode_item.set_parametr_string("Подготовка");
 
   m_elapsed_time_item.prefix = irst("Прошло ");
   set_str_item(mp_eth_data->sum_time, &m_elapsed_time_item);
@@ -314,9 +316,10 @@ hrm::experiment_progress_t::experiment_progress_t(
   m_main_screen.set_key_event(ap_menu_kb_event);
   m_main_screen.set_cursor_symbol(0x01);
   m_main_screen.creep_stop();
-  m_main_screen.add(&m_mode_item, 0, 0, IMM_FULL);
-  m_main_screen.add(&m_elapsed_time_item.menu_item, 0, 1, IMM_FULL);
-  m_main_screen.add(&m_remaining_time_item.menu_item, 0, 2, IMM_FULL);
+  m_main_screen.add(&m_caption_item, 0, 0, IMM_FULL);
+  m_main_screen.add(&m_mode_item, 0, 1, IMM_FULL);
+  m_main_screen.add(&m_elapsed_time_item.menu_item, 0, 2, IMM_FULL);
+  //m_main_screen.add(&m_remaining_time_item.menu_item, 0, 2, IMM_FULL);
   m_main_screen.add(&m_progress_bar_item, 0, 3, IMM_FULL);
 }
 
@@ -350,7 +353,7 @@ void hrm::experiment_progress_t::menu_check()
         break;
       }
       case ba_prepare_pause: {
-        m_mode_item.set_parametr_string("Предварит. пауза"); 
+        m_mode_item.set_parametr_string("Выравнивание темп-ры"); 
         break;
       }
       case ba_balance_neg: {
@@ -398,14 +401,14 @@ void hrm::experiment_progress_t::set_str_item(
 
 void hrm::experiment_progress_t::update_progress()
 {
-  const double elapsed_time = mp_eth_data->sum_time;
-  const double remaining_time = mp_eth_data->remaining_time;
-  float progress = 0;
-  if ((elapsed_time == 0) && (remaining_time == 0)) {
-    progress = 0.f;
-  }  else {
-    progress = static_cast<float>(elapsed_time/(elapsed_time + remaining_time));
-  }
+  //const double elapsed_time = mp_eth_data->sum_time;
+  //const double remaining_time = mp_eth_data->remaining_time;
+  float progress = mp_eth_data->exp_percentage / 100.0;
+//  if ((elapsed_time == 0) && (remaining_time == 0)) {
+//    progress = 0.f;
+//  }  else {
+//    progress = static_cast<float>(elapsed_time/(elapsed_time + remaining_time));
+//  }
   m_progress_bar_item.set_value(progress);
 }
 
@@ -431,7 +434,7 @@ hrm::experiment_result_t::experiment_result_t(
   m_mode_item.set_parametr_string("Результат:");
 
   m_ratio_item.set_str(mp_r_standard_str, "D  ", "  ",
-    r_width, r_precision, irs::num_mode_general);
+    r_width, r_precision_D, irs::num_mode_general);
   m_ratio_item.set_max_value(11.0);
   m_ratio_item.set_min_value(-11.0);
   m_ratio_item.set_key_type(IMK_DIGITS);
@@ -454,9 +457,9 @@ hrm::experiment_result_t::experiment_result_t(
   m_main_screen.set_key_event(ap_menu_kb_event);
   m_main_screen.set_cursor_symbol(0x01);
   m_main_screen.creep_stop();
-  m_main_screen.add(&m_ratio_item, 0, 0, IMM_FULL);
-  m_main_screen.add(&m_r_standard_item, 0, 1, IMM_FULL);
-  m_main_screen.add(&m_r_verifiable_item, 0, 2, IMM_FULL);
+  m_main_screen.add(&m_ratio_item, 0, 1, IMM_FULL);
+  m_main_screen.add(&m_r_standard_item, 0, 2, IMM_FULL);
+  m_main_screen.add(&m_r_verifiable_item, 0, 0, IMM_FULL);
   m_main_screen.add(&m_hint_item, 0, 3, IMM_FULL);
 }
 

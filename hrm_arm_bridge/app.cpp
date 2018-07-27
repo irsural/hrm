@@ -183,6 +183,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
     &m_eeprom_data.fan_dc_speed,
     &m_eth_data.fan_dc_speed_sense
   ),
+  //  treg adc
   m_treg_operating_duty_time_interval_s(1.0),
   m_treg_operating_duty_deviation(0.05),
   m_treg_pwm_max_code_float(1.0),
@@ -234,8 +235,60 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
     &m_eeprom_data.treg_pid_reg_enabled,
     &m_eeprom_data.treg_polarity_pin_bit_data
   ),
+  // treg dac
+  m_treg_dac_operating_duty_time_interval_s(1.0),
+  m_treg_dac_operating_duty_deviation(0.05),
+  m_treg_dac_pwm_max_code_float(1.0),
+  m_treg_dac_polarity_map(peltier_t::default_polarity_map),
+  m_treg_dac_temperature_setpoint(25.0),
+  m_treg_dac_termosensor(&m_eth_data.th_dac, 15.0, 45.0),
+  m_treg_dac_peltier_parameters(
+    &m_treg_dac_termosensor,
+    &mp_cfg->peltier_pwm2_gen,
+    mp_cfg->peltier_pwm2_channel,
+    &mp_cfg->peltier_pol2,
+    m_treg_dac_operating_duty_time_interval_s,
+    m_treg_dac_operating_duty_deviation,
+    m_treg_dac_pwm_max_code_float,
+    peltier_t::default_polarity_map,
+    &m_eth_data.treg_dac_ref,
+    &m_eth_data.treg_dac_result,
+    &m_eth_data.treg_dac_k,
+    &m_eth_data.treg_dac_ki,
+    &m_eth_data.treg_dac_kd,
+    &m_eth_data.treg_dac_iso_k,
+    &m_eth_data.treg_dac_iso_t,
+    &m_eth_data.treg_dac_pwm_rate_slope,
+    &m_eth_data.treg_dac_pid_out,
+    &m_eth_data.treg_dac_amplitude_code_float,
+    &m_eth_data.treg_dac_enabled,
+    &m_eth_data.treg_dac_pid_reg_enabled,
+    &m_eth_data.treg_dac_polarity_pin_bit_data),
+  m_treg_dac_peltier(m_treg_dac_peltier_parameters),
+  m_treg_dac_sync_parameters(
+    &m_eth_data.treg_dac_ref,
+    &m_eth_data.treg_dac_k,
+    &m_eth_data.treg_dac_ki,
+    &m_eth_data.treg_dac_kd,
+    &m_eth_data.treg_dac_iso_k,
+    &m_eth_data.treg_dac_iso_t,
+    &m_eth_data.treg_dac_pwm_rate_slope,
+    &m_eth_data.treg_dac_enabled,
+    &m_eth_data.treg_dac_pid_reg_enabled,
+    &m_eth_data.treg_dac_polarity_pin_bit_data,
+    &m_eeprom_data.treg_dac_ref,
+    &m_eeprom_data.treg_dac_k,
+    &m_eeprom_data.treg_dac_ki,
+    &m_eeprom_data.treg_dac_kd,
+    &m_eeprom_data.treg_dac_iso_k,
+    &m_eeprom_data.treg_dac_iso_t,
+    &m_eeprom_data.treg_dac_pwm_rate_slope,
+    &m_eeprom_data.treg_dac_enabled,
+    &m_eeprom_data.treg_dac_pid_reg_enabled,
+    &m_eeprom_data.treg_dac_polarity_pin_bit_data
+  ),
   m_balance_action(ba_idle),
-  m_adaptive_sko_calc(&m_eth_data, &m_eeprom_data)
+  m_adaptive_sko_calc(m_eth_data, m_eeprom_data)
   //m_use_adaptive_sko(false),
   //m_adaptive_sko(0.0)
 {
@@ -498,6 +551,7 @@ void hrm::app_t::tick()
   m_termostat.tick();
   m_device_condition_controller.tick();
   m_treg_peltier.tick();
+  m_treg_dac_peltier.tick();
 
   if (m_buzzer_kb_event.check()) {
     m_buzzer.bzz();
@@ -625,9 +679,9 @@ void hrm::app_t::tick()
     if (m_eth_data.prepare_pause != m_eeprom_data.prepare_pause) {
       m_eeprom_data.prepare_pause = m_eth_data.prepare_pause;
     }
-    if (m_eth_data.adc_average_cnt != m_eeprom_data.adc_average_cnt) {
-      m_eeprom_data.adc_average_cnt = m_eth_data.adc_average_cnt;
-    }
+//    if (m_eth_data.adc_average_cnt != m_eeprom_data.adc_average_cnt) {
+//      m_eeprom_data.adc_average_cnt = m_eth_data.adc_average_cnt;
+//    }
     if (m_eth_data.adc_filter_constant != m_adc_fade_data.t) {
       m_adc_fade_data.t = m_eth_data.adc_filter_constant;
       m_eeprom_data.adc_filter_constant = m_eth_data.adc_filter_constant;
@@ -800,6 +854,7 @@ void hrm::app_t::tick()
     }
     
     m_treg_sync_parameters.sync();
+    m_treg_dac_sync_parameters.sync();
     
     if (m_adc.status() == irs_st_ready) {
       m_eth_data.adc_meas_process = 0;
@@ -821,6 +876,10 @@ void hrm::app_t::tick()
     }
     //  Adaptive sko
     m_adaptive_sko_calc.sync_parameters();
+    //  Rem time
+    m_eth_data.exp_percentage = m_remaining_time_calculator.get_percentage();
+    //
+    m_eth_data.test = m_current_iteration;
   }
   if (m_blink_timer.check()) {
     if (m_blink) {
@@ -1340,6 +1399,8 @@ void hrm::app_t::tick()
           irs::mlog() << irsm("---------------------------------") << endl;
           irs::mlog() << irsm("----- Режим уравновешивания -----") << endl;
           irs::mlog() << irsm("---------------------------------") << endl;
+          
+          irs::mlog() << defaultfloat;
 
           m_etalon = m_eth_data.etalon;
           m_checked = m_eth_data.checked;
@@ -1424,6 +1485,8 @@ void hrm::app_t::tick()
           
           m_balance_action = ba_prepare;
           m_remaining_time_calculator.change_balance_action(m_balance_action);
+          m_remaining_time_calculator.
+            set_balance_points_count(default_balance_points);
           
           m_balance_status = bs_set_prot;
           break;
@@ -1517,6 +1580,7 @@ void hrm::app_t::tick()
                 m_balance_action);
               m_adaptive_sko_calc.stop();
               adc_value_t target_sko = m_adaptive_sko_calc.get_target_sko();
+              irs::mlog() << setprecision(3);
               irs::mlog() << irsm("Target sko = ") << target_sko * 1.0e6;
               irs::mlog() << irsm(" ppm") << endl;
               if (m_adaptive_sko_calc.used()) {
@@ -1525,21 +1589,21 @@ void hrm::app_t::tick()
                   m_adaptive_sko_calc.get_target_elab_sko();
                 adc_value_t balance_sko = 
                   m_adaptive_sko_calc.get_target_balance_sko();
-                if (balance_sko > m_adc_balance_param_data.cont_sko) {
-                  m_adc_adaptive_balance_param_data.copy(
+                m_adc_adaptive_balance_param_data.copy(
                     &m_adc_balance_param_data);
-                  m_adc_adaptive_elab_param_data.copy(
-                    &m_adc_elab_param_data);
+                m_adc_adaptive_elab_param_data.copy(
+                  &m_adc_elab_param_data);
+                if (balance_sko > m_adc_balance_param_data.cont_sko) {
                   m_adc_adaptive_balance_param_data.cont_sko = balance_sko;
                   m_adc_adaptive_elab_param_data.cont_sko = elab_sko;
-                  irs::mlog() << irsm("Balance sko = ");
-                  irs::mlog() << m_adc_adaptive_balance_param_data.cont_sko * 1.0e6;
-                  irs::mlog() << irsm(" ppm") << endl;
-                  irs::mlog() << irsm("Elab sko = ");
-                  irs::mlog() << m_adc_adaptive_elab_param_data.cont_sko * 1.0e6;
-                  irs::mlog() << irsm(" ppm") << endl;
-                  irs::mlog() << endl;
                 }
+                irs::mlog() << irsm("Balance sko = ");
+                irs::mlog() << m_adc_adaptive_balance_param_data.cont_sko * 1.0e6;
+                irs::mlog() << irsm(" ppm") << endl;
+                irs::mlog() << irsm("Elab sko = ");
+                irs::mlog() << m_adc_adaptive_elab_param_data.cont_sko * 1.0e6;
+                irs::mlog() << irsm(" ppm") << endl;
+                irs::mlog() << endl;
               }
               m_balance_status = bs_adc_show;
             }
@@ -1614,7 +1678,7 @@ void hrm::app_t::tick()
             m_dac.set_code(m_initial_dac_code);
             m_dac_step = m_initial_dac_step;
             m_current_iteration = 0;
-            m_iteration_count = 20;
+            m_iteration_count = default_balance_points;
             m_dac_step_amplitude = 0.0;
             m_dac.on();
             m_prev_elab_vector.clear();
@@ -1686,14 +1750,18 @@ void hrm::app_t::tick()
                 //irs::mlog() << irsm(">DAC> ");
                 //irs::mlog() << m_dac_step_amplitude << irsm(" В") << endl;
 
+                irs::mlog() << defaultfloat << fixed;
                 irs::mlog() << setw(2) << m_current_iteration+1 << irsm(" : ");
                 irs::mlog() << setw(8) << m_dac_code << irsm(" : ");
                 irs::mlog() << setw(8) << m_dac_step << irsm(" : ");
-                irs::mlog() << setw(12) << adc_result << irsm(" : ");
+                irs::mlog() << setprecision(7) << fixed;
+                irs::mlog() << setw(12) << fixed << adc_result << irsm(" : ");
+                irs::mlog() << setprecision(3);
                 adc_value_t rel_sko = abs(adc_result_data.sko * 1e6);
-                irs::mlog() << setw(8) << rel_sko << irsm(" ppm : ");
+                irs::mlog() << setw(8) << fixed << rel_sko << irsm(" ppm : ");
                 irs::mlog() << adc_result_data.current_point << endl;
-                irs::mlog() << irsm("PREV ") << setw(8) << m_balanced_dac_code;
+                irs::mlog() << defaultfloat;
+                irs::mlog() << irsm("PREV ") << setw(8) << fixed << m_balanced_dac_code;
                 irs::mlog() << endl;
                 //m_prev_balance_completed = true;
                 if (elab_point.dac >= 0) {
@@ -1714,6 +1782,8 @@ void hrm::app_t::tick()
                     break;
                   }
                 }
+                m_remaining_time_calculator.
+                  set_balance_points_count(m_current_iteration);
               } else {
                 m_balance_status = bs_balance;
               }
@@ -1740,6 +1810,8 @@ void hrm::app_t::tick()
             double log_ratio = floor(log2(ratio) - 1.0);
             irs_u32 int_log_ratio = static_cast<size_t>(log_ratio);
             m_current_iteration = m_iteration_count - int_log_ratio - 1;
+            m_remaining_time_calculator.
+              set_current_balance_point(m_current_iteration);
             irs_i32 int_dac_code = static_cast<irs_u32>(pow(2, log_ratio));
             irs_i32 int_dac_step = int_dac_code;
             if (adc_result > 0.0) {
@@ -1753,11 +1825,16 @@ void hrm::app_t::tick()
           }
           if (m_current_iteration < m_iteration_count) {
             m_current_iteration++;
+            m_remaining_time_calculator.
+              set_current_balance_point(m_current_iteration);
+            irs::mlog() << defaultfloat << fixed;
             irs::mlog() << setw(2) << m_current_iteration << irsm(" : ");
             irs::mlog() << setw(8) << m_dac_code << irsm(" : ");
             irs::mlog() << setw(8) << m_dac_step << irsm(" : ");
+            irs::mlog() << setprecision(7);
             irs::mlog() << setw(12) << adc_result << irsm(" : ");
             adc_value_t rel_sko = abs(adc_result_data.sko * 1e6);
+            irs::mlog() << setprecision(3);
             irs::mlog() << setw(8) << rel_sko << irsm(" ppm : ");
             irs::mlog() << adc_result_data.current_point << endl;
             if (m_dac_step_amplitude > 0.0
@@ -1882,14 +1959,15 @@ void hrm::app_t::tick()
           //irs::mlog() << irsm("Величина прыжка ЦАП = ") 
             //<< m_fast_elab_dac_step << endl;
           //  Внесение ассиметрии для нормальной работы новой формулы
+          irs::mlog() << defaultfloat << fixed;
           switch (m_fast_elab_vector.size()) {
             case 0: {
               m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_2;
               irs::mlog() << irsm("Величина прыжка ЦАП = ") 
                 << m_fast_elab_dac_step_2 << endl;
               m_balance_action = ba_elab_neg;
-              m_remaining_time_calculator.change_balance_action(
-                m_balance_action);
+              m_remaining_time_calculator.
+                change_balance_action(m_balance_action);
               break;
             }
             case 2: {
@@ -1925,12 +2003,15 @@ void hrm::app_t::tick()
           m_current_iteration = 0;
           m_elab_iteration_count = 2;
           //m_fast_elab_vector.clear();
+          m_remaining_time_calculator.
+            set_current_balance_point(m_current_iteration);
           m_balance_status = bs_fast_elab_dac_set;
           break;
         }
         case bs_fast_elab_dac_set: {
           if (m_dac.ready()) {
             m_dac.set_code(m_dac_code);
+            irs::mlog() << setprecision(0) << fixed;
             irs::mlog() << setw(2) << (m_current_iteration + 1) << irsm(" : ");
             irs::mlog() << setw(8) << (m_dac_code) << irsm(" : ") << flush;
             m_balance_status = bs_fast_elab_adc_start;
@@ -1960,7 +2041,9 @@ void hrm::app_t::tick()
             elab_point.num_of_adc_points = adc_result_data.current_point;
             m_fast_elab_vector.push_back(elab_point);
             
+            irs::mlog() << setprecision(7) << fixed;
             irs::mlog() << setw(12) << (adc_voltage) << irsm(" В : ");
+            irs::mlog() << setprecision(3);
             irs::mlog() << (elab_point.sko * 1e6) << irsm(" ppm : ");
             irs::mlog() << adc_result_data.current_point << endl;
             
@@ -1971,6 +2054,8 @@ void hrm::app_t::tick()
         case bs_fast_elab_point_processing: {
           if (m_current_iteration < (m_elab_iteration_count - 1)) {
             m_current_iteration++;
+            m_remaining_time_calculator.
+              set_current_balance_point(m_current_iteration);
             //m_pos_current_elab++;
             //m_dac_code = m_balanced_dac_code - m_fast_elab_dac_step;
             switch (m_fast_elab_vector.size()) {
@@ -2010,6 +2095,7 @@ void hrm::app_t::tick()
           m_elab_result_vector.push_back(elab_result);
           m_pos_current_elab++;
           
+          irs::mlog() << setprecision(3);
           irs::mlog() << irsm("---------------------------------") << endl;
           irs::mlog() << irsm("Измеренный код (старый вариант) = ");
           irs::mlog() << elab_result.code << endl;
@@ -3486,9 +3572,10 @@ void hrm::app_t::show_experiment_parameters()
   irs::mlog() << static_cast<int>(m_adc_balance_param_data.gain);
   
   irs::mlog() << endl;
-  
+ 
+  irs::mlog() << setprecision(0);
   irs::mlog() << setw(18) << left << irsm("dac_pause_ms ");
-  irs::mlog() << setw(7) << left;
+  irs::mlog() << setw(7) << left;// << setprecision(0);
   irs::mlog() << 1000.0 * CNT_TO_DBLTIME(m_dac_after_pause);
   
   irs::mlog() << setw(32) << left << irsm("adc_elab_filter ");
@@ -3569,22 +3656,42 @@ void hrm::app_t::show_experiment_parameters()
   
   irs::mlog() << endl;
   
-  //irs::mlog() << setw(25) << left << irsm(". .");
+  irs::mlog() << setprecision(4);
+  
   irs::mlog() << setw(18) << left << irsm("adc_max_value_prot ");
   irs::mlog() << setw(7) << left << m_adc_max_value_prot;
   
   irs::mlog() << setw(32) << left << irsm("adc_elab_cont_sko ");
   irs::mlog() << setw(7) << left;
-  irs::mlog() << m_adc_elab_param_data.cont_sko;
+  irs::mlog() << m_adc_elab_param_data.cont_sko * 1.0e6;
   
   irs::mlog() << setw(32) << left << irsm("adc_balance_cont_sko ");
   irs::mlog() << setw(7) << left;
-  irs::mlog() << m_adc_balance_param_data.cont_sko;
+  irs::mlog() << m_adc_balance_param_data.cont_sko * 1.0e6;
   
   irs::mlog() << endl;
   
   irs::mlog() << setw(18) << left << irsm("adc_max_value_no_prot ");
   irs::mlog() << setw(7) << left << m_adc_max_value_no_prot;
+  
+  irs::mlog() << setw(32) << left << irsm("adc_adaptive_elab_sko ");
+  irs::mlog() << setw(7) << left << m_adc_adaptive_elab_param_data.cont_sko * 1.0e6;
+  
+  irs::mlog() << setw(32) << left << irsm("adc_adaptive_balance_sko ");
+  irs::mlog() << setw(7) << left << m_adc_adaptive_balance_param_data.cont_sko * 1.0e6;
+  
+  irs::mlog() << endl;
+  
+  irs::mlog() << setw(18) << left << irsm("use_adc_adaptive_sko ");
+  irs::mlog() << setw(7) << left << m_eth_data.use_adc_adaptive_sko;
+  
+  irs::mlog() << setw(32) << left << irsm("adaptive_sko_elab_multiplier ");
+  irs::mlog() << setw(7) << left;
+  irs::mlog() << 1.0 + m_eth_data.adaptive_sko_elab_multiplier;
+  
+  irs::mlog() << setw(32) << left << irsm("adaptive_sko_balance_multiplier ");
+  irs::mlog() << setw(7) << left;
+  irs::mlog() << 1.0 + m_eth_data.adaptive_sko_balance_multiplier;
   
   irs::mlog() << endl;
   
@@ -3597,11 +3704,6 @@ void hrm::app_t::show_experiment_parameters()
   irs::mlog() << setw(7) << left << m_bac_new_coefficient;
   
   irs::mlog() << endl;
-  
-  //irs::mlog() << setw(18) << left << irsm("bac_new_int_coefficient ");
-  //irs::mlog() << setw(7) << left << m_bac_new_int_coefficient;
-  
-  //irs::mlog() << endl;
 }
 
 void hrm::app_t::show_last_result()
@@ -3752,7 +3854,11 @@ hrm::app_t::remaining_time_calculator_t::remaining_time_calculator_t():
   m_meas_elab_time(0),
   m_balance_action(ba_prepare),
   m_remaining_time(0),
-  m_current_time(0)
+  m_current_time(0),
+  m_current_percentage(0),
+  m_prepare_pause(0),
+  m_balance_points_count(0),
+  m_balance_current_point(0)
 {
 }
 
@@ -3764,19 +3870,24 @@ void hrm::app_t::remaining_time_calculator_t::reset()
   m_meas_elab_time = 0;
   m_remaining_time = 0;
   m_current_time = 0;
+  m_current_percentage = 0;
+  m_prepare_pause = 0;
+  m_balance_points_count = max_balance_points_count;
+  m_balance_current_point = 0;
   irs::mlog() << irsm("rem reset") << endl;
 }
 
 void hrm::app_t::remaining_time_calculator_t::start(irs_u32 a_prepare_pause)
 {
+  m_prepare_pause = a_prepare_pause;
   m_remaining_time = a_prepare_pause + default_exp_time;
   m_current_time = 0;
+  m_current_percentage = 0;
   //irs::mlog() << irsm("rem start = ") << m_remaining_time << endl;
 }
 
 void hrm::app_t::remaining_time_calculator_t::secund_tick()
 {
-  m_current_time++;
   //irs::mlog() << irsm("rem = ") << m_remaining_time;
   switch (m_balance_action) {
     case ba_prepare: {
@@ -3785,30 +3896,59 @@ void hrm::app_t::remaining_time_calculator_t::secund_tick()
       break;
     }
     case ba_prepare_pause: {
+      m_current_time++;
       m_remaining_time = irs::bound<irs_u32>(m_remaining_time - 1,
         0, m_remaining_time);
+      m_current_percentage = m_current_time * default_prepare_pause_percentage /
+        m_prepare_pause;
+      m_current_percentage = irs::bound<irs_u32>(m_current_percentage, 
+        0, default_prepare_pause_percentage);
       break;
     }
     case ba_balance_neg: {
+      m_current_time++;
       m_remaining_time = irs::bound<irs_u32>(m_remaining_time - 1,
         (default_exp_time * 3) / 4, m_remaining_time);
+      m_current_percentage = min_balance_neg +
+        m_balance_current_point * default_balance_percentage /
+        m_balance_points_count;
+      m_current_percentage = irs::bound<irs_u32>(m_current_percentage, 
+        min_balance_neg, max_balance_neg);
       break;
     }
     case ba_elab_neg: {
+      m_current_time++;
       m_remaining_time = irs::bound<irs_u32>(m_remaining_time - 1,
         ((default_exp_time * 2) / 4) + m_meas_balance_time, m_remaining_time);
+      m_current_percentage = min_elab_neg +
+        m_balance_current_point * default_elab_percentage /
+        elab_points_count;
+      m_current_percentage = irs::bound<irs_u32>(m_current_percentage, 
+        min_elab_neg, max_elab_neg);
       break;
     }
     case ba_balance_pos: {
+      m_current_time++;
       m_remaining_time = irs::bound<irs_u32>(m_remaining_time - 1,
         ((default_exp_time * 1) / 4) + m_meas_balance_time + m_meas_elab_time,
         m_remaining_time);
+      m_current_percentage = min_balance_pos +
+        m_balance_current_point * default_balance_percentage /
+        m_balance_points_count;
+      m_current_percentage = irs::bound<irs_u32>(m_current_percentage, 
+        min_balance_pos, max_balance_pos);
       break;
     }
     case ba_elab_pos: {
+      m_current_time++;
       m_remaining_time = irs::bound<irs_u32>(m_remaining_time - 1,
         m_meas_balance_time + m_meas_balance_time + m_meas_elab_time,
         m_remaining_time);
+      m_current_percentage = min_elab_pos +
+        m_balance_current_point * default_elab_percentage /
+        elab_points_count;
+      m_current_percentage = irs::bound<irs_u32>(m_current_percentage, 
+        min_elab_pos, max_elab_pos);
       break;
     }
   }
@@ -3818,6 +3958,11 @@ void hrm::app_t::remaining_time_calculator_t::secund_tick()
 irs_u32 hrm::app_t::remaining_time_calculator_t::get_remaining_time()
 {
   return m_remaining_time;
+}
+
+irs_u32 hrm::app_t::remaining_time_calculator_t::get_percentage()
+{
+  return m_current_percentage;
 }
 
 void hrm::app_t::remaining_time_calculator_t::change_balance_action(
@@ -3835,15 +3980,21 @@ void hrm::app_t::remaining_time_calculator_t::change_balance_action(
     }
     case ba_balance_neg: {
       m_meas_prepare_time = m_current_time;
+      irs::mlog() << irsm("Prepare time = ") << m_meas_prepare_time;
+      irs::mlog() << irsm(" s") << endl;
       break;
     }
     case ba_elab_neg: {
       m_meas_balance_time = m_current_time - m_meas_prepare_time;
+      irs::mlog() << irsm("Balance time = ") << m_meas_prepare_time;
+      irs::mlog() << irsm(" s") << endl;
       break;
     }
     case ba_balance_pos: {
       m_meas_elab_time = 
         m_current_time - m_meas_prepare_time - m_meas_balance_time;
+      irs::mlog() << irsm("Elab time = ") << m_meas_prepare_time;
+      irs::mlog() << irsm(" s") << endl;
       break;
     }
     case ba_elab_pos: {
@@ -3853,24 +4004,50 @@ void hrm::app_t::remaining_time_calculator_t::change_balance_action(
   }
 }
 
+void hrm::app_t::remaining_time_calculator_t::set_balance_points_count(
+  size_t a_balance_points_count)
+{
+  m_balance_points_count = a_balance_points_count;
+}
+
+void hrm::app_t::remaining_time_calculator_t::set_current_balance_point(
+  size_t a_point)
+{
+  m_balance_current_point = a_point;
+}
+
 //------------------------------------------------------------------------------
 
-hrm::app_t::adaptive_sko_calc_t::adaptive_sko_calc_t(eth_data_t* ap_eth_data, 
-  eeprom_data_t* ap_ee_data):
+hrm::app_t::adaptive_sko_calc_t::adaptive_sko_calc_t(eth_data_t& ap_eth_data, 
+  eeprom_data_t& ap_ee_data):
   mp_eth_data(ap_eth_data),
   mp_ee_data(ap_ee_data),
   m_target_sko(0.0),
   m_used(false),
   m_target_balance_sko(0.0),
   m_target_elab_sko(0.0),
+  m_adaptive_sko_balance_multiplier(0.0),
+  m_adaptive_sko_elab_multiplier(0.0),
   m_sko_calc(default_len, default_len)
 {
-  mp_eth_data->use_adc_adaptive_sko = mp_ee_data->use_adc_adaptive_sko;
+  mp_eth_data.use_adc_adaptive_sko = mp_ee_data.use_adc_adaptive_sko;
+  m_adaptive_sko_balance_multiplier = 
+    mp_ee_data.adaptive_sko_balance_multiplier;
+  m_adaptive_sko_elab_multiplier = 
+    mp_ee_data.adaptive_sko_elab_multiplier;
+  mp_eth_data.adaptive_sko_balance_multiplier = 
+    mp_ee_data.adaptive_sko_balance_multiplier;
+  mp_eth_data.adaptive_sko_elab_multiplier = 
+    mp_ee_data.adaptive_sko_elab_multiplier;
+  irs::mlog() << irsm("m_adaptive_sko_elab_multiplier = ");
+  irs::mlog() << m_adaptive_sko_elab_multiplier << endl;
+  irs::mlog() << irsm("eth.adaptive_sko_elab_multiplier = ");
+  irs::mlog() << mp_eth_data.adaptive_sko_elab_multiplier << endl;
 }
 
 void hrm::app_t::adaptive_sko_calc_t::reset(size_t a_len)
 {
-  if (mp_eth_data->use_adc_adaptive_sko) {
+  if (mp_eth_data.use_adc_adaptive_sko) {
     m_used = true;
     m_started = true;
     m_target_sko = 0.0;
@@ -3908,21 +4085,44 @@ hrm::adc_value_t hrm::app_t::adaptive_sko_calc_t::get_target_sko()
 
 hrm::adc_value_t hrm::app_t::adaptive_sko_calc_t::get_target_balance_sko()
 {
-  return m_target_sko * 10.0;
+  return m_target_sko * m_adaptive_sko_balance_multiplier;
 }
 
 hrm::adc_value_t hrm::app_t::adaptive_sko_calc_t::get_target_elab_sko()
 {
-  return m_target_sko * 2.0;
+  return m_target_sko * m_adaptive_sko_elab_multiplier;
 }
 
 void hrm::app_t::adaptive_sko_calc_t::sync_parameters()
 {
-  if (mp_eth_data->use_adc_adaptive_sko != mp_ee_data->use_adc_adaptive_sko) {
-    mp_ee_data->use_adc_adaptive_sko = mp_eth_data->use_adc_adaptive_sko;
+  if (mp_eth_data.use_adc_adaptive_sko != mp_ee_data.use_adc_adaptive_sko) {
+    mp_ee_data.use_adc_adaptive_sko = mp_eth_data.use_adc_adaptive_sko;
+  }
+  if (mp_eth_data.adaptive_sko_elab_multiplier 
+      != mp_ee_data.adaptive_sko_elab_multiplier) {
+    m_adaptive_sko_elab_multiplier 
+      = static_cast<double>(mp_eth_data.adaptive_sko_elab_multiplier);
+    mp_ee_data.adaptive_sko_elab_multiplier 
+      = mp_eth_data.adaptive_sko_elab_multiplier;
+    
+    irs::mlog() << irsm("eth.adaptive_sko_elab_multiplier = ");
+    irs::mlog() << mp_eth_data.adaptive_sko_elab_multiplier << endl;
+    irs::mlog() << irsm("ee.adaptive_sko_elab_multiplier = ");
+    irs::mlog() << mp_ee_data.adaptive_sko_elab_multiplier << endl;
+    irs::mlog() << irsm("adaptive_sko_elab_multiplier = ");
+    irs::mlog() << m_adaptive_sko_elab_multiplier << endl;
+    irs::mlog() << irsm("TEST = ");
+    irs::mlog() << mp_eth_data.test << endl;
+  }
+  if (mp_eth_data.adaptive_sko_balance_multiplier 
+      != mp_ee_data.adaptive_sko_balance_multiplier) {
+    m_adaptive_sko_balance_multiplier 
+      = mp_eth_data.adaptive_sko_balance_multiplier;
+    mp_ee_data.adaptive_sko_balance_multiplier 
+      = mp_eth_data.adaptive_sko_balance_multiplier;
   }
   if (!m_started) {
-    if (!mp_eth_data->use_adc_adaptive_sko) {
+    if (!mp_eth_data.use_adc_adaptive_sko) {
       m_used = false;
     }
   }

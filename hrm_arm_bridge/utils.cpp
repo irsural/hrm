@@ -1875,7 +1875,7 @@ hrm::device_condition_controller_t::device_condition_controller_t(
   irs::conn_data_t<irs_u8>* ap_fan_dc_speed_data,
   irs::conn_data_t<irs_u8>* ap_fan_dc_speed_ee_data,
   irs::conn_data_t<float>* ap_fan_dc_speed_sence_data):
-  m_fade_tau(50.0),
+  m_fade_tau(30.0),
   m_vref(3.3),
   mp_fan_ac_on(ap_fan_ac_on),
   mp_fan_dc_ls(ap_fan_dc_ls),

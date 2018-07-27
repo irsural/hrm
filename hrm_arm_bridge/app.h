@@ -185,9 +185,29 @@ private:
     em_fast_2points = 2,
     em_none = 3
   };
+  enum {
+    default_balance_points = 20,
+    default_elab_points = 2
+  };
   class remaining_time_calculator_t {
     enum {
-      default_exp_time = 300
+      default_exp_time = 300,
+      default_prepare_pause_percentage = 20,
+      default_balance_percentage = 20,
+      default_elab_percentage = 
+        ((100 - (2 * default_balance_percentage) - 
+          default_prepare_pause_percentage) / 2),
+      min_balance_neg = default_prepare_pause_percentage,
+      max_balance_neg = default_prepare_pause_percentage
+        + default_balance_percentage,
+      min_elab_neg = max_balance_neg,
+      max_elab_neg = max_balance_neg + default_elab_percentage,
+      min_balance_pos = max_elab_neg,
+      max_balance_pos = min_balance_pos + default_balance_percentage,
+      min_elab_pos = max_balance_pos,
+      max_elab_pos = 100,
+      max_balance_points_count = 20,
+      elab_points_count = 2
     };
     irs_u32 m_meas_prepare_time;
     irs_u32 m_meas_balance_time;
@@ -195,28 +215,37 @@ private:
     balance_action_t m_balance_action;
     irs_u32 m_remaining_time;
     irs_u32 m_current_time;
+    irs_u32 m_current_percentage;
+    irs_u32 m_prepare_pause;
+    size_t m_balance_points_count;
+    size_t m_balance_current_point;
   public:
     remaining_time_calculator_t();
     void reset();
     void start(irs_u32 a_prepare_pause);
     void secund_tick();
     irs_u32 get_remaining_time();
+    irs_u32 get_percentage();
     void change_balance_action(balance_action_t a_balance_action);
+    void set_balance_points_count(size_t a_balance_points_count);
+    void set_current_balance_point(size_t a_point);
   };
   class adaptive_sko_calc_t {
     enum {
       default_len = 10
     };
-    eth_data_t* mp_eth_data;
-    eeprom_data_t* mp_ee_data;
+    eth_data_t& mp_eth_data;
+    eeprom_data_t& mp_ee_data;
     adc_value_t m_target_sko;
     bool m_started;
     bool m_used;
     adc_value_t m_target_balance_sko;
     adc_value_t m_target_elab_sko;
+    adc_value_t m_adaptive_sko_balance_multiplier;
+    adc_value_t m_adaptive_sko_elab_multiplier;
     irs::fast_sko_t<adc_value_t, adc_value_t> m_sko_calc;
   public:
-    adaptive_sko_calc_t(eth_data_t* ap_eth_data, eeprom_data_t* ap_ee_data);
+    adaptive_sko_calc_t(eth_data_t& ap_eth_data, eeprom_data_t& ap_ee_data);
     void reset(size_t a_len);
     void stop();
     void add(adc_value_t a_sko);
@@ -402,6 +431,7 @@ private:
   irs_i32 m_bac_new_int_multiplier;
   //
   device_condition_controller_t m_device_condition_controller;
+  //
   const double m_treg_operating_duty_time_interval_s;
   const double m_treg_operating_duty_deviation;
   const double m_treg_pwm_max_code_float;
@@ -411,6 +441,16 @@ private:
   peltier_t::parameters_t m_treg_peltier_parameters;
   peltier_t m_treg_peltier;
   sync_treg_parameters_t m_treg_sync_parameters;
+  //
+  const double m_treg_dac_operating_duty_time_interval_s;
+  const double m_treg_dac_operating_duty_deviation;
+  const double m_treg_dac_pwm_max_code_float;
+  const double m_treg_dac_polarity_map;
+  const double m_treg_dac_temperature_setpoint;
+  temperature_sensor_conn_data_t m_treg_dac_termosensor;
+  peltier_t::parameters_t m_treg_dac_peltier_parameters;
+  peltier_t m_treg_dac_peltier;
+  sync_treg_parameters_t m_treg_dac_sync_parameters;
   
   balance_action_t m_balance_action;
   adaptive_sko_calc_t m_adaptive_sko_calc;
