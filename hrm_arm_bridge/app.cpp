@@ -418,6 +418,8 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
 
   m_wild_relays = m_eeprom_data.wild_relays;
   m_eth_data.wild_relays = m_wild_relays;
+  m_relay_bridge_pos.set_wild(m_wild_relays);
+  m_relay_bridge_neg.set_wild(m_wild_relays);
 
   m_auto_elab_step = m_eeprom_data.auto_elab_step;
   m_eth_data.auto_elab_step = m_auto_elab_step;
@@ -707,9 +709,6 @@ void hrm::app_t::tick()
     if (m_eth_data.optimize_balance != m_eeprom_data.optimize_balance) {
       m_eeprom_data.optimize_balance = m_eth_data.optimize_balance;
     }
-    if (m_eth_data.wild_relays != m_eeprom_data.wild_relays) {
-      m_eeprom_data.wild_relays = m_eth_data.wild_relays;
-    }
     if (m_eth_data.auto_elab_step != m_eeprom_data.auto_elab_step) {
       m_eeprom_data.auto_elab_step = m_eth_data.auto_elab_step;
     }
@@ -815,6 +814,10 @@ void hrm::app_t::tick()
       m_eeprom_data.bac_new_int_multiplier) {
       m_eeprom_data.bac_new_int_multiplier = m_eth_data.bac_new_int_multiplier;
       m_bac_new_int_multiplier = m_eth_data.bac_new_int_multiplier;
+    }
+    if (m_eth_data.wild_relays != m_eeprom_data.wild_relays) {
+      m_eeprom_data.wild_relays = m_eth_data.wild_relays;
+      m_wild_relays = m_eth_data.wild_relays;
     }
     
     switch (m_balance_action) {
@@ -924,8 +927,8 @@ void hrm::app_t::tick()
           //  restore adc parametres
           m_adc.set_params(&m_adc_free_vx_param_data);
           //
-          //m_relay_bridge_pos.set_wild(false);
-          //m_relay_bridge_neg.set_wild(false);
+          m_relay_bridge_pos.set_wild(false);
+          m_relay_bridge_neg.set_wild(false);
           //
           m_eth_data.apply = 0;
           m_eth_data.prepare_pause = m_prepare_pause;
@@ -1045,6 +1048,13 @@ void hrm::app_t::tick()
                 m_adc.set_max_value(m_adc_max_value_no_prot);  
               }
             }
+            if (m_wild_relays != m_relay_bridge_pos.wild()) {
+              m_relay_bridge_pos.set_wild(m_wild_relays);
+            }
+            if (m_wild_relays != m_relay_bridge_neg.wild()) {
+              m_relay_bridge_neg.set_wild(m_wild_relays);
+            }
+            if (m_eth_data.wild_relays)
             //  ÷¿œ
             if (m_eth_data.dac_on != m_dac.is_on()) {
               if (m_eth_data.dac_on) {
@@ -1418,8 +1428,8 @@ void hrm::app_t::tick()
           m_wild_relays = m_eth_data.wild_relays;
           m_eeprom_data.wild_relays = m_wild_relays;
           if (m_wild_relays) {
-            //m_relay_bridge_pos.set_wild(true);
-            //m_relay_bridge_neg.set_wild(true);
+            m_relay_bridge_pos.set_wild(true);
+            m_relay_bridge_neg.set_wild(true);
           }
 
           m_relay_pause_timer.set(m_relay_after_pause);

@@ -116,6 +116,7 @@ public:
   virtual void set_after_pause(counter_t a_after_pause);
   virtual void tick();
   inline void set_wild(bool a_wild) { m_wild = a_wild;}
+  inline bool wild() { return m_wild; }
 private:
   enum status_t {
     st_error,
