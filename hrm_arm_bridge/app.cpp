@@ -1460,8 +1460,9 @@ void hrm::app_t::tick()
           m_no_prot = m_eth_data.no_prot;
           
           //  Параметры АЦП в режиме уравновешивания
-          m_adc.set_params(&m_adc_balance_param_data);
-          irs::mlog() << irsm("Параметры АЦП m_adc_balance_param_data") << endl;
+          //m_adc.set_params(&m_adc_balance_param_data);
+          m_adc.set_params(&m_adc_elab_param_data);
+          irs::mlog() << irsm("Параметры АЦП m_adc_elab_param_data") << endl;
 
           m_prepare_pause = m_eth_data.prepare_pause;
           m_prepare_pause_timer.set(irs::make_cnt_ms(1000));
@@ -1982,9 +1983,11 @@ void hrm::app_t::tick()
             }
             case 2: {
               if (m_dac_code > m_balanced_dac_code) {
-                m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_3;
+                //m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_3;
+                m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_2;
               } else {
-                m_dac_code = m_balanced_dac_code - m_fast_elab_dac_step_3;
+                //m_dac_code = m_balanced_dac_code - m_fast_elab_dac_step_3;
+                m_dac_code = m_balanced_dac_code - m_fast_elab_dac_step_2;
               }
               //m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_3;
               irs::mlog() << irsm("Величина прыжка ЦАП = ") 
