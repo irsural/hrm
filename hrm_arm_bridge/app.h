@@ -267,7 +267,7 @@ private:
 
   irs::mxkey_drv_mc_t m_keyboard_drv;
 
-  irs::encoder_drv_mc_t m_encoder_drv;
+  //irs::encoder_drv_mc_t m_encoder_drv;
 
   mxdisplay_drv_service_t m_lcd_drv_service;
   mxkey_event_t m_buzzer_kb_event;
@@ -298,6 +298,12 @@ private:
   //mono_relay_t m_relay_bridge_pos;
   //mono_relay_t m_relay_bridge_neg;
   mono_relay_t m_relay_prot;
+  //  HV Relays
+  mono_relay_t m_relay_hv_polarity;
+  mono_relay_t m_relay_hv_amps_gain;
+  bi_relay_t m_relay_hv_pos;
+  bi_relay_t m_relay_hv_neg;
+  bi_relay_t m_relay_hv_dac_amp;
 
   mode_t m_mode;
 
@@ -407,7 +413,7 @@ private:
 //
 //  irs::event_t m_escape_pressed_event;
   
-  termostat_t m_termostat;
+  //termostat_t m_termostat;
   irs::pid_data_t m_elab_pid;
   bool m_elab_pid_on;
   double m_elab_pid_kp;
@@ -469,7 +475,10 @@ private:
   inline bool bridge_relays_ready()
   {
     return (m_relay_bridge_pos.status() == irs_st_ready)
-      && (m_relay_bridge_neg.status() == irs_st_ready);
+      && (m_relay_bridge_neg.status() == irs_st_ready)
+      && (m_relay_hv_pos.status() == irs_st_ready)
+      && (m_relay_hv_neg.status() == irs_st_ready)
+      && (m_relay_hv_dac_amp.status() == irs_st_ready);
   }
   void print_voltage(adc_value_t a_value);
   void update_elab_pid_koefs();

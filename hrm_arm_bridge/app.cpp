@@ -14,7 +14,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   m_lcd_drv(irslcd_4x20, mp_cfg->lcd_port, mp_cfg->lcd_rs_pin,
     mp_cfg->lcd_e_pin),
   m_keyboard_drv(),
-  m_encoder_drv(mp_cfg->enc_a, mp_cfg->enc_b, mp_cfg->encoder_timer_address),
+  //m_encoder_drv(mp_cfg->enc_a, mp_cfg->enc_b, mp_cfg->encoder_timer_address),
 
   m_lcd_drv_service(),
   m_buzzer_kb_event(),
@@ -64,6 +64,27 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
 //    irst("BNEG"),
 //    0),
   m_relay_prot(&mp_cfg->relay_prot, irst("PROT"), 1),
+  //  HV Relays
+  m_relay_hv_polarity(&mp_cfg->relay_hv_polarity, irst("HVPOL"), 0),
+  m_relay_hv_amps_gain(&mp_cfg->relay_hv_amps_gain, irst("HVGAIN"), 0),
+  m_relay_hv_pos(
+    &mp_cfg->relay_hv_pos_off,
+    &mp_cfg->relay_hv_pos_on,
+    irst("HVPOS"),
+    0,
+    irs::make_cnt_ms(100)),
+  m_relay_hv_neg(
+    &mp_cfg->relay_hv_neg_off,
+    &mp_cfg->relay_hv_neg_on,
+    irst("HVNEG"),
+    0,
+    irs::make_cnt_ms(100)),
+  m_relay_hv_dac_amp(
+    &mp_cfg->relay_hv_dac_amp_off,
+    &mp_cfg->relay_hv_dac_amp_on,
+    irst("HVDAC"),
+    0,
+    irs::make_cnt_ms(100)),
   m_mode(md_free),
   m_free_status(fs_prepare),
   m_balance_status(bs_prepare),
@@ -141,7 +162,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   m_new_adc_param_elab(false),
   m_relay_pause_timer(m_relay_after_pause),
 //
-  m_termostat(&mp_cfg->aux1),
+  //m_termostat(&mp_cfg->aux1),
   m_elab_pid_on(false),
   m_elab_pid_kp(0.0),
   m_elab_pid_ki(0.0),
@@ -410,6 +431,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   m_dac.set_voltage_neg(m_eeprom_data.dac_voltage_neg);
   m_eth_data.dac_voltage_neg = m_dac.voltage_neg();
 
+  //m_no_prot = false;//
   m_no_prot = m_eeprom_data.no_prot;
   m_eth_data.no_prot = m_no_prot;
 
@@ -420,6 +442,9 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   m_eth_data.wild_relays = m_wild_relays;
   m_relay_bridge_pos.set_wild(m_wild_relays);
   m_relay_bridge_neg.set_wild(m_wild_relays);
+  m_relay_hv_pos.set_wild(m_wild_relays);
+  m_relay_hv_neg.set_wild(m_wild_relays);
+  m_relay_hv_dac_amp.set_wild(m_wild_relays);
 
   m_auto_elab_step = m_eeprom_data.auto_elab_step;
   m_eth_data.auto_elab_step = m_auto_elab_step;
@@ -489,14 +514,19 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   m_relay_bridge_pos.set_after_pause(m_min_after_pause);
   m_relay_bridge_neg.set_after_pause(m_min_after_pause);
   m_relay_prot.set_after_pause(m_min_after_pause);
-  
+  m_relay_hv_polarity.set_after_pause(m_min_after_pause);
+  m_relay_hv_amps_gain.set_after_pause(m_min_after_pause);
+  m_relay_hv_pos.set_after_pause(m_min_after_pause);
+  m_relay_hv_neg.set_after_pause(m_min_after_pause);
+  m_relay_hv_dac_amp.set_after_pause(m_min_after_pause);
+
   m_eth_data.termostat_off_pause = m_eeprom_data.termostat_off_pause;
-  m_termostat.set_after_pause(m_min_after_pause);
+  //m_termostat.set_after_pause(m_min_after_pause);
 
   //  ЖКИ и клавиатура
   m_lcd_drv_service.connect(&m_lcd_drv);
   m_keyboard_event_gen.connect(&m_keyboard_drv);
-  m_keyboard_event_gen.connect_encoder(&m_encoder_drv);
+  //m_keyboard_event_gen.connect_encoder(&m_encoder_drv);
   m_keyboard_event_gen.add_event(&m_menu_kb_event);
   m_keyboard_event_gen.add_event(&m_buzzer_kb_event);
   m_keyboard_event_gen.add_event(&m_hot_kb_event);
@@ -526,8 +556,8 @@ void hrm::app_t::init_keyboard_drv()
 
 void hrm::app_t::init_encoder_drv()
 {
-  m_encoder_drv.add_press_down_pin(&mp_cfg->enc_sw);
-  irs::set_default_keys(&m_encoder_drv);
+  //m_encoder_drv.add_press_down_pin(&mp_cfg->enc_sw);
+  //irs::set_default_keys(&m_encoder_drv);
 }
 
 void hrm::app_t::tick()
@@ -542,6 +572,11 @@ void hrm::app_t::tick()
   m_relay_bridge_pos.tick();
   m_relay_bridge_neg.tick();
   m_relay_prot.tick();
+  m_relay_hv_polarity.tick();
+  m_relay_hv_amps_gain.tick();
+  m_relay_hv_pos.tick();
+  m_relay_hv_neg.tick();
+  m_relay_hv_dac_amp.tick();
 
   m_buzzer.tick();
 
@@ -550,7 +585,7 @@ void hrm::app_t::tick()
   m_lcd_drv.tick();
   m_keyboard_event_gen.tick();
   
-  m_termostat.tick();
+  //m_termostat.tick();
   m_device_condition_controller.tick();
   m_treg_peltier.tick();
   m_treg_dac_peltier.tick();
@@ -594,6 +629,21 @@ void hrm::app_t::tick()
       }
       if (m_eth_data.relay_prot != m_relay_prot) {
         m_eth_data.relay_prot = m_relay_prot;
+      }
+      if (m_eth_data.relay_hv_polarity != m_relay_hv_polarity) {
+        m_eth_data.relay_hv_polarity = m_relay_hv_polarity;
+      }
+      if (m_eth_data.relay_hv_amps_gain != m_relay_hv_amps_gain) {
+        m_eth_data.relay_hv_amps_gain = m_relay_hv_amps_gain;
+      }
+      if (m_eth_data.relay_hv_pos != m_relay_hv_pos) {
+        m_eth_data.relay_hv_pos = m_relay_hv_pos;
+      }
+      if (m_eth_data.relay_hv_neg != m_relay_hv_neg) {
+        m_eth_data.relay_hv_neg = m_relay_hv_neg;
+      }
+      if (m_eth_data.relay_hv_dac_amp != m_relay_hv_dac_amp) {
+        m_eth_data.relay_hv_dac_amp = m_relay_hv_dac_amp;
       }
     }
     if (m_adc.new_result()) {
@@ -851,7 +901,7 @@ void hrm::app_t::tick()
 
     sync_first_to_second(&m_eth_data.dhcp_on, &m_eeprom_data.dhcp_on);
     
-    m_eth_data.termostat_is_off = m_termostat.is_off();
+    //m_eth_data.termostat_is_off = m_termostat.is_off();
     if (m_eth_data.termostat_off_pause != m_eeprom_data.termostat_off_pause) {
       m_eeprom_data.termostat_off_pause = m_eth_data.termostat_off_pause;
     }
@@ -917,6 +967,11 @@ void hrm::app_t::tick()
           m_relay_bridge_pos = 0;
           m_relay_bridge_neg = 0;
           m_relay_prot = 1;
+          m_relay_hv_polarity = 0;
+          m_relay_hv_amps_gain = 0;
+          m_relay_hv_pos = 0;
+          m_relay_hv_neg = 0;
+          m_relay_hv_dac_amp = 0;
           m_adc.set_max_value(m_adc_max_value_prot);
           //
           m_dac.show();
@@ -929,12 +984,15 @@ void hrm::app_t::tick()
           //
           m_relay_bridge_pos.set_wild(false);
           m_relay_bridge_neg.set_wild(false);
+          m_relay_hv_pos.set_wild(false);
+          m_relay_hv_neg.set_wild(false);
+          m_relay_hv_dac_amp.set_wild(false);
           //
           m_eth_data.apply = 0;
           m_eth_data.prepare_pause = m_prepare_pause;
           m_service_timer.start();
           m_meas_temperature = false;
-          m_termostat.set_off(false);
+          //m_termostat.set_off(false);
           m_eth_data.termostat_off = 0;
           m_elab_pid_on = false;
           m_eth_data.elab_pid_on = false;
@@ -1012,8 +1070,13 @@ void hrm::app_t::tick()
           m_relay_bridge_pos.set_after_pause(m_min_after_pause);
           m_relay_bridge_neg.set_after_pause(m_min_after_pause);
           m_relay_prot.set_after_pause(m_min_after_pause);
+          m_relay_hv_polarity.set_after_pause(m_min_after_pause);
+          m_relay_hv_amps_gain.set_after_pause(m_min_after_pause);
+          m_relay_hv_pos.set_after_pause(m_min_after_pause);
+          m_relay_hv_neg.set_after_pause(m_min_after_pause);
+          m_relay_hv_dac_amp.set_after_pause(m_min_after_pause);
           m_dac.set_after_pause(m_min_after_pause);
-          m_termostat.set_after_pause(m_min_after_pause);
+          //m_termostat.set_after_pause(m_min_after_pause);
           m_meas_temperature = false;
           m_manual_status = ms_adc_setup;
           break;
@@ -1033,7 +1096,7 @@ void hrm::app_t::tick()
             m_mode = md_free;
             m_eth_data.mode = md_free;
           } else {
-            //  Реле
+            //  Bridge relays
             if (m_eth_data.relay_bridge_pos != m_relay_bridge_pos) {
               m_relay_bridge_pos = m_eth_data.relay_bridge_pos;
             }
@@ -1048,13 +1111,40 @@ void hrm::app_t::tick()
                 m_adc.set_max_value(m_adc_max_value_no_prot);  
               }
             }
+            //  HV relays
+            if (m_eth_data.relay_hv_polarity != m_relay_hv_polarity) {
+              m_relay_hv_polarity = m_eth_data.relay_hv_polarity;
+            }
+            if (m_eth_data.relay_hv_amps_gain != m_relay_hv_amps_gain) {
+              m_relay_hv_amps_gain = m_eth_data.relay_hv_amps_gain;
+            }
+            if (m_eth_data.relay_hv_pos != m_relay_hv_pos) {
+              m_relay_hv_pos = m_eth_data.relay_hv_pos;
+            }
+            if (m_eth_data.relay_hv_neg != m_relay_hv_neg) {
+              m_relay_hv_neg = m_eth_data.relay_hv_neg;
+            }
+            if (m_eth_data.relay_hv_dac_amp != m_relay_hv_dac_amp) {
+              m_relay_hv_dac_amp = m_eth_data.relay_hv_dac_amp;
+            }
+            //  Wild mode for bridge relays
             if (m_wild_relays != m_relay_bridge_pos.wild()) {
               m_relay_bridge_pos.set_wild(m_wild_relays);
             }
             if (m_wild_relays != m_relay_bridge_neg.wild()) {
               m_relay_bridge_neg.set_wild(m_wild_relays);
             }
-            if (m_eth_data.wild_relays)
+            //  Wild mode for HV relays
+            if (m_wild_relays != m_relay_hv_pos.wild()) {
+              m_relay_hv_pos.set_wild(m_wild_relays);
+            }
+            if (m_wild_relays != m_relay_hv_neg.wild()) {
+              m_relay_hv_neg.set_wild(m_wild_relays);
+            }
+            if (m_wild_relays != m_relay_hv_dac_amp.wild()) {
+              m_relay_hv_dac_amp.set_wild(m_wild_relays);
+            }
+            //if (m_eth_data.wild_relays)
             //  ЦАП
             if (m_eth_data.dac_on != m_dac.is_on()) {
               if (m_eth_data.dac_on) {
@@ -1113,13 +1203,13 @@ void hrm::app_t::tick()
               m_manual_status = ms_pid_start;
             }
             //
-            bool thst_is_off = false;
-            if (m_eth_data.termostat_off) {
-              thst_is_off = true;
-            }
-            if (thst_is_off != m_termostat.is_off()) {
-              m_termostat.set_off(thst_is_off);
-            }
+            //bool thst_is_off = false;
+//            if (m_eth_data.termostat_off) {
+//              thst_is_off = true;
+//            }
+//            if (thst_is_off != m_termostat.is_off()) {
+//              m_termostat.set_off(thst_is_off);
+//            }
           } break;
         }
         case ms_adc_show: {
@@ -1214,13 +1304,13 @@ void hrm::app_t::tick()
               m_elab_pid_sko.resize_average(m_eth_data.elab_pid_avg_cnt);
               //update_elab_pid_koefs();
             }
-            bool thst_is_off = false;
+            /*bool thst_is_off = false;
             if (m_eth_data.termostat_off) {
               thst_is_off = true;
             }
             if (thst_is_off != m_termostat.is_off()) {
               m_termostat.set_off(thst_is_off);
-            }
+            }*/
             if (m_eth_data.elab_pid_reset == 1) {
               m_eth_data.elab_pid_reset = 0;
               irs::mlog() << irsm("PID RESET") << endl;
@@ -1302,6 +1392,9 @@ void hrm::app_t::tick()
         case ss_on: {
           if (bridge_relays_ready()) {
             m_relay_bridge_pos = 1;
+            m_relay_hv_pos = 1;
+            m_relay_hv_dac_amp = 0;
+            m_relay_hv_amps_gain = 0;
             m_scan_status = ss_dac_prepare;
           }
           break;
@@ -1380,6 +1473,9 @@ void hrm::app_t::tick()
         case ss_relay_off: {
           if (bridge_relays_ready()) {
             m_relay_bridge_pos = 0;
+            m_relay_hv_pos = 0;
+            m_relay_hv_dac_amp = 0;
+            m_relay_hv_amps_gain = 0;
             m_scan_status = ss_relay_wait;
           }
           break;
@@ -1424,12 +1520,20 @@ void hrm::app_t::tick()
           m_relay_bridge_pos.set_after_pause(m_relay_after_pause);
           m_relay_bridge_neg.set_after_pause(m_relay_after_pause);
           m_relay_prot.set_after_pause(m_relay_after_pause);
+          m_relay_hv_polarity.set_after_pause(m_relay_after_pause);
+          m_relay_hv_amps_gain.set_after_pause(m_relay_after_pause);
+          m_relay_hv_pos.set_after_pause(m_relay_after_pause);
+          m_relay_hv_neg.set_after_pause(m_relay_after_pause);
+          m_relay_hv_dac_amp.set_after_pause(m_relay_after_pause);
 
           m_wild_relays = m_eth_data.wild_relays;
           m_eeprom_data.wild_relays = m_wild_relays;
           if (m_wild_relays) {
             m_relay_bridge_pos.set_wild(true);
             m_relay_bridge_neg.set_wild(true);
+            m_relay_hv_pos.set_wild(true);
+            m_relay_hv_neg.set_wild(true);
+            m_relay_hv_dac_amp.set_wild(true);
           }
 
           m_relay_pause_timer.set(m_relay_after_pause);
@@ -1443,6 +1547,7 @@ void hrm::app_t::tick()
             m_eeprom_data.elab_step = m_elab_step;
           }
           m_auto_elab_step = m_eth_data.auto_elab_step;
+          
           m_exp_vector.clear();
           m_elab_vector.clear();
           m_fast_elab_vector.clear();
@@ -1458,11 +1563,11 @@ void hrm::app_t::tick()
           }
 
           m_no_prot = m_eth_data.no_prot;
+          m_eth_data.no_prot = m_no_prot;
           
           //  Параметры АЦП в режиме уравновешивания
-          //m_adc.set_params(&m_adc_balance_param_data);
-          m_adc.set_params(&m_adc_elab_param_data);
-          irs::mlog() << irsm("Параметры АЦП m_adc_elab_param_data") << endl;
+          m_adc.set_params(&m_adc_balance_param_data);
+          irs::mlog() << irsm("Параметры АЦП m_adc_balance_param_data") << endl;
 
           m_prepare_pause = m_eth_data.prepare_pause;
           m_prepare_pause_timer.set(irs::make_cnt_ms(1000));
@@ -1472,9 +1577,6 @@ void hrm::app_t::tick()
           m_eth_data.sum_time = 0;
           m_remaining_time_calculator.reset();
           m_remaining_time_calculator.start(m_prepare_pause);
-          //m_remaining_time = 50; // Пока не реализован расчет времени!!!!!
-          //m_remaining_time = m_prepare_pause + rtd_full_time;
-          //m_remaining_time_data.balance_action = ba_prepare;
           
           m_optimize_balance = m_eth_data.optimize_balance;
 
@@ -1487,12 +1589,24 @@ void hrm::app_t::tick()
           m_elab_step_multiplier = m_eth_data.elab_step_multiplier;
           m_elab_max_delta = m_eth_data.elab_max_delta;
           
-          m_termostat.set_off(false);
-          m_termostat.set_after_pause(
-            DBLTIME_TO_CNT(m_eth_data.termostat_off_pause));
           m_device_condition_controller.set_idle(true);
             
           m_elab_mode = convert_u8_to_elab_mode(m_eth_data.elab_mode);
+          irs::mlog() << irsm("Уточнение: ") << m_elab_mode;
+          switch (m_elab_mode) {
+            case em_linear: {
+              irs::mlog() << irsm(" (линейное)") << endl;
+            } break;
+            case em_pid: {
+              irs::mlog() << irsm(" (ПИД)") << endl;
+            } break;
+            case em_fast_2points: {
+              irs::mlog() << irsm(" (быстрое по 2 точкам)") << endl;
+            } break;
+            default: {
+              irs::mlog() << irsm(" (нет)") << endl;
+            }
+          }
           
           m_balance_action = ba_prepare;
           m_remaining_time_calculator.change_balance_action(m_balance_action);
@@ -1509,6 +1623,8 @@ void hrm::app_t::tick()
               m_relay_prot = 0;
               m_adc.set_max_value(m_adc_max_value_no_prot);
             }
+            m_relay_hv_dac_amp = 0;
+            m_relay_hv_amps_gain = 0;
             m_balance_status = bs_set_coils;
           }
           break;
@@ -1522,10 +1638,12 @@ void hrm::app_t::tick()
             case bp_neg:
               irs::mlog() << irsm("------------- (-) ---------------") <<endl;
               m_relay_bridge_neg = 1;
+              m_relay_hv_neg = 1;
               break;
             case bp_pos:
               irs::mlog() << irsm("------------- (+) ---------------") <<endl;
               m_relay_bridge_pos = 1;
+              m_relay_hv_pos = 1;
               break;
             }
             m_balance_status = bs_coils_wait;
@@ -1538,6 +1656,7 @@ void hrm::app_t::tick()
             m_relay_pause_timer.start();
             float pause
               = 0.001 * static_cast<float>(m_eth_data.relay_pause_ms);
+            irs::mlog() << setprecision(0);
             irs::mlog() << irsm("Пауза реле ") << pause << irsm(" c") << endl;
             m_balance_status = bs_coils_relay_pause;
           }
@@ -1546,6 +1665,7 @@ void hrm::app_t::tick()
         case bs_coils_relay_pause: {
           if (m_relay_pause_timer.check()) {
             //  Пауза перед измерениями
+            irs::mlog() << irsm("Реле готовы") << endl;
             m_balance_status = bs_set_pause;
           }
           break;
@@ -1557,8 +1677,10 @@ void hrm::app_t::tick()
               m_is_exp = false;
               m_prepare_pause_timer.start();
               m_prepare_current_time = m_prepare_pause;
-              irs::mlog() << endl << irsm("Пауза ") << m_eth_data.prepare_pause;
-              irs::mlog() << irsm(" c") << endl;
+              
+              irs::mlog() << endl << irsm("Предварительная пауза ");
+              irs::mlog() << m_eth_data.prepare_pause << irsm(" c") << endl;
+              
               m_adc.hide();
               m_dac.hide();
               m_balance_action = ba_prepare_pause;
@@ -1699,7 +1821,7 @@ void hrm::app_t::tick()
         }
         case bs_termostat_off_adc_start: {
           if(m_dac.ready()) {
-            m_termostat.set_off(true);
+            //m_termostat.set_off(true);
             m_device_condition_controller.set_idle(false);
             m_balance_status = bs_adc_start;
           }
@@ -1707,7 +1829,7 @@ void hrm::app_t::tick()
         }
         case bs_adc_start: {
           if (m_adc.status() == irs_st_ready 
-              && m_termostat.status() == irs_st_ready) {
+              /*&& m_termostat.status() == irs_st_ready*/) {
             m_adc.start_conversion();
             m_balance_status = bs_adc_wait;
           }
@@ -1718,7 +1840,7 @@ void hrm::app_t::tick()
             adc_result_data_t adc_result_data;
             m_adc.result(&adc_result_data);
             adc_value_t adc_result = adc_result_data.avg;
-            m_termostat.set_off(false);
+            //m_termostat.set_off(false);
             m_device_condition_controller.set_idle(true);
             //bool m_prev_balance_completed = false;
             
@@ -1763,6 +1885,7 @@ void hrm::app_t::tick()
 
                 irs::mlog() << defaultfloat << fixed;
                 irs::mlog() << setw(2) << m_current_iteration+1 << irsm(" : ");
+                irs::mlog() << setprecision(0);
                 irs::mlog() << setw(8) << m_dac_code << irsm(" : ");
                 irs::mlog() << setw(8) << m_dac_step << irsm(" : ");
                 irs::mlog() << setprecision(7) << fixed;
@@ -1771,7 +1894,7 @@ void hrm::app_t::tick()
                 adc_value_t rel_sko = abs(adc_result_data.sko * 1e6);
                 irs::mlog() << setw(8) << fixed << rel_sko << irsm(" ppm : ");
                 irs::mlog() << adc_result_data.current_point << endl;
-                irs::mlog() << defaultfloat;
+                irs::mlog() << defaultfloat << setprecision(0);
                 irs::mlog() << irsm("PREV ") << setw(8) << fixed << m_balanced_dac_code;
                 irs::mlog() << endl;
                 //m_prev_balance_completed = true;
@@ -1840,6 +1963,7 @@ void hrm::app_t::tick()
               set_current_balance_point(m_current_iteration);
             irs::mlog() << defaultfloat << fixed;
             irs::mlog() << setw(2) << m_current_iteration << irsm(" : ");
+            irs::mlog() << setprecision(0);
             irs::mlog() << setw(8) << m_dac_code << irsm(" : ");
             irs::mlog() << setw(8) << m_dac_step << irsm(" : ");
             irs::mlog() << setprecision(7);
@@ -1897,14 +2021,14 @@ void hrm::app_t::tick()
         }
         case bs_termostat_off_dac_wait: {
           if (m_dac.ready()) {
-            m_termostat.set_off(true);
+            //m_termostat.set_off(true);
             m_device_condition_controller.set_idle(false);
             m_balance_status = bs_dac_wait;
           }
           break;
         }
         case bs_dac_wait: {
-          if (m_termostat.status() == irs_st_ready) {
+          if (/*m_termostat.status() == irs_st_ready*/true) {
             m_balance_status = bs_adc_start;
           }
           break;
@@ -1970,7 +2094,7 @@ void hrm::app_t::tick()
           //irs::mlog() << irsm("Величина прыжка ЦАП = ") 
             //<< m_fast_elab_dac_step << endl;
           //  Внесение ассиметрии для нормальной работы новой формулы
-          irs::mlog() << defaultfloat << fixed;
+          irs::mlog() << defaultfloat << fixed << setprecision(0);
           switch (m_fast_elab_vector.size()) {
             case 0: {
               m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_2;
@@ -2186,6 +2310,8 @@ void hrm::app_t::tick()
 
               m_relay_bridge_pos = 0;
               m_relay_bridge_neg = 0;
+              m_relay_hv_pos = 0;
+              m_relay_hv_neg = 0;
               m_balance_status = bs_set_prot;
             } else {
               m_current_elab = 0;
@@ -2255,14 +2381,14 @@ void hrm::app_t::tick()
         }
         case bs_termostat_off_elab_adc_start: {
           if (m_dac.ready()) {
-            m_termostat.set_off(true);
+            //m_termostat.set_off(true);
             m_device_condition_controller.set_idle(false);
             m_balance_status = bs_elab_adc_start;
           }
           break;
         }
         case bs_elab_adc_start: {
-          if (m_termostat.status() == irs_st_ready) {
+          if (/*m_termostat.status() == irs_st_ready*/true) {
             m_adc.start_conversion();
             m_balance_status = bs_elab_adc_wait;
           }
@@ -2270,7 +2396,7 @@ void hrm::app_t::tick()
         }
         case bs_elab_adc_wait: {
           if (m_adc.status() == irs_st_ready) {
-            m_termostat.set_off(false);
+            //m_termostat.set_off(false);
             m_device_condition_controller.set_idle(true);
             elab_point_t elab_point;
             elab_point.dac = m_dac.get_code();
@@ -2352,6 +2478,10 @@ void hrm::app_t::tick()
           if (m_relay_prot.status() == irs_st_ready) {
             m_relay_bridge_pos = 0;
             m_relay_bridge_neg = 0;
+            m_relay_hv_pos = 0;
+            m_relay_hv_neg = 0;
+            m_relay_hv_dac_amp = 0;
+            m_relay_hv_amps_gain = 0;
             m_balance_status = bs_wait_relays;
           }
           break;
@@ -3669,7 +3799,7 @@ void hrm::app_t::show_experiment_parameters()
   
   irs::mlog() << endl;
   
-  irs::mlog() << setprecision(4);
+  irs::mlog() << setprecision(1);
   
   irs::mlog() << setw(18) << left << irsm("adc_max_value_prot ");
   irs::mlog() << setw(7) << left << m_adc_max_value_prot;
@@ -3698,13 +3828,15 @@ void hrm::app_t::show_experiment_parameters()
   irs::mlog() << setw(18) << left << irsm("use_adc_adaptive_sko ");
   irs::mlog() << setw(7) << left << m_eth_data.use_adc_adaptive_sko;
   
+  irs::mlog() << setprecision(2);
+  
   irs::mlog() << setw(32) << left << irsm("adaptive_sko_elab_multiplier ");
   irs::mlog() << setw(7) << left;
-  irs::mlog() << 1.0 + m_eth_data.adaptive_sko_elab_multiplier;
+  irs::mlog() << m_eth_data.adaptive_sko_elab_multiplier;
   
   irs::mlog() << setw(32) << left << irsm("adaptive_sko_balance_multiplier ");
   irs::mlog() << setw(7) << left;
-  irs::mlog() << 1.0 + m_eth_data.adaptive_sko_balance_multiplier;
+  irs::mlog() << m_eth_data.adaptive_sko_balance_multiplier;
   
   irs::mlog() << endl;
   
@@ -3813,27 +3945,33 @@ void hrm::app_t::show_last_result()
     irs::mlog() << endl;
     irs::mlog() << irsm("----------- Пересечения серии экспериментов");
     irs::mlog() << irsm(" -----------") << endl;
-    irs::mlog() << irsm("№     ");
-    irs::mlog() << irsm("NEG            ");
-    irs::mlog() << irsm("NEG_0          ");
-    irs::mlog() << irsm("POS            ");
-    irs::mlog() << irsm("POS_0          ");
-    irs::mlog() << irsm("n0             ");
-    irs::mlog() << irsm("num            ");
-    irs::mlog() << irsm("den            ");
+    irs::mlog() << irsm("№   ");
+    irs::mlog() << irsm("NEG           ");
+    irs::mlog() << irsm("NEG_0         ");
+    irs::mlog() << irsm("POS           ");
+    irs::mlog() << irsm("POS_0         ");
+    irs::mlog() << irsm("n0            ");
+    irs::mlog() << irsm("num           ");
+    irs::mlog() << irsm("den           ");
     irs::mlog() << endl;
+    irs::mlog() << left;
     
     for (size_t i = 0; i < m_exp_vector.size(); i++) {
-      irs::mlog() << setw(3) << i + 1;irs::mlog() << irsm(" ");
-      irs::mlog() << setprecision(12);
+      irs::mlog() << setw(3) << i + 1;
+      irs::mlog() << irsm(" ");
+      irs::mlog() << setprecision(5);
       irs::mlog() << setw(13) << m_exp_vector[i].ch_code * pow(2., 19);
       irs::mlog() << irsm(" ");
+      irs::mlog() << setprecision(0);
       irs::mlog() << setw(13) << m_exp_vector[i].ch_balanced_code;
       irs::mlog() << irsm(" ");
+      irs::mlog() << setprecision(5);
       irs::mlog() << setw(13) << m_exp_vector[i].et_code * pow(2., 19);
+      irs::mlog() << setprecision(0);
       irs::mlog() << irsm(" ");
       irs::mlog() << setw(13) << m_exp_vector[i].et_balanced_code;
       irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].n0;
+      irs::mlog() << setprecision(3);
       irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].num;
       irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].den;
       irs::mlog() << endl;
@@ -3993,21 +4131,21 @@ void hrm::app_t::remaining_time_calculator_t::change_balance_action(
     }
     case ba_balance_neg: {
       m_meas_prepare_time = m_current_time;
-      irs::mlog() << irsm("Prepare time = ") << m_meas_prepare_time;
-      irs::mlog() << irsm(" s") << endl;
+      irs::mlog() << irsm("Измеренное время подготовки ");
+      irs::mlog() << m_meas_prepare_time << irsm(" с") << endl;
       break;
     }
     case ba_elab_neg: {
       m_meas_balance_time = m_current_time - m_meas_prepare_time;
-      irs::mlog() << irsm("Balance time = ") << m_meas_prepare_time;
-      irs::mlog() << irsm(" s") << endl;
+      irs::mlog() << irsm("Измеренное время уравновешивания ");
+      irs::mlog() << m_meas_balance_time << irsm(" с") << endl;
       break;
     }
     case ba_balance_pos: {
       m_meas_elab_time = 
         m_current_time - m_meas_prepare_time - m_meas_balance_time;
-      irs::mlog() << irsm("Elab time = ") << m_meas_prepare_time;
-      irs::mlog() << irsm(" s") << endl;
+      irs::mlog() << irsm("Измеренное время уточнения ");
+      irs::mlog() << m_meas_elab_time << irsm(" с") << endl;
       break;
     }
     case ba_elab_pos: {

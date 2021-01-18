@@ -104,11 +104,11 @@ hrm::cfg_t::cfg_t():
   //  AUX
   led_blink(GPIO_PORTD, 8, irs::io_t::dir_out, irs::io_pin_off),
   ee_cs(GPIO_PORTE, 15, irs::io_t::dir_out, irs::io_pin_on),
-  aux1(GPIO_PORTC, 9, irs::io_t::dir_out, irs::io_pin_off),
-  aux2(GPIO_PORTA, 11, irs::io_t::dir_out, irs::io_pin_off),
-  aux3(GPIO_PORTA, 12, irs::io_t::dir_out, irs::io_pin_off),
-  mezzo1(GPIO_PORTF, 4, irs::io_t::dir_out, irs::io_pin_off),
-  mezzo2(GPIO_PORTF, 5, irs::io_t::dir_out, irs::io_pin_off),
+//  aux1(GPIO_PORTC, 9, irs::io_t::dir_out, irs::io_pin_off),
+//  aux2(GPIO_PORTA, 11, irs::io_t::dir_out, irs::io_pin_off),
+//  aux3(GPIO_PORTA, 12, irs::io_t::dir_out, irs::io_pin_off),
+//  mezzo1(GPIO_PORTF, 4, irs::io_t::dir_out, irs::io_pin_off),
+//  mezzo2(GPIO_PORTF, 5, irs::io_t::dir_out, irs::io_pin_off),
   mezzo3(GPIO_PORTB, 0, irs::io_t::dir_out, irs::io_pin_off),
   mezzo4(GPIO_PORTB, 1, irs::io_t::dir_out, irs::io_pin_off),
   //  UI
@@ -117,10 +117,10 @@ hrm::cfg_t::cfg_t():
   lcd_e_pin(GPIO_PORTG, 6, irs::io_t::dir_open_drain),
   key_drv_horizontal_pins(),
   key_drv_vertical_pins(),
-  enc_a(PC6),
-  enc_b(PC7),
-  encoder_timer_address(IRS_TIM3_BASE),
-  enc_sw(GPIO_PORTC, 8, irs::io_t::dir_in),
+//  enc_a(PC6),
+//  enc_b(PC7),
+//  encoder_timer_address(IRS_TIM3_BASE),
+//  enc_sw(GPIO_PORTC, 8, irs::io_t::dir_in),
   buzzer(irs::handle_t<irs::pwm_gen_t>(
     new irs::arm::st_pwm_gen_t(PF6, IRS_TIM10_BASE, 4000, 0.5))),
   //  ADC
@@ -142,6 +142,15 @@ hrm::cfg_t::cfg_t():
   relay_bridge_neg_on(GPIO_PORTD, 2, irs::io_t::dir_out, irs::io_pin_off),
   relay_bridge_neg_off(GPIO_PORTD, 1, irs::io_t::dir_out, irs::io_pin_off),
   relay_prot(GPIO_PORTF, 3, irs::io_t::dir_out, irs::io_pin_on),
+  //  Relays HV
+  relay_hv_polarity(GPIO_PORTF, 4, irs::io_t::dir_out, irs::io_pin_off),  //mz1
+  relay_hv_amps_gain(GPIO_PORTF, 5, irs::io_t::dir_out, irs::io_pin_off), //mz2
+  relay_hv_pos_on(GPIO_PORTC, 9, irs::io_t::dir_out, irs::io_pin_off),    //au1
+  relay_hv_pos_off(GPIO_PORTC, 6, irs::io_t::dir_out, irs::io_pin_off),   //enca
+  relay_hv_neg_on(GPIO_PORTC, 8, irs::io_t::dir_out, irs::io_pin_off),    //encs
+  relay_hv_neg_off(GPIO_PORTC, 7, irs::io_t::dir_out, irs::io_pin_off),   //encb
+  relay_hv_dac_amp_on(GPIO_PORTA, 12, irs::io_t::dir_out, irs::io_pin_off),//au3
+  relay_hv_dac_amp_off(GPIO_PORTA, 11, irs::io_t::dir_out, irs::io_pin_off),//a2
   //  SPI
   m_spi_bitrate(1000000),
   spi_adc(IRS_SPI3_I2S3_BASE, m_spi_bitrate, PC10, PC11, PC12,

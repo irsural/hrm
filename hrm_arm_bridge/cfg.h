@@ -141,11 +141,11 @@ public:
   //  AUX
   irs::arm::io_pin_t led_blink;
   irs::arm::io_pin_t ee_cs;
-  irs::arm::io_pin_t aux1;
-  irs::arm::io_pin_t aux2;
-  irs::arm::io_pin_t aux3;
-  irs::arm::io_pin_t mezzo1;
-  irs::arm::io_pin_t mezzo2;
+//  irs::arm::io_pin_t aux1;
+//  irs::arm::io_pin_t aux2;
+//  irs::arm::io_pin_t aux3;
+//  irs::arm::io_pin_t mezzo1;
+//  irs::arm::io_pin_t mezzo2;
   irs::arm::io_pin_t mezzo3;
   irs::arm::io_pin_t mezzo4;
   //  UI
@@ -154,10 +154,10 @@ public:
   irs::arm::io_pin_t lcd_e_pin;
   vector<irs::handle_t<irs::gpio_pin_t> > key_drv_horizontal_pins;
   vector<irs::handle_t<irs::gpio_pin_t> > key_drv_vertical_pins;
-  gpio_channel_t enc_a;
-  gpio_channel_t enc_b;
-  size_t encoder_timer_address;
-  irs::arm::io_pin_t enc_sw;
+//  gpio_channel_t enc_a;
+//  gpio_channel_t enc_b;
+//  size_t encoder_timer_address;
+//  irs::arm::io_pin_t enc_sw;
   irs::pwm_pin_t buzzer;
   //  ADC
   irs::arm::io_pin_t adc_cs;
@@ -178,6 +178,15 @@ public:
   irs::arm::io_pin_t relay_bridge_neg_on;
   irs::arm::io_pin_t relay_bridge_neg_off;
   irs::arm::io_pin_t relay_prot;
+  //  Relays HV
+  irs::arm::io_pin_t relay_hv_polarity;
+  irs::arm::io_pin_t relay_hv_amps_gain;
+  irs::arm::io_pin_t relay_hv_pos_on;
+  irs::arm::io_pin_t relay_hv_pos_off;
+  irs::arm::io_pin_t relay_hv_neg_on;
+  irs::arm::io_pin_t relay_hv_neg_off;
+  irs::arm::io_pin_t relay_hv_dac_amp_on;
+  irs::arm::io_pin_t relay_hv_dac_amp_off;
   //  SPI
   irs_u32 m_spi_bitrate;
   irs::arm::arm_spi_t spi_adc;

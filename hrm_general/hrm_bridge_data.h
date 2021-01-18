@@ -87,11 +87,11 @@ struct eth_data_t {
   irs::conn_data_t<double> ratio;           //  8 byte
   irs::conn_data_t<double> checked_prev;    //  8 byte
   //  manual
-  irs::bit_data_t relay_1g;
-  irs::bit_data_t relay_100m;
-  irs::bit_data_t relay_10m;
-  irs::bit_data_t relay_1m;
-  irs::bit_data_t relay_100k;
+  irs::bit_data_t relay_hv_polarity;
+  irs::bit_data_t relay_hv_amps_gain;
+  irs::bit_data_t relay_hv_pos;
+  irs::bit_data_t relay_hv_neg;
+  irs::bit_data_t relay_hv_dac_amp;
   irs::bit_data_t relay_chon;
   irs::bit_data_t relay_eton;
   irs::bit_data_t relay_prot;
@@ -393,11 +393,11 @@ struct eth_data_t {
     index = ratio.connect(ap_data, index);
     index = checked_prev.connect(ap_data, index);
 
-    relay_1g.connect(ap_data, index, 0);
-    relay_100m.connect(ap_data, index, 1);
-    relay_10m.connect(ap_data, index, 2);
-    relay_1m.connect(ap_data, index, 3);
-    relay_100k.connect(ap_data, index, 4);
+    relay_hv_polarity.connect(ap_data, index, 0);
+    relay_hv_amps_gain.connect(ap_data, index, 1);
+    relay_hv_pos.connect(ap_data, index, 2);
+    relay_hv_neg.connect(ap_data, index, 3);
+    relay_hv_dac_amp.connect(ap_data, index, 4);
     relay_chon.connect(ap_data, index, 5);
     relay_eton.connect(ap_data, index, 6);
     relay_prot.connect(ap_data, index, 7);
