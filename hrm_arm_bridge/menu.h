@@ -60,7 +60,8 @@ protected:
   enum { item_edited = 1 };
   enum { item_read_only = 0 };
   enum { r_width = 13 };
-  enum { r_precision = 8 };
+  enum { r_precision = 8,
+          r_precision_D = 12};
   const double r_min;
   const double r_max;
   virtual void draw() = 0;
@@ -132,10 +133,15 @@ private:
   irs_menu_string_item_t m_str_2_item;
   irs_menu_string_item_t m_str_3_item;
   irs_menu_string_item_t m_str_4_item;
+  
+  float m_version;
+  irs_menu_simply_item_t<float> m_version_item;
 
   irs_advanced_tablo_t m_main_screen;
   irs_menu_base_t* mp_cur_menu;
   irs::timer_t m_timeout;
+  static const irs_u8 m_user_str_len = 30;
+  char mp_user_str[m_user_str_len + 1];
 };
 
 class experiment_options_dialog_t: public form_t
@@ -154,13 +160,21 @@ private:
   irs_menu_string_item_t m_mode_item;
   irs_menu_string_item_t m_hint_item;
 
+  double m_prepare_pause_value;
+  irs_menu_double_item_t m_prepare_pause_item;
+  mxfact_event_t m_prepare_pause_event;
+  
+  double m_r_checked_prev;
+  irs_menu_double_item_t m_r_checked_prev_item;
+  mxfact_event_t m_r_checked_prev_event;
+  
   double m_r_standard;
   irs_menu_double_item_t m_r_standard_item;
   mxfact_event_t m_r_standard_changed_event;
 
-  irs_bool m_menu_r_standart_type;
-  irs_menu_bool_item_t m_r_standart_type_item;
-  mxfact_event_t m_r_standart_type_changed_event;
+  double m_r_checked;
+  irs_menu_double_item_t m_r_checked_item;
+  mxfact_event_t m_r_checked_changed_event;
 
   static const irs_u8 m_user_str_len = 30;
   char mp_user_str[m_user_str_len + 1];
@@ -198,7 +212,7 @@ private:
     string_type prefix;
   };
 
-
+  irs_menu_string_item_t m_caption_item;
   irs_menu_string_item_t m_mode_item;
 
   menu_str_item_t m_elapsed_time_item;
@@ -238,6 +252,8 @@ private:
 
   irs_menu_string_item_t m_mode_item;
 
+  double m_ratio;
+  irs_menu_double_item_t m_ratio_item;
   double m_r_standard;
   irs_menu_double_item_t m_r_standard_item;
   enum { r_standard_str_len = 30 };
@@ -392,14 +408,6 @@ private:
   char mp_user_str[buffer_str_len + 1];
 
   irs_advanced_tablo_t m_parent_menu;
-
-  double m_prepare_pause_value;
-  irs_menu_double_item_t m_prepare_pause_item;
-  mxfact_event_t m_prepare_pause_event;
-
-  double m_thermostat_temperature_value;
-  irs_menu_double_item_t m_thermostat_temperature_item;
-  mxfact_event_t m_thermostat_temperature_event;
 
   irs_advanced_tablo_t m_result_item;
   irs_advanced_tablo_t m_calculation_errors_item;

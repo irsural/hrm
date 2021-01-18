@@ -116,6 +116,7 @@ public:
   virtual void set_after_pause(counter_t a_after_pause);
   virtual void tick();
   inline void set_wild(bool a_wild) { m_wild = a_wild;}
+  inline bool wild() { return m_wild; }
 private:
   enum status_t {
     st_error,
@@ -377,6 +378,7 @@ struct adc_param_data_t {
   impf_type_t impf_type;
   cont_mode_t cont_mode;
   adc_value_t cont_sko;
+  void copy(adc_param_data_t* ap_data);
 };
 
 class ad7799_cread_t
@@ -589,6 +591,390 @@ private:
   bool m_is_off;
   irs::timer_t m_timer;
   irs_status_t m_status;
+};
+
+class show_network_params_t
+{
+public:
+  show_network_params_t(network_config_t* ap_config);
+};
+
+class adc_conditioner_t
+{
+public:
+  explicit adc_conditioner_t(irs::conn_data_t<th_value_t>* ap_out_data,
+    th_value_t a_sub, th_value_t a_div, th_value_t a_vref, th_value_t a_tau);
+  ~adc_conditioner_t() {};
+  th_value_t convert(irs_u16 a_value);
+  th_value_t convert(th_value_t a_value);
+private:
+  irs::conn_data_t<th_value_t>* mp_out_data;
+  th_value_t m_sub;
+  th_value_t m_div;
+  irs::fade_data_t m_fade_data;
+  bool m_need_fade_preset;
+  bool m_need_conditioning;
+  const th_value_t m_fade_tau;
+  const th_value_t m_vref;
+};
+
+class device_condition_controller_t
+{
+public:
+  explicit device_condition_controller_t(
+    irs::gpio_pin_t* ap_fan_ac_on,
+    irs::gpio_pin_t* ap_fan_dc_ls,
+    irs::gpio_pin_t* ap_fan_dc_hs,
+    irs::gpio_pin_t* ap_fan_dc_sen,
+    irs::conn_data_t<th_value_t>* ap_th_dac_data,
+    irs::conn_data_t<th_value_t>* ap_th_box_ldo_data,
+    irs::conn_data_t<th_value_t>* ap_th_box_adc_data,
+    irs::conn_data_t<th_value_t>* ap_th_mcu_data,
+    irs::conn_data_t<th_value_t>* ap_th_ext_1_data,
+    irs::conn_data_t<th_value_t>* ap_th_ext_2_data,
+    irs::conn_data_t<th_value_t>* ap_volt_box_neg_data,
+    irs::conn_data_t<th_value_t>* ap_volt_box_pos_data,
+    irs::conn_data_t<irs_u8>* ap_fan_mode_data,
+    irs::conn_data_t<irs_u8>* ap_fan_mode_ee_data,
+    irs::conn_data_t<irs_u8>* ap_fan_status_data,
+    irs::conn_data_t<irs_u8>* ap_fan_ac_speed_data,
+    irs::conn_data_t<irs_u8>* ap_fan_ac_speed_ee_data,
+    irs::conn_data_t<irs_u8>* ap_fan_dc_speed_data,
+    irs::conn_data_t<irs_u8>* ap_fan_dc_speed_ee_data,
+    irs::conn_data_t<float>* ap_fan_dc_speed_sence_data);
+  ~device_condition_controller_t() {};
+  void tick();
+  inline void set_idle(bool a_idle) { m_idle = a_idle; m_need_changes = true; }
+  inline void show(bool a_show) { m_show = a_show; }
+private:
+  enum {
+    adc1_address = IRS_ADC1_BASE,
+    adc2_address = IRS_ADC3_BASE,
+    th_dac_ch = irs::arm::st_adc_t::ADC12_PA4_CH4,
+    th_box_ldo_ch = irs::arm::st_adc_t::ADC123_PA3_CH3,
+    th_box_adc_ch = irs::arm::st_adc_t::ADC3_PF9_CH7,
+    volt_box_neg_ch = irs::arm::st_adc_t::ADC123_PC0_CH10,
+    volt_box_pos_ch = irs::arm::st_adc_t::ADC3_PF10_CH8,
+    th_mcu_ch = irs::arm::st_adc_t::ADC1_TEMPERATURE,
+    th_ext_1_ch = irs::arm::st_adc_t::ADC123_PA0_CH0,
+    th_ext_2_ch = irs::arm::st_adc_t::ADC12_PA6_CH6,
+    adc1_mask = th_dac_ch | th_box_ldo_ch | th_mcu_ch | th_ext_1_ch|th_ext_2_ch,
+    adc2_mask = th_box_adc_ch | volt_box_pos_ch,
+    m_fan_ac_max_speed = 1,
+    m_fan_dc_max_speed = 2
+  };
+  const th_value_t m_fade_tau;
+  const th_value_t m_vref;
+  irs::gpio_pin_t* mp_fan_ac_on;
+  irs::gpio_pin_t* mp_fan_dc_ls;
+  irs::gpio_pin_t* mp_fan_dc_hs;
+  irs::gpio_pin_t* mp_fan_dc_sen;
+  irs::conn_data_t<irs_u8>* mp_fan_mode_data;
+  irs::conn_data_t<irs_u8>* mp_fan_mode_ee_data;
+  irs::conn_data_t<irs_u8>* mp_fan_status_data;
+  irs::conn_data_t<irs_u8>* mp_fan_ac_speed_data;
+  irs::conn_data_t<irs_u8>* mp_fan_ac_speed_ee_data;
+  irs::conn_data_t<irs_u8>* mp_fan_dc_speed_data;
+  irs::conn_data_t<irs_u8>* mp_fan_dc_speed_ee_data;
+  irs::conn_data_t<float>* mp_fan_dc_speed_sence_data;
+  irs_u8 m_th_dac_channel_number;
+  irs_u8 m_th_box_ldo_channel_number;
+  irs_u8 m_th_box_adc_channel_number;
+  irs_u8 m_volt_box_neg_channel_number;
+  irs_u8 m_volt_box_pos_channel_number;
+  irs_u8 m_th_mcu_channel_number;
+  irs_u8 m_th_ext_1_channel_number;
+  irs_u8 m_th_ext_2_channel_number;
+  irs::arm::st_adc_t m_adc1;
+  irs::arm::st_adc_t m_adc2;
+  irs::loop_timer_t m_polling_timer;
+  adc_conditioner_t m_th_dac_conditioner;
+  adc_conditioner_t m_th_box_ldo_conditioner;
+  adc_conditioner_t m_th_box_adc_conditioner;
+  adc_conditioner_t m_volt_box_neg_conditioner;
+  adc_conditioner_t m_volt_box_pos_conditioner;
+  adc_conditioner_t m_th_mcu_conditioner;
+  adc_conditioner_t m_th_ext_1_conditioner;
+  adc_conditioner_t m_th_ext_2_conditioner;
+  fan_mode_t m_fan_mode;
+  fan_status_t m_fan_status;
+  irs_u8 m_fan_ac_speed;
+  irs_u8 m_fan_dc_speed;
+  bool m_idle;
+  bool m_need_changes;
+  bool m_show;
+  void set_fan_speed_ac(irs_u8 a_speed);
+  void set_fan_speed_dc(irs_u8 a_speed);
+  fan_mode_t convert_u8_to_fan_mode(irs_u8 a_mode);
+  irs_u8 convert_fan_mode_to_u8(fan_mode_t a_fan_mode);
+  irs_u8 convert_fan_status_to_u8(fan_status_t a_fan_status);
+};
+
+//------------------------------------------------------------------------------
+
+//! \brief Класс для детектирования выхода на рабочий режим
+class operating_duty_detector_t
+{
+public:
+  typedef std::size_t size_type;
+  operating_duty_detector_t(double a_allowable_diviation,
+    double a_time_interval);
+  //! \brief Добавляет текущее измеренное значение
+  void add_current_value(double a_value);
+  //! \brief Устанавливает допустимое отклонение от уставки в относительных
+  //!   единицах [0, 1]
+  void set_allowable_diviation(double a_diviation);
+  //! \brief Задает уставку
+  void set_reference_value(double a_reference_value);
+  void set_range_min(double a_range_min);
+  //! \brief Задает временной интервал, в течении которого текущее измеряемое
+  //!   значение не должно выходить за допустимое отклонение
+  void set_time_interval(double a_time_interval);
+  //! \brief Сброс времени и текущего статуса выхода на рабочий режим
+  void reset();
+  //! \brief Возвращает \c true, если рабочий режим установлен
+  bool ready() const;
+private:
+  operating_duty_detector_t();
+  void update_allowable_deviation();
+  double m_range_allowable_diviation;
+  double m_allowable_deviation;
+  double m_reference_value;
+  double m_range_min;
+  double m_time_interval;
+  irs::measure_time_t m_time;
+};
+
+//------------------------------------------------------------------------------
+
+class temperature_sensor_t
+{
+public:
+  virtual ~temperature_sensor_t() {}
+  virtual double get_temperature() = 0;
+  virtual bool temperature_is_normal() = 0;
+  virtual bool overheat() = 0;
+  virtual void tick() = 0;
+};
+
+class temperature_sensor_conn_data_t: public temperature_sensor_t
+{
+public:
+  explicit temperature_sensor_conn_data_t(irs::conn_data_t<double>* ap_th_data,
+    double a_min_temperature, double a_max_temperature);
+  ~temperature_sensor_conn_data_t() {};
+  virtual double get_temperature() { return *mp_th_data; }
+  virtual bool temperature_is_normal();
+  virtual bool overheat() { return (*mp_th_data > m_max_temperature); }
+  virtual void tick() {};
+private:
+  irs::conn_data_t<double>* mp_th_data;
+  const double m_min_temperature;
+  const double m_max_temperature;
+};
+
+//! \brief Управление элементом Пельтье с использованием ПИД-регулятора, с
+//!   обратной связью от термодатчика.
+//! \details Настройки синхронизируются с сетевыми переменными
+class peltier_t
+{
+public:
+  enum polarity_map_t { default_polarity_map, inverse_polarity_map };
+  struct parameters_t
+  {
+    temperature_sensor_t* temperature_sensor;
+    irs::pwm_gen_t* pwm;
+    gpio_channel_t pwm_channel;
+    irs::gpio_pin_t* polarity_pin;
+    double operating_duty_time_interval_s;
+    double operating_duty_deviation;
+    // От 0 до 1
+    double pwm_max_code_float;
+    polarity_map_t polarity_map;
+    irs::conn_data_t<double>* temperature_setpoint;
+    irs::conn_data_t<double>* temperature;
+    irs::conn_data_t<double>* pid_k;
+    irs::conn_data_t<double>* pid_ki;
+    irs::conn_data_t<double>* pid_kd;
+    irs::conn_data_t<double>* iso_k;
+    irs::conn_data_t<double>* iso_t;
+    irs::conn_data_t<double>* pwm_rate_slope;
+    irs::conn_data_t<double>* pid_out;
+    irs::conn_data_t<double>* amplitude_code_float;
+    irs::bit_data_as_bool_t* enabled;
+    irs::bit_data_as_bool_t* pid_reg_enabled;
+    irs::bit_data_as_bool_t* polarity_pin_bit_data;
+    parameters_t(
+      temperature_sensor_t* ap_temperature_sensor,
+      irs::pwm_gen_t* ap_pwm,
+      gpio_channel_t a_pwm_channel,
+      irs::gpio_pin_t* ap_polarity_pin,
+      double a_operating_duty_time_interval_s,
+      double a_operating_duty_deviation,
+      double a_pwm_max_code_float,
+      polarity_map_t a_polarity_map,
+      irs::conn_data_t<double>* ap_temperature_setpoint,
+      irs::conn_data_t<double>* ap_temperature,
+      irs::conn_data_t<double>* ap_pid_k,
+      irs::conn_data_t<double>* ap_pid_ki,
+      irs::conn_data_t<double>* ap_pid_kd,
+      irs::conn_data_t<double>* ap_iso_k,
+      irs::conn_data_t<double>* ap_iso_t,
+      irs::conn_data_t<double>* ap_pwm_rate_slope,
+      irs::conn_data_t<double>* ap_pid_out,
+      irs::conn_data_t<double>* ap_amplitude_code_float,
+      irs::bit_data_as_bool_t* ap_enabled,
+      irs::bit_data_as_bool_t* ap_pid_reg_enabled,
+      irs::bit_data_as_bool_t* ap_polarity_pin_bit_data):
+      temperature_sensor(ap_temperature_sensor),
+      pwm(ap_pwm),
+      pwm_channel(a_pwm_channel),
+      polarity_pin(ap_polarity_pin),
+      operating_duty_time_interval_s(a_operating_duty_time_interval_s),
+      operating_duty_deviation(a_operating_duty_deviation),
+      pwm_max_code_float(a_pwm_max_code_float),
+      polarity_map(a_polarity_map),
+      temperature_setpoint(ap_temperature_setpoint),
+      temperature(ap_temperature),
+      pid_k(ap_pid_k),
+      pid_ki(ap_pid_ki),
+      pid_kd(ap_pid_kd),
+      iso_k(ap_iso_k),
+      iso_t(ap_iso_t),
+      pwm_rate_slope(ap_pwm_rate_slope),
+      pid_out(ap_pid_out),
+      amplitude_code_float(ap_amplitude_code_float),
+      enabled(ap_enabled),
+      pid_reg_enabled(ap_pid_reg_enabled),
+      polarity_pin_bit_data(ap_polarity_pin_bit_data)
+    {
+    }
+    parameters_t():
+      temperature_sensor(NULL),
+      pwm((NULL)),
+      pwm_channel(PNONE),
+      polarity_pin((NULL)),
+      operating_duty_time_interval_s(1),
+      operating_duty_deviation(0.05),
+      pwm_max_code_float(0.35),
+      polarity_map(default_polarity_map),
+      temperature_setpoint(NULL),
+      temperature(NULL),
+      pid_k(NULL),
+      pid_ki(NULL),
+      pid_kd(NULL),
+      iso_k(NULL),
+      iso_t(NULL),
+      pwm_rate_slope(NULL),
+      pid_out(NULL),
+      amplitude_code_float(NULL),
+      enabled(NULL),
+      pid_reg_enabled(NULL),
+      polarity_pin_bit_data(NULL)
+    {
+    }
+  };
+  peltier_t(const parameters_t& a_parameters);
+  double get_temperature();
+  void set_temperature_setpoint(double a_setpoint);
+  bool ready() const;
+  bool regulator_enabled() const;
+  void regulator_enabled(bool a_enabled);
+  void pwm_regulator();
+  void tick();
+private:
+  enum polarity_t {
+    #if (CLB_HARDWARE_REV >= CLB_HW_REV_2)
+    polarity_cool_def = 1, //!< \brief Значение пина для охлаждения
+    polarity_heat_def = 0  //!< \brief Значение пина для нагревания
+    #elif (CLB_HARDWARE_REV == CLB_HW_REV_1)
+    polarity_cool_def = 0, //!< \brief Значение пина для охлаждения
+    polarity_heat_def = 1  //!< \brief Значение пина для нагревания
+    #endif // (CLB_HARDWARE_REV == CLB_HW_REV_1)
+  };
+  void sync_remote_data();
+  //! \brief Возвращает \с true, если полярность не изменилась
+  bool is_same_polarity(double a_duty);
+  void set_duty_soft(double a_duty);
+  void set_duty_hard(double a_duty);
+  void set_polarity(polarity_t a_polarity);
+  polarity_t get_bit_data_polarity() const;
+  parameters_t m_parameters;
+  temperature_sensor_t* mp_temp_sensor;
+  irs::arm::st_pwm_gen_t* mp_pwm;
+  irs::gpio_pin_t* mp_polarity_pin;
+  typedef irs::arm::st_pwm_gen_t pwm_type;
+
+  bool m_enabled;
+  polarity_t m_polarity;
+  double m_duty_setpoint;
+  double m_duty_actual;
+  double m_duty_max;
+  double m_setpoint;
+  bool m_pid_reg_enabled;
+  const double m_reg_pid_interval;
+  irs::loop_timer_t m_reg_pid_timer;
+  irs::pid_data_t m_reg_pid_data;
+  double m_pid_reg_k_factor;
+  irs::isodr_data_t m_iso_data;
+  irs::rate_limiter_t<double> m_rate_data;
+  hrm::operating_duty_detector_t m_operating_duty_detector;
+  bool m_ready;
+  irs::loop_timer_t m_sync_data_timer;
+  irs::timer_t m_change_polarity_timer;
+  bool m_polarity_change;
+  polarity_t polarity_cool;
+  polarity_t polarity_heat;
+};
+
+class sync_treg_parameters_t
+{
+public:
+  explicit sync_treg_parameters_t(
+    irs::conn_data_t<th_value_t>* ap_eth_treg_ref,
+    irs::conn_data_t<th_value_t>* ap_eth_treg_k,
+    irs::conn_data_t<th_value_t>* ap_eth_treg_ki,
+    irs::conn_data_t<th_value_t>* ap_eth_treg_kd,
+    irs::conn_data_t<th_value_t>* ap_eth_treg_iso_k,
+    irs::conn_data_t<th_value_t>* ap_eth_treg_iso_t,
+    irs::conn_data_t<th_value_t>* ap_eth_treg_pwm_rate_slope,
+    irs::bit_data_as_bool_t* ap_eth_treg_enabled,
+    irs::bit_data_as_bool_t* ap_eth_treg_pid_reg_enabled,
+    irs::bit_data_as_bool_t* ap_eth_treg_polarity_pin_bit_data,
+    irs::conn_data_t<th_value_t>* ap_ee_treg_ref,
+    irs::conn_data_t<th_value_t>* ap_ee_treg_k,
+    irs::conn_data_t<th_value_t>* ap_ee_treg_ki,
+    irs::conn_data_t<th_value_t>* ap_ee_treg_kd,
+    irs::conn_data_t<th_value_t>* ap_ee_treg_iso_k,
+    irs::conn_data_t<th_value_t>* ap_ee_treg_iso_t,
+    irs::conn_data_t<th_value_t>* ap_ee_treg_pwm_rate_slope,
+    irs::bit_data_as_bool_t* ap_ee_treg_enabled,
+    irs::bit_data_as_bool_t* ap_ee_treg_pid_reg_enabled,
+    irs::bit_data_as_bool_t* ap_ee_treg_polarity_pin_bit_data);
+  ~sync_treg_parameters_t() {};
+  void sync();
+private:
+  irs::conn_data_t<th_value_t>* mp_eth_treg_ref;
+  irs::conn_data_t<th_value_t>* mp_eth_treg_k;
+  irs::conn_data_t<th_value_t>* mp_eth_treg_ki;
+  irs::conn_data_t<th_value_t>* mp_eth_treg_kd;
+  irs::conn_data_t<th_value_t>* mp_eth_treg_iso_k;
+  irs::conn_data_t<th_value_t>* mp_eth_treg_iso_t;
+  irs::conn_data_t<th_value_t>* mp_eth_treg_pwm_rate_slope;
+  irs::bit_data_as_bool_t* mp_eth_treg_enabled;
+  irs::bit_data_as_bool_t* mp_eth_treg_pid_reg_enabled;
+  irs::bit_data_as_bool_t* mp_eth_treg_polarity_pin_bit_data;
+  //
+  irs::conn_data_t<th_value_t>* mp_ee_treg_ref;
+  irs::conn_data_t<th_value_t>* mp_ee_treg_k;
+  irs::conn_data_t<th_value_t>* mp_ee_treg_ki;
+  irs::conn_data_t<th_value_t>* mp_ee_treg_kd;
+  irs::conn_data_t<th_value_t>* mp_ee_treg_iso_k;
+  irs::conn_data_t<th_value_t>* mp_ee_treg_iso_t;
+  irs::conn_data_t<th_value_t>* mp_ee_treg_pwm_rate_slope;
+  irs::bit_data_as_bool_t* mp_ee_treg_enabled;
+  irs::bit_data_as_bool_t* mp_ee_treg_pid_reg_enabled;
+  irs::bit_data_as_bool_t* mp_ee_treg_polarity_pin_bit_data;
 };
 
 }

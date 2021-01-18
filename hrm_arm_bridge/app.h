@@ -35,7 +35,7 @@ public:
 class app_t
 {
 public:
-  app_t(cfg_t* ap_cfg);
+  app_t(cfg_t* ap_cfg, irs_u32 a_version);
   void tick();
 
 private:
@@ -63,6 +63,7 @@ private:
     bs_adc_show,
     bs_meas_temperature,
     bs_wait_temperature,
+    bs_adc_prepare,
     bs_dac_prepare,
     bs_termostat_off_adc_start,
     bs_adc_start,
@@ -150,20 +151,28 @@ private:
     double adc;
     double sko;
     double avg;
+    size_t num_of_adc_points;
   };
   struct exp_t {
     double result_old;
-    double result_2;
-    double result_3;
-    double result_4;
-    double result_5;
-    double error;
+    double result_new;
+    double result_old_uncorrect;
+    double result_new_uncorrect;
     double et_code;
     double ch_code;
-    double n0_2;
-    double n0_3;
-    double n0_4;
-    double n0_5;
+    double et_balanced_code;
+    double ch_balanced_code;
+    double n0;
+    double num;
+    double den;
+    double temperature_ext;
+    double temperature_dac;
+    double temperature_adc;
+    double temperature_ldo;
+    irs_u32 exp_time;
+    double target_sko;
+    double target_balance_sko;
+    double target_elab_sko;
   };
   struct elab_result_t {
     balance_polarity_t polarity;
@@ -176,20 +185,89 @@ private:
     em_fast_2points = 2,
     em_none = 3
   };
+  enum {
+    default_balance_points = 20,
+    default_elab_points = 2
+  };
+  class remaining_time_calculator_t {
+    enum {
+      default_exp_time = 300,
+      default_prepare_pause_percentage = 20,
+      default_balance_percentage = 20,
+      default_elab_percentage = 
+        ((100 - (2 * default_balance_percentage) - 
+          default_prepare_pause_percentage) / 2),
+      min_balance_neg = default_prepare_pause_percentage,
+      max_balance_neg = default_prepare_pause_percentage
+        + default_balance_percentage,
+      min_elab_neg = max_balance_neg,
+      max_elab_neg = max_balance_neg + default_elab_percentage,
+      min_balance_pos = max_elab_neg,
+      max_balance_pos = min_balance_pos + default_balance_percentage,
+      min_elab_pos = max_balance_pos,
+      max_elab_pos = 100,
+      max_balance_points_count = 20,
+      elab_points_count = 2
+    };
+    irs_u32 m_meas_prepare_time;
+    irs_u32 m_meas_balance_time;
+    irs_u32 m_meas_elab_time;
+    balance_action_t m_balance_action;
+    irs_u32 m_remaining_time;
+    irs_u32 m_current_time;
+    irs_u32 m_current_percentage;
+    irs_u32 m_prepare_pause;
+    size_t m_balance_points_count;
+    size_t m_balance_current_point;
+  public:
+    remaining_time_calculator_t();
+    void reset();
+    void start(irs_u32 a_prepare_pause);
+    void secund_tick();
+    irs_u32 get_remaining_time();
+    irs_u32 get_percentage();
+    void change_balance_action(balance_action_t a_balance_action);
+    void set_balance_points_count(size_t a_balance_points_count);
+    void set_current_balance_point(size_t a_point);
+  };
+  class adaptive_sko_calc_t {
+    enum {
+      default_len = 10
+    };
+    eth_data_t& mp_eth_data;
+    eeprom_data_t& mp_ee_data;
+    adc_value_t m_target_sko;
+    bool m_started;
+    bool m_used;
+    adc_value_t m_target_balance_sko;
+    adc_value_t m_target_elab_sko;
+    adc_value_t m_adaptive_sko_balance_multiplier;
+    adc_value_t m_adaptive_sko_elab_multiplier;
+    irs::fast_sko_t<adc_value_t, adc_value_t> m_sko_calc;
+  public:
+    adaptive_sko_calc_t(eth_data_t& ap_eth_data, eeprom_data_t& ap_ee_data);
+    void reset(size_t a_len);
+    void stop();
+    void add(adc_value_t a_sko);
+    adc_value_t get_target_sko();
+    adc_value_t get_target_balance_sko();
+    adc_value_t get_target_elab_sko();
+    void sync_parameters();
+    inline bool used() { return m_used; }
+  };
 
   cfg_t* mp_cfg;
   eth_data_t m_eth_data;
-  irs::mxnet_t m_mxnet_server;
-
-  irs::eeprom_at25128_data_t m_eeprom;
-  eeprom_data_t m_eeprom_data;
-  init_eeprom_t m_init_eeprom;
-
+  
+  irs_u32 m_version;
+  
+  buzzer_t m_buzzer;
+  
   mxdisplay_drv_gen_t m_lcd_drv;
 
   irs::mxkey_drv_mc_t m_keyboard_drv;
 
-  irs::encoder_drv_mc_t m_encoder_drv;
+  //irs::encoder_drv_mc_t m_encoder_drv;
 
   mxdisplay_drv_service_t m_lcd_drv_service;
   mxkey_event_t m_buzzer_kb_event;
@@ -197,12 +275,19 @@ private:
   mxkey_event_t m_menu_kb_event;
   mxkey_event_gen_t m_keyboard_event_gen;
 
+  irs::handle_t<menu_t> mp_menu;
+
+  irs::event_t m_escape_pressed_event;
+  
+  irs::mxnet_t m_mxnet_server;
+
+  irs::eeprom_at25128_data_t m_eeprom;
+  eeprom_data_t m_eeprom_data;
+  init_eeprom_t m_init_eeprom;
+
   irs::dac_ad5791_t m_raw_dac;
   dac_t m_dac;
   ad7799_cread_t m_adc;
-
-  irs::th_lm95071_t m_ext_th;
-  irs::th_lm95071_data_t m_ext_th_data;
 
   irs::loop_timer_t m_eth_timer;
   irs::loop_timer_t m_blink_timer;
@@ -213,6 +298,12 @@ private:
   //mono_relay_t m_relay_bridge_pos;
   //mono_relay_t m_relay_bridge_neg;
   mono_relay_t m_relay_prot;
+  //  HV Relays
+  mono_relay_t m_relay_hv_polarity;
+  mono_relay_t m_relay_hv_amps_gain;
+  bi_relay_t m_relay_hv_pos;
+  bi_relay_t m_relay_hv_neg;
+  bi_relay_t m_relay_hv_dac_amp;
 
   mode_t m_mode;
 
@@ -235,7 +326,9 @@ private:
   double m_result;
   double m_result_error;
   double m_checked_code;
+  double m_checked_balanced_code;
   double m_etalon_code;
+  double m_etalon_balanced_code;
   counter_t m_relay_after_pause;
   counter_t m_dac_after_pause;
   counter_t m_dac_elab_pause;
@@ -265,6 +358,7 @@ private:
   irs_u32 m_prev_exp_time;
   irs_u32 m_sum_time;
   irs_u32 m_remaining_time;
+  remaining_time_calculator_t m_remaining_time_calculator;
   bool m_is_exp;
   irs::loop_timer_t m_exp_timer;
   bool m_optimize_balance;
@@ -302,24 +396,24 @@ private:
   bool m_new_adc_param_manual;
   //  Параметры АЦП в режиме измерения при уравновешивании
   adc_param_data_t m_adc_balance_param_data;
+  adc_param_data_t m_adc_adaptive_balance_param_data;
   bool m_new_adc_param_balance;
   //  Параметры АЦП в режиме измерения при уточнении
   adc_param_data_t m_adc_elab_param_data;
+  adc_param_data_t m_adc_adaptive_elab_param_data;
   bool m_new_adc_param_elab;
   //  Результаты измерения АЦП
   adc_result_data_t m_adc_result_data;
 
   irs::timer_t m_relay_pause_timer;
 
-  buzzer_t m_buzzer;
-
-  irs::handle_t<menu_t> mp_menu;
-
-  irs::event_t m_escape_pressed_event;
-
-  r_standard_type_t m_r_standard_type;
+//  buzzer_t m_buzzer;
+//
+//  irs::handle_t<menu_t> mp_menu;
+//
+//  irs::event_t m_escape_pressed_event;
   
-  termostat_t m_termostat;
+  //termostat_t m_termostat;
   irs::pid_data_t m_elab_pid;
   bool m_elab_pid_on;
   double m_elab_pid_kp;
@@ -341,6 +435,31 @@ private:
   double m_bac_new_coefficient;
   irs_i32 m_bac_new_int_coefficient;
   irs_i32 m_bac_new_int_multiplier;
+  //
+  device_condition_controller_t m_device_condition_controller;
+  //
+  const double m_treg_operating_duty_time_interval_s;
+  const double m_treg_operating_duty_deviation;
+  const double m_treg_pwm_max_code_float;
+  const double m_treg_polarity_map;
+  const double m_treg_temperature_setpoint;
+  temperature_sensor_conn_data_t m_treg_termosensor;
+  peltier_t::parameters_t m_treg_peltier_parameters;
+  peltier_t m_treg_peltier;
+  sync_treg_parameters_t m_treg_sync_parameters;
+  //
+  const double m_treg_dac_operating_duty_time_interval_s;
+  const double m_treg_dac_operating_duty_deviation;
+  const double m_treg_dac_pwm_max_code_float;
+  const double m_treg_dac_polarity_map;
+  const double m_treg_dac_temperature_setpoint;
+  temperature_sensor_conn_data_t m_treg_dac_termosensor;
+  peltier_t::parameters_t m_treg_dac_peltier_parameters;
+  peltier_t m_treg_dac_peltier;
+  sync_treg_parameters_t m_treg_dac_sync_parameters;
+  
+  balance_action_t m_balance_action;
+  adaptive_sko_calc_t m_adaptive_sko_calc;
 
   void init_keyboard_drv();
   void init_encoder_drv();
@@ -356,7 +475,10 @@ private:
   inline bool bridge_relays_ready()
   {
     return (m_relay_bridge_pos.status() == irs_st_ready)
-      && (m_relay_bridge_neg.status() == irs_st_ready);
+      && (m_relay_bridge_neg.status() == irs_st_ready)
+      && (m_relay_hv_pos.status() == irs_st_ready)
+      && (m_relay_hv_neg.status() == irs_st_ready)
+      && (m_relay_hv_dac_amp.status() == irs_st_ready);
   }
   void print_voltage(adc_value_t a_value);
   void update_elab_pid_koefs();

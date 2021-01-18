@@ -6,39 +6,39 @@
 
 #include <irsfinal.h>
 
-hrm::app_t::app_t(cfg_t* ap_cfg):
+hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   mp_cfg(ap_cfg),
   m_eth_data(),
-  m_mxnet_server(
-    mp_cfg->connector_hardflow,
-    m_eth_data.connect(&m_mxnet_server, 0)/sizeof(irs_u32) + 1),
-  m_eeprom(&mp_cfg->spi, &mp_cfg->ee_cs, 4096, true, 0, 64,
-    irs::make_cnt_s(1)),
-  m_eeprom_data(&m_eeprom),
-  m_init_eeprom(&m_eeprom, &m_eeprom_data),
+  m_version(a_version),
+  m_buzzer(&mp_cfg->buzzer),
   m_lcd_drv(irslcd_4x20, mp_cfg->lcd_port, mp_cfg->lcd_rs_pin,
     mp_cfg->lcd_e_pin),
   m_keyboard_drv(),
-  m_encoder_drv(mp_cfg->encoder_gpio_channel_1, mp_cfg->encoder_gpio_channel_2,
-    mp_cfg->encoder_timer_address),
+  //m_encoder_drv(mp_cfg->enc_a, mp_cfg->enc_b, mp_cfg->encoder_timer_address),
 
   m_lcd_drv_service(),
   m_buzzer_kb_event(),
   m_hot_kb_event(),
   m_menu_kb_event(),
   m_keyboard_event_gen(),
-
+  mp_menu(),
+  m_escape_pressed_event(),
+  m_mxnet_server(
+    mp_cfg->connector_hardflow,
+    m_eth_data.connect(&m_mxnet_server, 0)/sizeof(irs_u32)),
+  m_eeprom(&mp_cfg->spi_aux, &mp_cfg->ee_cs, 4096, true, 0, 64,
+    irs::make_cnt_s(1)),
+  m_eeprom_data(&m_eeprom),
+  m_init_eeprom(&m_eeprom, &m_eeprom_data),
   m_raw_dac(
-    &mp_cfg->spi,
+    &mp_cfg->spi_dac,
     &mp_cfg->dac_cs,
     &mp_cfg->dac_ldac,
     &mp_cfg->dac_clr,
     &mp_cfg->dac_reset,
     0),
   m_dac(&m_raw_dac),
-  m_adc(&mp_cfg->spi, &mp_cfg->adc_cs, &mp_cfg->adc_exti),
-  m_ext_th(&mp_cfg->spi_th, &mp_cfg->th_cs, irs::make_cnt_s(1)),
-  m_ext_th_data(&m_ext_th),
+  m_adc(&mp_cfg->spi_adc, &mp_cfg->adc_cs, &mp_cfg->adc_exti),
   m_eth_timer(irs::make_cnt_ms(100)),
   m_blink_timer(irs::make_cnt_ms(500)),
   m_service_timer(irs::make_cnt_ms(1000)),
@@ -64,6 +64,27 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
 //    irst("BNEG"),
 //    0),
   m_relay_prot(&mp_cfg->relay_prot, irst("PROT"), 1),
+  //  HV Relays
+  m_relay_hv_polarity(&mp_cfg->relay_hv_polarity, irst("HVPOL"), 0),
+  m_relay_hv_amps_gain(&mp_cfg->relay_hv_amps_gain, irst("HVGAIN"), 0),
+  m_relay_hv_pos(
+    &mp_cfg->relay_hv_pos_off,
+    &mp_cfg->relay_hv_pos_on,
+    irst("HVPOS"),
+    0,
+    irs::make_cnt_ms(100)),
+  m_relay_hv_neg(
+    &mp_cfg->relay_hv_neg_off,
+    &mp_cfg->relay_hv_neg_on,
+    irst("HVNEG"),
+    0,
+    irs::make_cnt_ms(100)),
+  m_relay_hv_dac_amp(
+    &mp_cfg->relay_hv_dac_amp_off,
+    &mp_cfg->relay_hv_dac_amp_on,
+    irst("HVDAC"),
+    0,
+    irs::make_cnt_ms(100)),
   m_mode(md_free),
   m_free_status(fs_prepare),
   m_balance_status(bs_prepare),
@@ -76,14 +97,16 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_dac_step(0.0),
   m_balanced_dac_code(0.0),
   m_initial_dac_code(0.0),
-  m_initial_dac_step(m_dac.max_code()),
+  m_initial_dac_step(pow(2.0, 18)),//m_dac.max_code()),
   m_balance_polarity(bp_neg),
   m_checked(1.),
   m_etalon(1.),
   m_result(0.),
   m_result_error(0.),
   m_checked_code(0.),
+  m_checked_balanced_code(0.0),
   m_etalon_code(0.),
+  m_etalon_balanced_code(0.0),
   m_relay_after_pause(irs::make_cnt_ms(100)),
   m_dac_after_pause(irs::make_cnt_ms(100)),
   m_dac_elab_pause(irs::make_cnt_ms(101)),
@@ -109,6 +132,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_prev_exp_time(0),
   m_sum_time(0),
   m_remaining_time(),
+  m_remaining_time_calculator(),
   m_is_exp(false),
   m_exp_timer(irs::make_cnt_ms(1000)),
   m_optimize_balance(false),
@@ -137,11 +161,8 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_new_adc_param_balance(false),
   m_new_adc_param_elab(false),
   m_relay_pause_timer(m_relay_after_pause),
-  m_buzzer(&mp_cfg->buzzer),
-  mp_menu(),
-  m_escape_pressed_event(),
-  m_r_standard_type(r_standard_type_original),
-  m_termostat(&mp_cfg->thst_off),
+//
+  //m_termostat(&mp_cfg->aux1),
   m_elab_pid_on(false),
   m_elab_pid_kp(0.0),
   m_elab_pid_ki(0.0),
@@ -160,7 +181,137 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_bac_old_coefficient(0.0),
   m_bac_new_coefficient(1.0),
   m_bac_new_int_coefficient(1),
-  m_bac_new_int_multiplier(1000.0)
+  m_bac_new_int_multiplier(1000.0),
+  m_device_condition_controller(
+    &mp_cfg->fan_ac_on,
+    &mp_cfg->fan_dc_ls,
+    &mp_cfg->fan_dc_hs,
+    &mp_cfg->fan_dc_sen,
+    &m_eth_data.th_dac,
+    &m_eth_data.th_box_ldo,
+    &m_eth_data.th_box_adc,
+    &m_eth_data.th_mcu,
+    &m_eth_data.th_ext_1,
+    &m_eth_data.th_ext_2,
+    &m_eth_data.volt_box_neg,
+    &m_eth_data.volt_box_pos,
+    &m_eth_data.fan_mode,
+    &m_eeprom_data.fan_mode,
+    &m_eth_data.fan_status,
+    &m_eth_data.fan_ac_speed,
+    &m_eeprom_data.fan_ac_speed,
+    &m_eth_data.fan_dc_speed,
+    &m_eeprom_data.fan_dc_speed,
+    &m_eth_data.fan_dc_speed_sense
+  ),
+  //  treg adc
+  m_treg_operating_duty_time_interval_s(1.0),
+  m_treg_operating_duty_deviation(0.05),
+  m_treg_pwm_max_code_float(1.0),
+  m_treg_polarity_map(peltier_t::default_polarity_map),
+  m_treg_temperature_setpoint(25.0),
+  m_treg_termosensor(&m_eth_data.th_box_adc, 15.0, 35.0),
+  m_treg_peltier_parameters(
+    &m_treg_termosensor,
+    &mp_cfg->peltier_pwm1_gen,
+    mp_cfg->peltier_pwm1_channel,
+    &mp_cfg->peltier_pol1,
+    m_treg_operating_duty_time_interval_s,
+    m_treg_operating_duty_deviation,
+    m_treg_pwm_max_code_float,
+    peltier_t::default_polarity_map,
+    &m_eth_data.treg_ref,
+    &m_eth_data.treg_result,
+    &m_eth_data.treg_k,
+    &m_eth_data.treg_ki,
+    &m_eth_data.treg_kd,
+    &m_eth_data.treg_iso_k,
+    &m_eth_data.treg_iso_t,
+    &m_eth_data.treg_pwm_rate_slope,
+    &m_eth_data.treg_pid_out,
+    &m_eth_data.treg_amplitude_code_float,
+    &m_eth_data.treg_enabled,
+    &m_eth_data.treg_pid_reg_enabled,
+    &m_eth_data.treg_polarity_pin_bit_data),
+  m_treg_peltier(m_treg_peltier_parameters),
+  m_treg_sync_parameters(
+    &m_eth_data.treg_ref,
+    &m_eth_data.treg_k,
+    &m_eth_data.treg_ki,
+    &m_eth_data.treg_kd,
+    &m_eth_data.treg_iso_k,
+    &m_eth_data.treg_iso_t,
+    &m_eth_data.treg_pwm_rate_slope,
+    &m_eth_data.treg_enabled,
+    &m_eth_data.treg_pid_reg_enabled,
+    &m_eth_data.treg_polarity_pin_bit_data,
+    &m_eeprom_data.treg_ref,
+    &m_eeprom_data.treg_k,
+    &m_eeprom_data.treg_ki,
+    &m_eeprom_data.treg_kd,
+    &m_eeprom_data.treg_iso_k,
+    &m_eeprom_data.treg_iso_t,
+    &m_eeprom_data.treg_pwm_rate_slope,
+    &m_eeprom_data.treg_enabled,
+    &m_eeprom_data.treg_pid_reg_enabled,
+    &m_eeprom_data.treg_polarity_pin_bit_data
+  ),
+  // treg dac
+  m_treg_dac_operating_duty_time_interval_s(1.0),
+  m_treg_dac_operating_duty_deviation(0.05),
+  m_treg_dac_pwm_max_code_float(1.0),
+  m_treg_dac_polarity_map(peltier_t::default_polarity_map),
+  m_treg_dac_temperature_setpoint(25.0),
+  m_treg_dac_termosensor(&m_eth_data.th_dac, 15.0, 45.0),
+  m_treg_dac_peltier_parameters(
+    &m_treg_dac_termosensor,
+    &mp_cfg->peltier_pwm2_gen,
+    mp_cfg->peltier_pwm2_channel,
+    &mp_cfg->peltier_pol2,
+    m_treg_dac_operating_duty_time_interval_s,
+    m_treg_dac_operating_duty_deviation,
+    m_treg_dac_pwm_max_code_float,
+    peltier_t::default_polarity_map,
+    &m_eth_data.treg_dac_ref,
+    &m_eth_data.treg_dac_result,
+    &m_eth_data.treg_dac_k,
+    &m_eth_data.treg_dac_ki,
+    &m_eth_data.treg_dac_kd,
+    &m_eth_data.treg_dac_iso_k,
+    &m_eth_data.treg_dac_iso_t,
+    &m_eth_data.treg_dac_pwm_rate_slope,
+    &m_eth_data.treg_dac_pid_out,
+    &m_eth_data.treg_dac_amplitude_code_float,
+    &m_eth_data.treg_dac_enabled,
+    &m_eth_data.treg_dac_pid_reg_enabled,
+    &m_eth_data.treg_dac_polarity_pin_bit_data),
+  m_treg_dac_peltier(m_treg_dac_peltier_parameters),
+  m_treg_dac_sync_parameters(
+    &m_eth_data.treg_dac_ref,
+    &m_eth_data.treg_dac_k,
+    &m_eth_data.treg_dac_ki,
+    &m_eth_data.treg_dac_kd,
+    &m_eth_data.treg_dac_iso_k,
+    &m_eth_data.treg_dac_iso_t,
+    &m_eth_data.treg_dac_pwm_rate_slope,
+    &m_eth_data.treg_dac_enabled,
+    &m_eth_data.treg_dac_pid_reg_enabled,
+    &m_eth_data.treg_dac_polarity_pin_bit_data,
+    &m_eeprom_data.treg_dac_ref,
+    &m_eeprom_data.treg_dac_k,
+    &m_eeprom_data.treg_dac_ki,
+    &m_eeprom_data.treg_dac_kd,
+    &m_eeprom_data.treg_dac_iso_k,
+    &m_eeprom_data.treg_dac_iso_t,
+    &m_eeprom_data.treg_dac_pwm_rate_slope,
+    &m_eeprom_data.treg_dac_enabled,
+    &m_eeprom_data.treg_dac_pid_reg_enabled,
+    &m_eeprom_data.treg_dac_polarity_pin_bit_data
+  ),
+  m_balance_action(ba_idle),
+  m_adaptive_sko_calc(m_eth_data, m_eeprom_data)
+  //m_use_adaptive_sko(false),
+  //m_adaptive_sko(0.0)
 {
   init_keyboard_drv();
   init_encoder_drv();
@@ -170,7 +321,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   ip.val[1] = m_eeprom_data.ip_1;
   ip.val[2] = m_eeprom_data.ip_2;
   ip.val[3] = m_eeprom_data.ip_3;
-
+  
   mxip_t mask = mxip_t::zero_ip();
   mask.val[0] = m_eeprom_data.mask_0;
   mask.val[1] = m_eeprom_data.mask_1;
@@ -187,6 +338,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
 
   mp_cfg->network_config.set(ip, mask, gateway, dhcp_enabled);
 
+  show_network_params_t show_network_params(&mp_cfg->network_config);
 
   irs::mlog() << setprecision(8);
 
@@ -201,7 +353,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
 
   m_eth_data.ratio = m_eeprom_data.ratio;
 
-  m_eth_data.prev_user_result = m_eeprom_data.prev_user_result;
+  m_eth_data.checked_prev = m_eeprom_data.checked_prev;
 
   m_dac.set_lin(m_eeprom_data.dac_lin);
   m_eth_data.dac_lin = m_dac.get_lin();
@@ -229,6 +381,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_eth_data.prepare_pause = m_prepare_pause;
   // Загрузка параметров АЦП из eeprom и выгрузка в ethernet
   adc_params_load_from_eeprom();
+  m_adc.set_params(&m_adc_free_vx_param_data);
   //  Параметры уточнения
   m_eth_data.elab_pid_kp = m_eeprom_data.elab_pid_kp;
   m_elab_pid_kp = m_eeprom_data.elab_pid_kp;
@@ -278,6 +431,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_dac.set_voltage_neg(m_eeprom_data.dac_voltage_neg);
   m_eth_data.dac_voltage_neg = m_dac.voltage_neg();
 
+  //m_no_prot = false;//
   m_no_prot = m_eeprom_data.no_prot;
   m_eth_data.no_prot = m_no_prot;
 
@@ -286,6 +440,11 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
 
   m_wild_relays = m_eeprom_data.wild_relays;
   m_eth_data.wild_relays = m_wild_relays;
+  m_relay_bridge_pos.set_wild(m_wild_relays);
+  m_relay_bridge_neg.set_wild(m_wild_relays);
+  m_relay_hv_pos.set_wild(m_wild_relays);
+  m_relay_hv_neg.set_wild(m_wild_relays);
+  m_relay_hv_dac_amp.set_wild(m_wild_relays);
 
   m_auto_elab_step = m_eeprom_data.auto_elab_step;
   m_eth_data.auto_elab_step = m_auto_elab_step;
@@ -330,8 +489,6 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_bac_new_int_multiplier = m_eeprom_data.bac_new_int_multiplier;
   m_eth_data.bac_new_int_multiplier = m_eeprom_data.bac_new_int_multiplier;
   
-  mp_cfg->vben.set();
-
   m_adc_fade_data.x1 = 0.0;
   m_adc_fade_data.y1 = 0.0;
   m_adc_fade_data.t = m_eeprom_data.adc_filter_constant;
@@ -357,14 +514,19 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_relay_bridge_pos.set_after_pause(m_min_after_pause);
   m_relay_bridge_neg.set_after_pause(m_min_after_pause);
   m_relay_prot.set_after_pause(m_min_after_pause);
-  
+  m_relay_hv_polarity.set_after_pause(m_min_after_pause);
+  m_relay_hv_amps_gain.set_after_pause(m_min_after_pause);
+  m_relay_hv_pos.set_after_pause(m_min_after_pause);
+  m_relay_hv_neg.set_after_pause(m_min_after_pause);
+  m_relay_hv_dac_amp.set_after_pause(m_min_after_pause);
+
   m_eth_data.termostat_off_pause = m_eeprom_data.termostat_off_pause;
-  m_termostat.set_after_pause(m_min_after_pause);
+  //m_termostat.set_after_pause(m_min_after_pause);
 
   //  ЖКИ и клавиатура
   m_lcd_drv_service.connect(&m_lcd_drv);
   m_keyboard_event_gen.connect(&m_keyboard_drv);
-  m_keyboard_event_gen.connect_encoder(&m_encoder_drv);
+  //m_keyboard_event_gen.connect_encoder(&m_encoder_drv);
   m_keyboard_event_gen.add_event(&m_menu_kb_event);
   m_keyboard_event_gen.add_event(&m_buzzer_kb_event);
   m_keyboard_event_gen.add_event(&m_hot_kb_event);
@@ -379,6 +541,10 @@ hrm::app_t::app_t(cfg_t* ap_cfg):
   m_buzzer.bzz();
   irs::mlog() << irsm("sizeof(adc_value_t) = ");
   irs::mlog() << sizeof(adc_value_t) << endl;
+  //
+  m_eth_data.version_info = m_version;
+  //
+  m_eth_data.show_options = m_eeprom_data.show_options;
 }
 
 void hrm::app_t::init_keyboard_drv()
@@ -390,8 +556,8 @@ void hrm::app_t::init_keyboard_drv()
 
 void hrm::app_t::init_encoder_drv()
 {
-  m_encoder_drv.add_press_down_pin(&mp_cfg->key_encoder);
-  irs::set_default_keys(&m_encoder_drv);
+  //m_encoder_drv.add_press_down_pin(&mp_cfg->enc_sw);
+  //irs::set_default_keys(&m_encoder_drv);
 }
 
 void hrm::app_t::tick()
@@ -402,11 +568,15 @@ void hrm::app_t::tick()
   m_raw_dac.tick();
   m_dac.tick();
   m_adc.tick();
-  m_ext_th.tick();
 
   m_relay_bridge_pos.tick();
   m_relay_bridge_neg.tick();
   m_relay_prot.tick();
+  m_relay_hv_polarity.tick();
+  m_relay_hv_amps_gain.tick();
+  m_relay_hv_pos.tick();
+  m_relay_hv_neg.tick();
+  m_relay_hv_dac_amp.tick();
 
   m_buzzer.tick();
 
@@ -415,7 +585,10 @@ void hrm::app_t::tick()
   m_lcd_drv.tick();
   m_keyboard_event_gen.tick();
   
-  m_termostat.tick();
+  //m_termostat.tick();
+  m_device_condition_controller.tick();
+  m_treg_peltier.tick();
+  m_treg_dac_peltier.tick();
 
   if (m_buzzer_kb_event.check()) {
     m_buzzer.bzz();
@@ -457,6 +630,21 @@ void hrm::app_t::tick()
       if (m_eth_data.relay_prot != m_relay_prot) {
         m_eth_data.relay_prot = m_relay_prot;
       }
+      if (m_eth_data.relay_hv_polarity != m_relay_hv_polarity) {
+        m_eth_data.relay_hv_polarity = m_relay_hv_polarity;
+      }
+      if (m_eth_data.relay_hv_amps_gain != m_relay_hv_amps_gain) {
+        m_eth_data.relay_hv_amps_gain = m_relay_hv_amps_gain;
+      }
+      if (m_eth_data.relay_hv_pos != m_relay_hv_pos) {
+        m_eth_data.relay_hv_pos = m_relay_hv_pos;
+      }
+      if (m_eth_data.relay_hv_neg != m_relay_hv_neg) {
+        m_eth_data.relay_hv_neg = m_relay_hv_neg;
+      }
+      if (m_eth_data.relay_hv_dac_amp != m_relay_hv_dac_amp) {
+        m_eth_data.relay_hv_dac_amp = m_relay_hv_dac_amp;
+      }
     }
     if (m_adc.new_result()) {
       m_adc.result(&m_adc_result_data);
@@ -474,6 +662,8 @@ void hrm::app_t::tick()
         //double iso_out = isodr(&m_elab_iso, m_voltage);
         m_eth_data.elab_iso_out = m_adc_result_data.unnormalized_value;//iso_out;
       }
+      
+      m_adaptive_sko_calc.add(abs(m_adc_result_data.sko));
     }
     if (m_eth_data.adc_value != m_voltage) {
       m_eth_data.adc_value = m_voltage;
@@ -517,8 +707,8 @@ void hrm::app_t::tick()
     if (m_eth_data.ratio != m_eeprom_data.ratio) {
       m_eeprom_data.ratio = m_eth_data.ratio;
     }
-    if (m_eth_data.prev_user_result != m_eeprom_data.prev_user_result) {
-      m_eeprom_data.prev_user_result = m_eth_data.prev_user_result;
+    if (m_eth_data.checked_prev != m_eeprom_data.checked_prev) {
+      m_eeprom_data.checked_prev = m_eth_data.checked_prev;
     }
     if (m_eth_data.dac_lin != m_eeprom_data.dac_lin) {
       m_eeprom_data.dac_lin = m_eth_data.dac_lin;
@@ -541,9 +731,9 @@ void hrm::app_t::tick()
     if (m_eth_data.prepare_pause != m_eeprom_data.prepare_pause) {
       m_eeprom_data.prepare_pause = m_eth_data.prepare_pause;
     }
-    if (m_eth_data.adc_average_cnt != m_eeprom_data.adc_average_cnt) {
-      m_eeprom_data.adc_average_cnt = m_eth_data.adc_average_cnt;
-    }
+//    if (m_eth_data.adc_average_cnt != m_eeprom_data.adc_average_cnt) {
+//      m_eeprom_data.adc_average_cnt = m_eth_data.adc_average_cnt;
+//    }
     if (m_eth_data.adc_filter_constant != m_adc_fade_data.t) {
       m_adc_fade_data.t = m_eth_data.adc_filter_constant;
       m_eeprom_data.adc_filter_constant = m_eth_data.adc_filter_constant;
@@ -568,9 +758,6 @@ void hrm::app_t::tick()
     }
     if (m_eth_data.optimize_balance != m_eeprom_data.optimize_balance) {
       m_eeprom_data.optimize_balance = m_eth_data.optimize_balance;
-    }
-    if (m_eth_data.wild_relays != m_eeprom_data.wild_relays) {
-      m_eeprom_data.wild_relays = m_eth_data.wild_relays;
     }
     if (m_eth_data.auto_elab_step != m_eeprom_data.auto_elab_step) {
       m_eeprom_data.auto_elab_step = m_eth_data.auto_elab_step;
@@ -599,9 +786,6 @@ void hrm::app_t::tick()
     }
     if (m_eth_data.use_impf != m_eeprom_data.use_impf) {
       m_eeprom_data.use_impf = m_eth_data.use_impf;
-    }
-    if (m_eth_data.impf_iterations_cnt != m_eeprom_data.impf_iterations_cnt) {
-      m_eeprom_data.impf_iterations_cnt = m_eth_data.impf_iterations_cnt;
     }
     if (m_eth_data.elab_max_delta != m_eeprom_data.elab_max_delta) {
       m_eeprom_data.elab_max_delta = m_eth_data.elab_max_delta;
@@ -681,10 +865,23 @@ void hrm::app_t::tick()
       m_eeprom_data.bac_new_int_multiplier = m_eth_data.bac_new_int_multiplier;
       m_bac_new_int_multiplier = m_eth_data.bac_new_int_multiplier;
     }
+    if (m_eth_data.wild_relays != m_eeprom_data.wild_relays) {
+      m_eeprom_data.wild_relays = m_eth_data.wild_relays;
+      m_wild_relays = m_eth_data.wild_relays;
+    }
     
+    switch (m_balance_action) {
+      case ba_prepare: m_eth_data.balance_action = 1; break;
+      case ba_prepare_pause: m_eth_data.balance_action = 2; break;
+      case ba_balance_neg: m_eth_data.balance_action = 3; break;
+      case ba_elab_neg: m_eth_data.balance_action = 4; break;
+      case ba_balance_pos: m_eth_data.balance_action = 5; break;
+      case ba_elab_pos: m_eth_data.balance_action = 6; break;
+      default: m_eth_data.balance_action = 0;
+    }
     
-    m_eth_data.external_temperature = m_ext_th_data.temperature_code *
-      m_ext_th.get_conv_koef();
+    //m_eth_data.external_temperature = m_ext_th_data.temperature_code *
+      //m_ext_th.get_conv_koef();
     //m_eth_data.adc_meas_freq = m_adc.get_adc_frequency();
 
     sync_first_to_second(&m_eth_data.ip_0, &m_eeprom_data.ip_0);
@@ -704,10 +901,13 @@ void hrm::app_t::tick()
 
     sync_first_to_second(&m_eth_data.dhcp_on, &m_eeprom_data.dhcp_on);
     
-    m_eth_data.termostat_is_off = m_termostat.is_off();
+    //m_eth_data.termostat_is_off = m_termostat.is_off();
     if (m_eth_data.termostat_off_pause != m_eeprom_data.termostat_off_pause) {
       m_eeprom_data.termostat_off_pause = m_eth_data.termostat_off_pause;
     }
+    
+    m_treg_sync_parameters.sync();
+    m_treg_dac_sync_parameters.sync();
     
     if (m_adc.status() == irs_st_ready) {
       m_eth_data.adc_meas_process = 0;
@@ -719,6 +919,20 @@ void hrm::app_t::tick()
       m_eth_data.show_last_result = 0;
       show_last_result();
     }
+    //  Version info
+    if (m_eth_data.version_info != m_version) {
+      m_eth_data.version_info = m_version;
+    }
+    //  Show options
+    if (m_eth_data.show_options != m_eeprom_data.show_options) {
+      m_eeprom_data.show_options = m_eth_data.show_options;
+    }
+    //  Adaptive sko
+    m_adaptive_sko_calc.sync_parameters();
+    //  Rem time
+    m_eth_data.exp_percentage = m_remaining_time_calculator.get_percentage();
+    //
+    m_eth_data.test = m_current_iteration;
   }
   if (m_blink_timer.check()) {
     if (m_blink) {
@@ -737,8 +951,10 @@ void hrm::app_t::tick()
       m_sum_time++;
       m_remaining_time = irs::bound<irs_u32>(m_remaining_time - 1,
         0, m_remaining_time);
+      m_remaining_time_calculator.secund_tick();
       m_eth_data.sum_time = m_sum_time;
-      m_eth_data.remaining_time = m_remaining_time;
+      m_eth_data.remaining_time = 
+        m_remaining_time_calculator.get_remaining_time();//m_remaining_time;
     }
   }
   switch (m_mode) {
@@ -751,6 +967,11 @@ void hrm::app_t::tick()
           m_relay_bridge_pos = 0;
           m_relay_bridge_neg = 0;
           m_relay_prot = 1;
+          m_relay_hv_polarity = 0;
+          m_relay_hv_amps_gain = 0;
+          m_relay_hv_pos = 0;
+          m_relay_hv_neg = 0;
+          m_relay_hv_dac_amp = 0;
           m_adc.set_max_value(m_adc_max_value_prot);
           //
           m_dac.show();
@@ -758,15 +979,20 @@ void hrm::app_t::tick()
           m_dac.set_code(0);
           //
           m_adc.hide();
+          //  restore adc parametres
+          m_adc.set_params(&m_adc_free_vx_param_data);
           //
-          //m_relay_bridge_pos.set_wild(false);
-          //m_relay_bridge_neg.set_wild(false);
+          m_relay_bridge_pos.set_wild(false);
+          m_relay_bridge_neg.set_wild(false);
+          m_relay_hv_pos.set_wild(false);
+          m_relay_hv_neg.set_wild(false);
+          m_relay_hv_dac_amp.set_wild(false);
           //
           m_eth_data.apply = 0;
           m_eth_data.prepare_pause = m_prepare_pause;
           m_service_timer.start();
           m_meas_temperature = false;
-          m_termostat.set_off(false);
+          //m_termostat.set_off(false);
           m_eth_data.termostat_off = 0;
           m_elab_pid_on = false;
           m_eth_data.elab_pid_on = false;
@@ -813,7 +1039,9 @@ void hrm::app_t::tick()
             }
           } else {
             if (m_adc.status() == irs_st_ready) {
-              if (m_meas_temperature) {
+              m_voltage = m_adc_result_data.avg;
+              m_adc.start_conversion();
+              /*if (m_meas_temperature) {
                 m_temperature = adc_vx_to_th(m_adc_result_data.avg);
                 m_adc.set_params(&m_adc_free_vx_param_data);
                 m_adc.start_conversion();
@@ -823,7 +1051,7 @@ void hrm::app_t::tick()
                 m_adc.set_params(&m_adc_free_th_param_data);
                 m_adc.start_conversion();
                 m_meas_temperature = true;
-              }
+              }*/
             }
           }
           break;
@@ -842,8 +1070,13 @@ void hrm::app_t::tick()
           m_relay_bridge_pos.set_after_pause(m_min_after_pause);
           m_relay_bridge_neg.set_after_pause(m_min_after_pause);
           m_relay_prot.set_after_pause(m_min_after_pause);
+          m_relay_hv_polarity.set_after_pause(m_min_after_pause);
+          m_relay_hv_amps_gain.set_after_pause(m_min_after_pause);
+          m_relay_hv_pos.set_after_pause(m_min_after_pause);
+          m_relay_hv_neg.set_after_pause(m_min_after_pause);
+          m_relay_hv_dac_amp.set_after_pause(m_min_after_pause);
           m_dac.set_after_pause(m_min_after_pause);
-          m_termostat.set_after_pause(m_min_after_pause);
+          //m_termostat.set_after_pause(m_min_after_pause);
           m_meas_temperature = false;
           m_manual_status = ms_adc_setup;
           break;
@@ -863,7 +1096,7 @@ void hrm::app_t::tick()
             m_mode = md_free;
             m_eth_data.mode = md_free;
           } else {
-            //  Реле
+            //  Bridge relays
             if (m_eth_data.relay_bridge_pos != m_relay_bridge_pos) {
               m_relay_bridge_pos = m_eth_data.relay_bridge_pos;
             }
@@ -878,6 +1111,40 @@ void hrm::app_t::tick()
                 m_adc.set_max_value(m_adc_max_value_no_prot);  
               }
             }
+            //  HV relays
+            if (m_eth_data.relay_hv_polarity != m_relay_hv_polarity) {
+              m_relay_hv_polarity = m_eth_data.relay_hv_polarity;
+            }
+            if (m_eth_data.relay_hv_amps_gain != m_relay_hv_amps_gain) {
+              m_relay_hv_amps_gain = m_eth_data.relay_hv_amps_gain;
+            }
+            if (m_eth_data.relay_hv_pos != m_relay_hv_pos) {
+              m_relay_hv_pos = m_eth_data.relay_hv_pos;
+            }
+            if (m_eth_data.relay_hv_neg != m_relay_hv_neg) {
+              m_relay_hv_neg = m_eth_data.relay_hv_neg;
+            }
+            if (m_eth_data.relay_hv_dac_amp != m_relay_hv_dac_amp) {
+              m_relay_hv_dac_amp = m_eth_data.relay_hv_dac_amp;
+            }
+            //  Wild mode for bridge relays
+            if (m_wild_relays != m_relay_bridge_pos.wild()) {
+              m_relay_bridge_pos.set_wild(m_wild_relays);
+            }
+            if (m_wild_relays != m_relay_bridge_neg.wild()) {
+              m_relay_bridge_neg.set_wild(m_wild_relays);
+            }
+            //  Wild mode for HV relays
+            if (m_wild_relays != m_relay_hv_pos.wild()) {
+              m_relay_hv_pos.set_wild(m_wild_relays);
+            }
+            if (m_wild_relays != m_relay_hv_neg.wild()) {
+              m_relay_hv_neg.set_wild(m_wild_relays);
+            }
+            if (m_wild_relays != m_relay_hv_dac_amp.wild()) {
+              m_relay_hv_dac_amp.set_wild(m_wild_relays);
+            }
+            //if (m_eth_data.wild_relays)
             //  ЦАП
             if (m_eth_data.dac_on != m_dac.is_on()) {
               if (m_eth_data.dac_on) {
@@ -936,13 +1203,13 @@ void hrm::app_t::tick()
               m_manual_status = ms_pid_start;
             }
             //
-            bool thst_is_off = false;
-            if (m_eth_data.termostat_off) {
-              thst_is_off = true;
-            }
-            if (thst_is_off != m_termostat.is_off()) {
-              m_termostat.set_off(thst_is_off);
-            }
+            //bool thst_is_off = false;
+//            if (m_eth_data.termostat_off) {
+//              thst_is_off = true;
+//            }
+//            if (thst_is_off != m_termostat.is_off()) {
+//              m_termostat.set_off(thst_is_off);
+//            }
           } break;
         }
         case ms_adc_show: {
@@ -1037,13 +1304,13 @@ void hrm::app_t::tick()
               m_elab_pid_sko.resize_average(m_eth_data.elab_pid_avg_cnt);
               //update_elab_pid_koefs();
             }
-            bool thst_is_off = false;
+            /*bool thst_is_off = false;
             if (m_eth_data.termostat_off) {
               thst_is_off = true;
             }
             if (thst_is_off != m_termostat.is_off()) {
               m_termostat.set_off(thst_is_off);
-            }
+            }*/
             if (m_eth_data.elab_pid_reset == 1) {
               m_eth_data.elab_pid_reset = 0;
               irs::mlog() << irsm("PID RESET") << endl;
@@ -1125,6 +1392,9 @@ void hrm::app_t::tick()
         case ss_on: {
           if (bridge_relays_ready()) {
             m_relay_bridge_pos = 1;
+            m_relay_hv_pos = 1;
+            m_relay_hv_dac_amp = 0;
+            m_relay_hv_amps_gain = 0;
             m_scan_status = ss_dac_prepare;
           }
           break;
@@ -1203,6 +1473,9 @@ void hrm::app_t::tick()
         case ss_relay_off: {
           if (bridge_relays_ready()) {
             m_relay_bridge_pos = 0;
+            m_relay_hv_pos = 0;
+            m_relay_hv_dac_amp = 0;
+            m_relay_hv_amps_gain = 0;
             m_scan_status = ss_relay_wait;
           }
           break;
@@ -1232,6 +1505,8 @@ void hrm::app_t::tick()
           irs::mlog() << irsm("---------------------------------") << endl;
           irs::mlog() << irsm("----- Режим уравновешивания -----") << endl;
           irs::mlog() << irsm("---------------------------------") << endl;
+          
+          irs::mlog() << defaultfloat;
 
           m_etalon = m_eth_data.etalon;
           m_checked = m_eth_data.checked;
@@ -1245,12 +1520,20 @@ void hrm::app_t::tick()
           m_relay_bridge_pos.set_after_pause(m_relay_after_pause);
           m_relay_bridge_neg.set_after_pause(m_relay_after_pause);
           m_relay_prot.set_after_pause(m_relay_after_pause);
+          m_relay_hv_polarity.set_after_pause(m_relay_after_pause);
+          m_relay_hv_amps_gain.set_after_pause(m_relay_after_pause);
+          m_relay_hv_pos.set_after_pause(m_relay_after_pause);
+          m_relay_hv_neg.set_after_pause(m_relay_after_pause);
+          m_relay_hv_dac_amp.set_after_pause(m_relay_after_pause);
 
           m_wild_relays = m_eth_data.wild_relays;
           m_eeprom_data.wild_relays = m_wild_relays;
           if (m_wild_relays) {
-            //m_relay_bridge_pos.set_wild(true);
-            //m_relay_bridge_neg.set_wild(true);
+            m_relay_bridge_pos.set_wild(true);
+            m_relay_bridge_neg.set_wild(true);
+            m_relay_hv_pos.set_wild(true);
+            m_relay_hv_neg.set_wild(true);
+            m_relay_hv_dac_amp.set_wild(true);
           }
 
           m_relay_pause_timer.set(m_relay_after_pause);
@@ -1264,6 +1547,7 @@ void hrm::app_t::tick()
             m_eeprom_data.elab_step = m_elab_step;
           }
           m_auto_elab_step = m_eth_data.auto_elab_step;
+          
           m_exp_vector.clear();
           m_elab_vector.clear();
           m_fast_elab_vector.clear();
@@ -1279,6 +1563,7 @@ void hrm::app_t::tick()
           }
 
           m_no_prot = m_eth_data.no_prot;
+          m_eth_data.no_prot = m_no_prot;
           
           //  Параметры АЦП в режиме уравновешивания
           m_adc.set_params(&m_adc_balance_param_data);
@@ -1290,7 +1575,9 @@ void hrm::app_t::tick()
           m_exp_time = 0;
           m_sum_time = 0;
           m_eth_data.sum_time = 0;
-          m_remaining_time = 50; // Пока не реализован расчет времени!!!!!
+          m_remaining_time_calculator.reset();
+          m_remaining_time_calculator.start(m_prepare_pause);
+          
           m_optimize_balance = m_eth_data.optimize_balance;
 
           m_max_unsaturated_voltage = 0.0;
@@ -1302,11 +1589,29 @@ void hrm::app_t::tick()
           m_elab_step_multiplier = m_eth_data.elab_step_multiplier;
           m_elab_max_delta = m_eth_data.elab_max_delta;
           
-          m_termostat.set_off(false);
-          m_termostat.set_after_pause(
-            DBLTIME_TO_CNT(m_eth_data.termostat_off_pause));
+          m_device_condition_controller.set_idle(true);
             
           m_elab_mode = convert_u8_to_elab_mode(m_eth_data.elab_mode);
+          irs::mlog() << irsm("Уточнение: ") << m_elab_mode;
+          switch (m_elab_mode) {
+            case em_linear: {
+              irs::mlog() << irsm(" (линейное)") << endl;
+            } break;
+            case em_pid: {
+              irs::mlog() << irsm(" (ПИД)") << endl;
+            } break;
+            case em_fast_2points: {
+              irs::mlog() << irsm(" (быстрое по 2 точкам)") << endl;
+            } break;
+            default: {
+              irs::mlog() << irsm(" (нет)") << endl;
+            }
+          }
+          
+          m_balance_action = ba_prepare;
+          m_remaining_time_calculator.change_balance_action(m_balance_action);
+          m_remaining_time_calculator.
+            set_balance_points_count(default_balance_points);
           
           m_balance_status = bs_set_prot;
           break;
@@ -1318,6 +1623,8 @@ void hrm::app_t::tick()
               m_relay_prot = 0;
               m_adc.set_max_value(m_adc_max_value_no_prot);
             }
+            m_relay_hv_dac_amp = 0;
+            m_relay_hv_amps_gain = 0;
             m_balance_status = bs_set_coils;
           }
           break;
@@ -1331,10 +1638,12 @@ void hrm::app_t::tick()
             case bp_neg:
               irs::mlog() << irsm("------------- (-) ---------------") <<endl;
               m_relay_bridge_neg = 1;
+              m_relay_hv_neg = 1;
               break;
             case bp_pos:
               irs::mlog() << irsm("------------- (+) ---------------") <<endl;
               m_relay_bridge_pos = 1;
+              m_relay_hv_pos = 1;
               break;
             }
             m_balance_status = bs_coils_wait;
@@ -1347,6 +1656,7 @@ void hrm::app_t::tick()
             m_relay_pause_timer.start();
             float pause
               = 0.001 * static_cast<float>(m_eth_data.relay_pause_ms);
+            irs::mlog() << setprecision(0);
             irs::mlog() << irsm("Пауза реле ") << pause << irsm(" c") << endl;
             m_balance_status = bs_coils_relay_pause;
           }
@@ -1355,6 +1665,7 @@ void hrm::app_t::tick()
         case bs_coils_relay_pause: {
           if (m_relay_pause_timer.check()) {
             //  Пауза перед измерениями
+            irs::mlog() << irsm("Реле готовы") << endl;
             m_balance_status = bs_set_pause;
           }
           break;
@@ -1366,13 +1677,19 @@ void hrm::app_t::tick()
               m_is_exp = false;
               m_prepare_pause_timer.start();
               m_prepare_current_time = m_prepare_pause;
-              irs::mlog() << endl << irsm("Пауза ") << m_eth_data.prepare_pause;
-              irs::mlog() << irsm(" c") << endl;
+              
+              irs::mlog() << endl << irsm("Предварительная пауза ");
+              irs::mlog() << m_eth_data.prepare_pause << irsm(" c") << endl;
+              
               m_adc.hide();
               m_dac.hide();
+              m_balance_action = ba_prepare_pause;
+              m_remaining_time_calculator.change_balance_action(
+                m_balance_action);
+              m_adaptive_sko_calc.reset(m_adc_balance_param_data.cnv_cnt);
               m_balance_status = bs_pause;
             } else {
-              m_balance_status = bs_meas_temperature;
+              m_balance_status = bs_adc_prepare;//bs_meas_temperature;
             }
           }
           break;
@@ -1383,10 +1700,44 @@ void hrm::app_t::tick()
               m_prepare_pause_timer.start();
               m_prepare_current_time--;
               irs::mlog() << irsm(".") << flush;
+              if (m_prepare_current_time % 60 == 0) {
+                irs::mlog() << endl;
+              }
+              //m_adaptive_sko_calc.add();
               m_eth_data.prepare_pause = m_prepare_current_time;
             } else {
               irs::mlog() << endl;
               m_eth_data.prepare_pause = m_prepare_pause;
+              m_balance_action = ba_balance_neg;
+              m_remaining_time_calculator.change_balance_action(
+                m_balance_action);
+              m_adaptive_sko_calc.stop();
+              adc_value_t target_sko = m_adaptive_sko_calc.get_target_sko();
+              irs::mlog() << setprecision(3);
+              irs::mlog() << irsm("Target sko = ") << target_sko * 1.0e6;
+              irs::mlog() << irsm(" ppm") << endl;
+              if (m_adaptive_sko_calc.used()) {
+                irs::mlog() << irsm("Adaptive sko used") << endl;
+                adc_value_t elab_sko = 
+                  m_adaptive_sko_calc.get_target_elab_sko();
+                adc_value_t balance_sko = 
+                  m_adaptive_sko_calc.get_target_balance_sko();
+                m_adc_adaptive_balance_param_data.copy(
+                    &m_adc_balance_param_data);
+                m_adc_adaptive_elab_param_data.copy(
+                  &m_adc_elab_param_data);
+                if (balance_sko > m_adc_balance_param_data.cont_sko) {
+                  m_adc_adaptive_balance_param_data.cont_sko = balance_sko;
+                  m_adc_adaptive_elab_param_data.cont_sko = elab_sko;
+                }
+                irs::mlog() << irsm("Balance sko = ");
+                irs::mlog() << m_adc_adaptive_balance_param_data.cont_sko * 1.0e6;
+                irs::mlog() << irsm(" ppm") << endl;
+                irs::mlog() << irsm("Elab sko = ");
+                irs::mlog() << m_adc_adaptive_elab_param_data.cont_sko * 1.0e6;
+                irs::mlog() << irsm(" ppm") << endl;
+                irs::mlog() << endl;
+              }
               m_balance_status = bs_adc_show;
             }
           } else {
@@ -1407,7 +1758,7 @@ void hrm::app_t::tick()
             }
             //m_adc.show();
             m_dac.hide();
-            m_balance_status = bs_meas_temperature;
+            m_balance_status = bs_adc_prepare;//bs_meas_temperature;
           }
           break;
         }
@@ -1426,9 +1777,30 @@ void hrm::app_t::tick()
             m_temperature = adc_vx_to_th(m_voltage);
             irs::mlog() << irsm("Температура = ") << m_temperature;
             irs::mlog() << irsm(" °C") << endl;
-            m_adc.set_params(&m_adc_balance_param_data);
-            irs::mlog() << irsm("Параметры АЦП m_adc_balance_param_data")
-              << endl;
+            if (m_adaptive_sko_calc.used()) {
+              m_adc.set_params(&m_adc_adaptive_balance_param_data);
+              irs::mlog() << 
+              irsm("Параметры АЦП m_adc_adaptive_balance_param_data") << endl;
+            } else {
+              m_adc.set_params(&m_adc_balance_param_data);
+              irs::mlog() << irsm("Параметры АЦП m_adc_balance_param_data")
+                << endl;
+            }
+            m_balance_status = bs_dac_prepare;
+          }
+          break;
+        }
+        case bs_adc_prepare: {
+          if (m_adc.status() == irs_st_ready) {
+            if (m_adaptive_sko_calc.used()) {
+              m_adc.set_params(&m_adc_adaptive_balance_param_data);
+              irs::mlog() << 
+              irsm("Параметры АЦП m_adc_adaptive_balance_param_data") << endl;
+            } else {
+              m_adc.set_params(&m_adc_balance_param_data);
+              irs::mlog() << irsm("Параметры АЦП m_adc_balance_param_data")
+                << endl;
+            }
             m_balance_status = bs_dac_prepare;
           }
           break;
@@ -1439,7 +1811,7 @@ void hrm::app_t::tick()
             m_dac.set_code(m_initial_dac_code);
             m_dac_step = m_initial_dac_step;
             m_current_iteration = 0;
-            m_iteration_count = 20;
+            m_iteration_count = default_balance_points;
             m_dac_step_amplitude = 0.0;
             m_dac.on();
             m_prev_elab_vector.clear();
@@ -1449,14 +1821,15 @@ void hrm::app_t::tick()
         }
         case bs_termostat_off_adc_start: {
           if(m_dac.ready()) {
-            m_termostat.set_off(true);
+            //m_termostat.set_off(true);
+            m_device_condition_controller.set_idle(false);
             m_balance_status = bs_adc_start;
           }
           break;
         }
         case bs_adc_start: {
           if (m_adc.status() == irs_st_ready 
-              && m_termostat.status() == irs_st_ready) {
+              /*&& m_termostat.status() == irs_st_ready*/) {
             m_adc.start_conversion();
             m_balance_status = bs_adc_wait;
           }
@@ -1467,7 +1840,8 @@ void hrm::app_t::tick()
             adc_result_data_t adc_result_data;
             m_adc.result(&adc_result_data);
             adc_value_t adc_result = adc_result_data.avg;
-            m_termostat.set_off(false);
+            //m_termostat.set_off(false);
+            m_device_condition_controller.set_idle(true);
             //bool m_prev_balance_completed = false;
             
             if (abs(adc_result) < 0.99 * m_adc.max_value() &&
@@ -1477,13 +1851,13 @@ void hrm::app_t::tick()
                 m_max_unsaturated_voltage = abs(adc_result);
                 m_max_unsaturated_dac_code = abs(m_dac_code);
 
-                irs::mlog() << irsm(">>>> ") << setw(8);
-                irs::mlog() << m_max_unsaturated_dac_code;
-                irs::mlog() << irsm(" : ");
-                irs::mlog() << m_max_unsaturated_voltage;
-                irs::mlog() << irsm(" В ");
-                irs::mlog() << abs(adc_result_data.sko * 1e6);
-                irs::mlog() << irsm(" ppm ") << endl;
+//                irs::mlog() << irsm(">>>> ") << setw(8);
+//                irs::mlog() << m_max_unsaturated_dac_code;
+//                irs::mlog() << irsm(" : ");
+//                irs::mlog() << m_max_unsaturated_voltage;
+//                irs::mlog() << irsm(" В ");
+//                irs::mlog() << abs(adc_result_data.sko * 1e6);
+//                irs::mlog() << irsm(" ppm ") << endl;
               }
               elab_point_t elab_point;
               elab_point.dac = m_dac.get_code();
@@ -1506,23 +1880,31 @@ void hrm::app_t::tick()
                         m_prev_elab_vector[m_prev_elab_cnt-2].adc) / m_dac_code);
                   }
                 }
-                irs::mlog() << irsm(">DAC> ");
-                irs::mlog() << m_dac_step_amplitude << irsm(" В") << endl;
+                //irs::mlog() << irsm(">DAC> ");
+                //irs::mlog() << m_dac_step_amplitude << irsm(" В") << endl;
 
+                irs::mlog() << defaultfloat << fixed;
                 irs::mlog() << setw(2) << m_current_iteration+1 << irsm(" : ");
+                irs::mlog() << setprecision(0);
                 irs::mlog() << setw(8) << m_dac_code << irsm(" : ");
                 irs::mlog() << setw(8) << m_dac_step << irsm(" : ");
-                irs::mlog() << setw(12) << adc_result << irsm(" : ");
+                irs::mlog() << setprecision(7) << fixed;
+                irs::mlog() << setw(12) << fixed << adc_result << irsm(" : ");
+                irs::mlog() << setprecision(3);
                 adc_value_t rel_sko = abs(adc_result_data.sko * 1e6);
-                irs::mlog() << setw(8) << rel_sko << irsm(" ppm : ");
+                irs::mlog() << setw(8) << fixed << rel_sko << irsm(" ppm : ");
                 irs::mlog() << adc_result_data.current_point << endl;
-                irs::mlog() << irsm("PREV ") << setw(8) << m_balanced_dac_code;
+                irs::mlog() << defaultfloat << setprecision(0);
+                irs::mlog() << irsm("PREV ") << setw(8) << fixed << m_balanced_dac_code;
                 irs::mlog() << endl;
                 //m_prev_balance_completed = true;
                 if (elab_point.dac >= 0) {
                   m_elab_polarity = bp_pos;
                 } else {
                   m_elab_polarity = bp_neg;
+//                  m_balance_action = ba_elab_neg;
+//                  m_remaining_time_calculator.change_balance_action(
+//                    m_balance_action);
                 }
                 switch (m_elab_mode) {
                   case em_fast_2points: {
@@ -1534,6 +1916,8 @@ void hrm::app_t::tick()
                     break;
                   }
                 }
+                m_remaining_time_calculator.
+                  set_balance_points_count(m_current_iteration);
               } else {
                 m_balance_status = bs_balance;
               }
@@ -1560,7 +1944,9 @@ void hrm::app_t::tick()
             double log_ratio = floor(log2(ratio) - 1.0);
             irs_u32 int_log_ratio = static_cast<size_t>(log_ratio);
             m_current_iteration = m_iteration_count - int_log_ratio - 1;
-            irs_i32 int_dac_code = static_cast<irs_u32>(pow(2.0,int_log_ratio));
+            m_remaining_time_calculator.
+              set_current_balance_point(m_current_iteration);
+            irs_i32 int_dac_code = static_cast<irs_u32>(pow(2, log_ratio));
             irs_i32 int_dac_step = int_dac_code;
             if (adc_result > 0.0) {
               int_dac_code = -int_dac_code;
@@ -1573,11 +1959,17 @@ void hrm::app_t::tick()
           }
           if (m_current_iteration < m_iteration_count) {
             m_current_iteration++;
+            m_remaining_time_calculator.
+              set_current_balance_point(m_current_iteration);
+            irs::mlog() << defaultfloat << fixed;
             irs::mlog() << setw(2) << m_current_iteration << irsm(" : ");
+            irs::mlog() << setprecision(0);
             irs::mlog() << setw(8) << m_dac_code << irsm(" : ");
             irs::mlog() << setw(8) << m_dac_step << irsm(" : ");
+            irs::mlog() << setprecision(7);
             irs::mlog() << setw(12) << adc_result << irsm(" : ");
             adc_value_t rel_sko = abs(adc_result_data.sko * 1e6);
+            irs::mlog() << setprecision(3);
             irs::mlog() << setw(8) << rel_sko << irsm(" ppm : ");
             irs::mlog() << adc_result_data.current_point << endl;
             if (m_dac_step_amplitude > 0.0
@@ -1629,13 +2021,14 @@ void hrm::app_t::tick()
         }
         case bs_termostat_off_dac_wait: {
           if (m_dac.ready()) {
-            m_termostat.set_off(true);
+            //m_termostat.set_off(true);
+            m_device_condition_controller.set_idle(false);
             m_balance_status = bs_dac_wait;
           }
           break;
         }
         case bs_dac_wait: {
-          if (m_termostat.status() == irs_st_ready) {
+          if (/*m_termostat.status() == irs_st_ready*/true) {
             m_balance_status = bs_adc_start;
           }
           break;
@@ -1655,8 +2048,10 @@ void hrm::app_t::tick()
           
           if (m_balance_polarity == bp_neg) {
             m_etalon_code = elab_result.code;
+            m_etalon_balanced_code = m_balanced_dac_code;
           } else {
             m_checked_code = elab_result.code;
+            m_checked_balanced_code = m_balanced_dac_code;
           }
           if (!m_no_prot) {
             m_relay_prot = 1;
@@ -1699,17 +2094,31 @@ void hrm::app_t::tick()
           //irs::mlog() << irsm("Величина прыжка ЦАП = ") 
             //<< m_fast_elab_dac_step << endl;
           //  Внесение ассиметрии для нормальной работы новой формулы
+          irs::mlog() << defaultfloat << fixed << setprecision(0);
           switch (m_fast_elab_vector.size()) {
             case 0: {
               m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_2;
               irs::mlog() << irsm("Величина прыжка ЦАП = ") 
                 << m_fast_elab_dac_step_2 << endl;
+              m_balance_action = ba_elab_neg;
+              m_remaining_time_calculator.
+                change_balance_action(m_balance_action);
               break;
             }
             case 2: {
-              m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_3;
+              if (m_dac_code > m_balanced_dac_code) {
+                //m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_3;
+                m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_2;
+              } else {
+                //m_dac_code = m_balanced_dac_code - m_fast_elab_dac_step_3;
+                m_dac_code = m_balanced_dac_code - m_fast_elab_dac_step_2;
+              }
+              //m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_3;
               irs::mlog() << irsm("Величина прыжка ЦАП = ") 
                 << m_fast_elab_dac_step_3 << endl;
+              m_balance_action = ba_elab_pos;
+              m_remaining_time_calculator.change_balance_action(
+                m_balance_action);
               break;
             }
             default: {
@@ -1718,24 +2127,28 @@ void hrm::app_t::tick()
                 << m_fast_elab_dac_step << endl;
             }
           }
-          if (m_fast_elab_vector.size() < 1)  {
-            
+          if (m_adaptive_sko_calc.used()) {
+            m_adc.set_params(&m_adc_adaptive_elab_param_data);
+            irs::mlog() << 
+            irsm("Параметры АЦП m_adc_adaptive_elab_param_data") << endl;
           } else {
-            
+            m_adc.set_params(&m_adc_elab_param_data);
+            irs::mlog() << irsm("Параметры АЦП m_adc_elab_param_data")
+              << endl;
           }
-          
-          m_adc.set_params(&m_adc_elab_param_data);
-          irs::mlog() << irsm("Параметры АЦП m_adc_elab_param_data") << endl;
           m_dac.set_after_pause(m_dac_elab_pause);
           m_current_iteration = 0;
           m_elab_iteration_count = 2;
           //m_fast_elab_vector.clear();
+          m_remaining_time_calculator.
+            set_current_balance_point(m_current_iteration);
           m_balance_status = bs_fast_elab_dac_set;
           break;
         }
         case bs_fast_elab_dac_set: {
           if (m_dac.ready()) {
             m_dac.set_code(m_dac_code);
+            irs::mlog() << setprecision(0) << fixed;
             irs::mlog() << setw(2) << (m_current_iteration + 1) << irsm(" : ");
             irs::mlog() << setw(8) << (m_dac_code) << irsm(" : ") << flush;
             m_balance_status = bs_fast_elab_adc_start;
@@ -1762,9 +2175,12 @@ void hrm::app_t::tick()
             elab_point.adc = adc_result;
             elab_point.sko = adc_result_data.sko;
             elab_point.avg = adc_result;
+            elab_point.num_of_adc_points = adc_result_data.current_point;
             m_fast_elab_vector.push_back(elab_point);
             
+            irs::mlog() << setprecision(7) << fixed;
             irs::mlog() << setw(12) << (adc_voltage) << irsm(" В : ");
+            irs::mlog() << setprecision(3);
             irs::mlog() << (elab_point.sko * 1e6) << irsm(" ppm : ");
             irs::mlog() << adc_result_data.current_point << endl;
             
@@ -1775,8 +2191,27 @@ void hrm::app_t::tick()
         case bs_fast_elab_point_processing: {
           if (m_current_iteration < (m_elab_iteration_count - 1)) {
             m_current_iteration++;
+            m_remaining_time_calculator.
+              set_current_balance_point(m_current_iteration);
             //m_pos_current_elab++;
-            m_dac_code = m_balanced_dac_code - m_fast_elab_dac_step;
+            //m_dac_code = m_balanced_dac_code - m_fast_elab_dac_step;
+            switch (m_fast_elab_vector.size()) {
+              case 1: {
+                m_dac_code = m_balanced_dac_code - m_fast_elab_dac_step_2;
+                break;
+              }
+              case 3: {
+                if (m_dac_code > m_balanced_dac_code) {
+                  m_dac_code = m_balanced_dac_code - m_fast_elab_dac_step_3;
+                } else {
+                  m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_3;
+                }
+                break;
+              }
+              default: {
+                m_dac_code = m_balanced_dac_code - m_fast_elab_dac_step;
+              }
+            }
             m_balance_status = bs_fast_elab_dac_set;
           } else {
             m_balance_status = bs_fast_elab_result;
@@ -1797,14 +2232,17 @@ void hrm::app_t::tick()
           m_elab_result_vector.push_back(elab_result);
           m_pos_current_elab++;
           
+          irs::mlog() << setprecision(3);
           irs::mlog() << irsm("---------------------------------") << endl;
           irs::mlog() << irsm("Измеренный код (старый вариант) = ");
           irs::mlog() << elab_result.code << endl;
           
           if (m_balance_polarity == bp_neg) {
             m_etalon_code = elab_result.code;
+            m_etalon_balanced_code = m_balanced_dac_code;
           } else {
             m_checked_code = elab_result.code;
+            m_checked_balanced_code = m_balanced_dac_code;
           }
           if (!m_no_prot) {
             m_relay_prot = 1;
@@ -1872,6 +2310,8 @@ void hrm::app_t::tick()
 
               m_relay_bridge_pos = 0;
               m_relay_bridge_neg = 0;
+              m_relay_hv_pos = 0;
+              m_relay_hv_neg = 0;
               m_balance_status = bs_set_prot;
             } else {
               m_current_elab = 0;
@@ -1941,13 +2381,14 @@ void hrm::app_t::tick()
         }
         case bs_termostat_off_elab_adc_start: {
           if (m_dac.ready()) {
-            m_termostat.set_off(true);
+            //m_termostat.set_off(true);
+            m_device_condition_controller.set_idle(false);
             m_balance_status = bs_elab_adc_start;
           }
           break;
         }
         case bs_elab_adc_start: {
-          if (m_termostat.status() == irs_st_ready) {
+          if (/*m_termostat.status() == irs_st_ready*/true) {
             m_adc.start_conversion();
             m_balance_status = bs_elab_adc_wait;
           }
@@ -1955,7 +2396,8 @@ void hrm::app_t::tick()
         }
         case bs_elab_adc_wait: {
           if (m_adc.status() == irs_st_ready) {
-            m_termostat.set_off(false);
+            //m_termostat.set_off(false);
+            m_device_condition_controller.set_idle(true);
             elab_point_t elab_point;
             elab_point.dac = m_dac.get_code();
             elab_point.adc = m_voltage;
@@ -2013,8 +2455,10 @@ void hrm::app_t::tick()
               || m_current_elab >= m_max_elab_cnt) {
             if (m_balance_polarity == bp_neg) {
               m_etalon_code = elab_result.code;
+              m_etalon_balanced_code = m_balanced_dac_code;
             } else {
               m_checked_code = elab_result.code;
+              m_checked_balanced_code = m_balanced_dac_code;
             }
             if (!m_no_prot) {
               m_relay_prot = 1;
@@ -2034,6 +2478,10 @@ void hrm::app_t::tick()
           if (m_relay_prot.status() == irs_st_ready) {
             m_relay_bridge_pos = 0;
             m_relay_bridge_neg = 0;
+            m_relay_hv_pos = 0;
+            m_relay_hv_neg = 0;
+            m_relay_hv_dac_amp = 0;
+            m_relay_hv_amps_gain = 0;
             m_balance_status = bs_wait_relays;
           }
           break;
@@ -2045,8 +2493,14 @@ void hrm::app_t::tick()
               m_max_unsaturated_voltage = 0.0;
               m_max_unsaturated_dac_code = 0.0;
               m_pos_current_elab++;
+              m_balance_action = ba_balance_pos;
+              m_remaining_time_calculator.change_balance_action(
+                m_balance_action);
               m_balance_status = bs_set_coils;
             } else {
+              m_balance_action = ba_idle;
+              m_remaining_time_calculator.change_balance_action(
+                m_balance_action);
               m_balance_status = bs_report;
             }
           }
@@ -2055,6 +2509,10 @@ void hrm::app_t::tick()
         case bs_report: {
           irs::mlog() << irsm("---------------------------------") << endl;
           m_buzzer.bzz(2);
+          m_prev_exp_time = m_exp_time;
+          m_eth_data.prev_exp_time = m_prev_exp_time;
+          m_exp_time = 0;
+          m_eth_data.exp_time = m_exp_time;
           switch (m_elab_mode) {
             case em_fast_2points: {
               irs::mlog() << endl;
@@ -2072,6 +2530,23 @@ void hrm::app_t::tick()
               //  ---------------      RESULTS         -------------------------
               irs::mlog() << endl;
               exp_t exp;
+              if (m_adaptive_sko_calc.used()) {
+                exp.target_sko = 
+                  m_adaptive_sko_calc.get_target_sko() * 1.0e6;
+                exp.target_balance_sko = 
+                  m_adaptive_sko_calc.get_target_balance_sko() * 1.0e6;
+                exp.target_elab_sko = 
+                  m_adaptive_sko_calc.get_target_elab_sko() * 1.0e6;
+              } else {
+                exp.target_sko = 0.0;
+                exp.target_balance_sko = 0.0;
+                exp.target_elab_sko = 0.0;
+              }
+              exp.exp_time = m_prev_exp_time;
+              exp.temperature_ext = m_eth_data.th_ext_1;
+              exp.temperature_dac = m_eth_data.th_dac;
+              exp.temperature_adc = m_eth_data.th_box_adc;
+              exp.temperature_ldo = m_eth_data.th_box_ldo;
               //  ---------------  OLD FORMULA RESULT  -------------------------
               m_checked_code /= pow(2., 19);
               m_etalon_code /= pow(2., 19);
@@ -2079,6 +2554,9 @@ void hrm::app_t::tick()
               double A = (m_bac_old_coefficient) / pow(2.0, 19);
               m_result = (2.0 - m_checked_code + m_etalon_code - A);
               m_result /= (2.0 + m_checked_code - m_etalon_code + A);
+              //
+              exp.result_old_uncorrect = (2.0 - m_checked_code + m_etalon_code);
+              exp.result_old_uncorrect /= (2.0 + m_checked_code - m_etalon_code);
               
               irs::mlog() << irsm("Старый результат") << endl;
               irs::mlog() << irsm("BAC OLD = ") << m_bac_old_coefficient;
@@ -2086,17 +2564,21 @@ void hrm::app_t::tick()
               irs::mlog() << irsm("A = ") << A << endl;
               irs::mlog() << irsm("RESULT OLD = ");
               irs::mlog() << setw(14) << setprecision(14);
-              irs::mlog() << m_result << endl << endl;
+              irs::mlog() << m_result << endl;
+              irs::mlog() << irsm("RESULT OLD UNCORRECT = ");
+              irs::mlog() << exp.result_old_uncorrect << endl << endl;
               
               exp.result_old = m_result;
               exp.ch_code = m_checked_code;
               exp.et_code = m_etalon_code;
+              exp.et_balanced_code = m_etalon_balanced_code;
+              exp.ch_balanced_code = m_checked_balanced_code;
               //  --------------------------------------------------------------
               
               //  ---------------  NEW FORMULA RESULT  -------------------------
               irs::mlog() << irsm("Новый результат") << endl;
               //  --------------------------------------------------------------
-              irs::mlog() << irsm("FLOAT") << endl;
+              //irs::mlog() << irsm("FLOAT") << endl;
               const size_t index_1n = 2;
               const size_t index_2n = 3;
               const size_t index_1p = 0;
@@ -2123,37 +2605,44 @@ void hrm::app_t::tick()
               denom = (2.0 * ((m2p - m2n) - (m1p - m1n)));
               
               n0 = num / denom;
-              exp.n0_4 = n0;
-              exp.result_4 =  (1.0 + num / denom / h) 
+              exp.n0 = n0;
+              exp.result_new =  (1.0 + num / denom / h) 
                             / (1.0 - ((1.0 - B) * denom + num) / denom / h);
+              exp.result_new_uncorrect = (1.0 + num / denom / h) 
+                            / (1.0 - ((1.0 - 0.0) * denom + num) / denom / h);
+              exp.num = num;
+              exp.den = denom;
                             
-              irs::mlog() << irsm("m1n = ") << m1n << endl;
-              irs::mlog() << irsm("m1p = ") << m1p << endl;
-              irs::mlog() << irsm("m2n = ") << m2n << endl;
-              irs::mlog() << irsm("m2p = ") << m2p << endl;
-              irs::mlog() << irsm("n1n = ") << n1n << endl;
-              irs::mlog() << irsm("n1p = ") << n1p << endl;
-              irs::mlog() << irsm("n2n = ") << n2n << endl;
-              irs::mlog() << irsm("n2p = ") << n2p << endl;
-              irs::mlog() << endl;
-              irs::mlog() << irsm("m2p - m2n = ") << (m2p - m2n) << endl;
-              irs::mlog() << irsm("n1p - n1n = ") << (n1p - n1n) << endl;
-              irs::mlog() << irsm("m1p - m1n = ") << (m1p - m1n) << endl;
-              irs::mlog() << irsm("n2p - n2n = ") << (n2p - n2n) << endl;
-              irs::mlog() << endl;
-              irs::mlog() << irsm("BAC NEW = ");
-              irs::mlog() << m_bac_new_coefficient << endl;
-              irs::mlog() << endl;
-              irs::mlog() << irsm("Denom     = ") << denom << endl;
-              irs::mlog() << irsm("Numer     = ") << num << endl;
-              irs::mlog() << endl;
-              irs::mlog() << irsm("n0 = ") << n0 << endl;
-              irs::mlog() << irsm("Результат NEW FLOAT ");
-              irs::mlog() << setw(12) << exp.result_4;
-              irs::mlog() << endl;
-              irs::mlog() << endl;
+//              irs::mlog() << irsm("m1n = ") << m1n << endl;
+//              irs::mlog() << irsm("m1p = ") << m1p << endl;
+//              irs::mlog() << irsm("m2n = ") << m2n << endl;
+//              irs::mlog() << irsm("m2p = ") << m2p << endl;
+//              irs::mlog() << irsm("n1n = ") << n1n << endl;
+//              irs::mlog() << irsm("n1p = ") << n1p << endl;
+//              irs::mlog() << irsm("n2n = ") << n2n << endl;
+//              irs::mlog() << irsm("n2p = ") << n2p << endl;
+//              irs::mlog() << endl;
+//              irs::mlog() << irsm("m2p - m2n = ") << (m2p - m2n) << endl;
+//              irs::mlog() << irsm("n1p - n1n = ") << (n1p - n1n) << endl;
+//              irs::mlog() << irsm("m1p - m1n = ") << (m1p - m1n) << endl;
+//              irs::mlog() << irsm("n2p - n2n = ") << (n2p - n2n) << endl;
+//              irs::mlog() << endl;
+//              irs::mlog() << irsm("BAC NEW = ");
+//              irs::mlog() << m_bac_new_coefficient << endl;
+//              irs::mlog() << endl;
+//              irs::mlog() << irsm("Denom     = ") << denom << endl;
+//              irs::mlog() << irsm("Numer     = ") << num << endl;
+//              irs::mlog() << endl;
+//              irs::mlog() << irsm("n0 = ") << n0 << endl;
+//              irs::mlog() << irsm("Результат NEW = ");
+//              irs::mlog() << setw(14) << setprecision(14);
+//              irs::mlog() << exp.result_new;
+//              irs::mlog() << irsm("Результат NEW UNCORRECT = ");
+//              irs::mlog() << exp.result_new_uncorrect;
+//              irs::mlog() << endl;
+//              irs::mlog() << endl;
               //  --------------------------------------------------------------
-              irs::mlog() << irsm("INT") << endl;
+              /*irs::mlog() << irsm("INT") << endl;
               adc_value_t mult = m_bac_new_int_multiplier;
               irs::mlog() << irsm("MULT = ") << mult << endl;
               
@@ -2168,10 +2657,10 @@ void hrm::app_t::tick()
               
               irs_i64 NUM = 0;
               irs_i64 DENOM = 0;
-              irs_i64 DENOM_CORR = 0;
+              irs_i64 DENOM_CORR = 0;*/
               //irs_i64 B_INT = m_bac_new_int_coefficient;
               
-              NUM = (M2P - M2N) * (N1P - N1N - 1) 
+              /*NUM = (M2P - M2N) * (N1P - N1N - 1) 
                   - (M1P - M1N) * (N2P - N2N - 1);
                     
               DENOM = 2 * ((M2P - M2N) - (M1P - M1N));
@@ -2183,13 +2672,13 @@ void hrm::app_t::tick()
               
               irs_i64 HALF = 1 << 19;
               irs_i64 NUM_N0 = NUM + HALF * DENOM;
-              irs_i64 DENOM_N0 = (HALF - 1) * DENOM - NUM + DENOM_CORR;
+              irs_i64 DENOM_N0 = (HALF - 1) * DENOM - NUM + DENOM_CORR;*/
               
-              exp.n0_5 = n0;
-              exp.result_5 =  static_cast<adc_value_t>(NUM_N0) 
-                            / static_cast<adc_value_t>(DENOM_N0);
+              //exp.n0_5 = n0;
+              //exp.result_5 =  static_cast<adc_value_t>(NUM_N0) 
+              //              / static_cast<adc_value_t>(DENOM_N0);
                             
-              irs::mlog() << irsm("M1N = ") << M1N << endl;
+              /*irs::mlog() << irsm("M1N = ") << M1N << endl;
               irs::mlog() << irsm("M1P = ") << M1P << endl;
               irs::mlog() << irsm("M2N = ") << M2N << endl;
               irs::mlog() << irsm("M2P = ") << M2P << endl;
@@ -2213,7 +2702,7 @@ void hrm::app_t::tick()
               irs::mlog() << irsm("РЕЗУЛЬТАТ NEW INT ");
               irs::mlog() << setw(12) << exp.result_5 << endl;
               irs::mlog() << endl;
-              irs::mlog() << endl;
+              irs::mlog() << endl;*/
               //  --------------------------------------------------------------
               
               // irs::mlog() << irsm("n0 = ") << n0 << endl;
@@ -2234,9 +2723,14 @@ void hrm::app_t::tick()
                 
               m_fast_elab_vector.clear();
               
-              m_eth_data.result = exp.result_old;     //  Result OLD
-              m_eth_data.ratio = exp.result_5;        //  Result INT
-              m_eth_data.result_error = exp.result_4; //  Result FLOAT
+              
+              if (m_eth_data.result != 0.0) {
+                //m_eth_data.checked_prev = m_eth_data.result;
+              }
+              m_eth_data.result = exp.result_old * m_eth_data.etalon;//  Result OLD
+              //m_eth_data.ratio = exp.result_5;        //  Result INT
+              m_eth_data.result_error = exp.result_new * m_eth_data.etalon; //  Result FLOAT
+              m_eth_data.ratio = m_result;
               break;
             }
             case em_none: {
@@ -2248,19 +2742,25 @@ void hrm::app_t::tick()
                 setprecision(14) << m_result << endl << endl;
               
               exp_t exp;
+              exp.exp_time = m_prev_exp_time;
               exp.result_old = m_result;
               exp.ch_code = m_checked_code;
               exp.et_code = m_etalon_code;
               
-              exp.n0_5 = 0.0;
-              exp.result_5 = 0.0;
+              exp.n0 = 0.0;
+              exp.result_new = 0.0;
 
               m_exp_vector.push_back(exp);
                 
               m_fast_elab_vector.clear();
               
-              m_eth_data.result = exp.result_old;
-              m_eth_data.ratio = exp.result_5;
+              
+              if (m_eth_data.result != 0.0) {
+                //m_eth_data.checked_prev = m_eth_data.result;
+              }
+              m_eth_data.result = exp.result_old * m_eth_data.etalon;
+              //m_eth_data.ratio = exp.result_new;
+              m_eth_data.ratio = m_result;
               break;
             }
             default: {
@@ -2288,15 +2788,40 @@ void hrm::app_t::tick()
               
               m_result = (2. - m_checked_code - m_etalon_code);
               m_result /= (2. + m_checked_code + m_etalon_code);
+              
+              exp_t exp;
+              exp.exp_time = m_prev_exp_time;
+              exp.result_old = m_result;
+              exp.ch_code = m_checked_code;
+              exp.et_code = m_etalon_code;
+              
+              exp.n0 = 0.0;
+              exp.result_new = 0.0;
+              
+              m_fast_elab_vector.clear();
+              
+              
+              if (m_eth_data.result != 0.0) {
+                //m_eth_data.checked_prev = m_eth_data.result;
+              }
+              m_eth_data.result = exp.result_old * m_eth_data.etalon;
+              //m_eth_data.ratio = exp.result_new;
+              m_eth_data.ratio = m_result;
+              
+              m_exp_vector.push_back(exp);
             }
           }
+          m_eth_data.ratio = m_result;
+          m_eth_data.result = m_result * m_eth_data.etalon;
           m_result *= m_etalon;
           m_result_error = ((m_result - m_checked) / m_checked) * 100.;
           irs::mlog() << irsm("Результат ") << m_result
             << irsm(" Ом") << endl;
           irs::mlog() << irsm("Отклонение ") << m_result_error
             << irsm(" %") << endl;
-          m_eth_data.result = m_result;
+          if (m_eth_data.result != 0.0) {
+            //m_eth_data.checked_prev = m_eth_data.result;
+          }          
           //m_eth_data.result_error = m_result_error;
           m_balance_status = bs_next_exp;
           break;
@@ -2308,11 +2833,11 @@ void hrm::app_t::tick()
           // exp.ch_code = m_checked_code;
           // exp.et_code = m_etalon_code;
           // m_exp_vector.push_back(exp);
+          //irs::mlog() << int(m_eth_data.current_exp_cnt) << endl;
           m_eth_data.current_exp_cnt--;
-          m_prev_exp_time = m_exp_time;
-          m_eth_data.prev_exp_time = m_prev_exp_time;
-          m_exp_time = 0;
-          m_eth_data.exp_time = m_exp_time;
+          
+          //irs::mlog() << int(m_eth_data.current_exp_cnt) << endl;
+          //  exp_time was here
           if (m_exp_vector.size() >= m_exp_cnt) {
             m_eth_data.complete = 1;
             mp_menu->show_experiment_result();
@@ -2350,6 +2875,9 @@ void hrm::app_t::tick()
         irs::mlog() << irsm("---------------------------------") << endl;
         irs::mlog() << irsm("------------- Сброс -------------") << endl;
         m_eth_data.reset = 0;
+        m_balance_action = ba_idle;
+        m_remaining_time_calculator.change_balance_action(
+          m_balance_action);
         if (m_mode == md_balance) {
           mp_menu->show_experiment_options();
           m_balance_status = bs_final_report;
@@ -3187,9 +3715,10 @@ void hrm::app_t::show_experiment_parameters()
   irs::mlog() << static_cast<int>(m_adc_balance_param_data.gain);
   
   irs::mlog() << endl;
-  
+ 
+  irs::mlog() << setprecision(0);
   irs::mlog() << setw(18) << left << irsm("dac_pause_ms ");
-  irs::mlog() << setw(7) << left;
+  irs::mlog() << setw(7) << left;// << setprecision(0);
   irs::mlog() << 1000.0 * CNT_TO_DBLTIME(m_dac_after_pause);
   
   irs::mlog() << setw(32) << left << irsm("adc_elab_filter ");
@@ -3270,22 +3799,44 @@ void hrm::app_t::show_experiment_parameters()
   
   irs::mlog() << endl;
   
-  //irs::mlog() << setw(25) << left << irsm(". .");
+  irs::mlog() << setprecision(1);
+  
   irs::mlog() << setw(18) << left << irsm("adc_max_value_prot ");
   irs::mlog() << setw(7) << left << m_adc_max_value_prot;
   
   irs::mlog() << setw(32) << left << irsm("adc_elab_cont_sko ");
   irs::mlog() << setw(7) << left;
-  irs::mlog() << m_adc_elab_param_data.cont_sko;
+  irs::mlog() << m_adc_elab_param_data.cont_sko * 1.0e6;
   
   irs::mlog() << setw(32) << left << irsm("adc_balance_cont_sko ");
   irs::mlog() << setw(7) << left;
-  irs::mlog() << m_adc_balance_param_data.cont_sko;
+  irs::mlog() << m_adc_balance_param_data.cont_sko * 1.0e6;
   
   irs::mlog() << endl;
   
   irs::mlog() << setw(18) << left << irsm("adc_max_value_no_prot ");
   irs::mlog() << setw(7) << left << m_adc_max_value_no_prot;
+  
+  irs::mlog() << setw(32) << left << irsm("adc_adaptive_elab_sko ");
+  irs::mlog() << setw(7) << left << m_adc_adaptive_elab_param_data.cont_sko * 1.0e6;
+  
+  irs::mlog() << setw(32) << left << irsm("adc_adaptive_balance_sko ");
+  irs::mlog() << setw(7) << left << m_adc_adaptive_balance_param_data.cont_sko * 1.0e6;
+  
+  irs::mlog() << endl;
+  
+  irs::mlog() << setw(18) << left << irsm("use_adc_adaptive_sko ");
+  irs::mlog() << setw(7) << left << m_eth_data.use_adc_adaptive_sko;
+  
+  irs::mlog() << setprecision(2);
+  
+  irs::mlog() << setw(32) << left << irsm("adaptive_sko_elab_multiplier ");
+  irs::mlog() << setw(7) << left;
+  irs::mlog() << m_eth_data.adaptive_sko_elab_multiplier;
+  
+  irs::mlog() << setw(32) << left << irsm("adaptive_sko_balance_multiplier ");
+  irs::mlog() << setw(7) << left;
+  irs::mlog() << m_eth_data.adaptive_sko_balance_multiplier;
   
   irs::mlog() << endl;
   
@@ -3298,65 +3849,139 @@ void hrm::app_t::show_experiment_parameters()
   irs::mlog() << setw(7) << left << m_bac_new_coefficient;
   
   irs::mlog() << endl;
-  
-  irs::mlog() << setw(18) << left << irsm("bac_new_int_coefficient ");
-  irs::mlog() << setw(7) << left << m_bac_new_int_coefficient;
-  
-  irs::mlog() << endl;
 }
 
 void hrm::app_t::show_last_result()
 {
-  irs::mlog() << endl;
+  irs::mlog() << fixed << endl;
   irs::mlog() << irsm("----------- Результат серии экспериментов");
   irs::mlog() << irsm(" -----------") << endl;
-  irs::mlog() << irsm("  №  ");
-  irs::mlog() << irsm("Результат OLD ");
-  irs::mlog() << irsm("Результат INT");
-  irs::mlog() << irsm("Результат FLOAT");
+  irs::mlog() << irsm("№    ");
+  if (m_eth_data.show_old_result) {
+    irs::mlog() << irsm("OLD            ");
+  }
+  if (m_eth_data.show_new_result) {
+    irs::mlog() << irsm("NEW            ");
+  }
+  if (m_eth_data.show_old_unc_result) {
+    irs::mlog() << irsm("OLD_UNCORRECT  ");
+  }
+  if (m_eth_data.show_new_unc_result) {
+    irs::mlog() << irsm("NEW_UNCORRECT  ");
+  }
+  if (m_eth_data.show_th_ext) {
+    irs::mlog() << irsm("t°ext  ");
+  }
+  if (m_eth_data.show_th_dac) {
+    irs::mlog() << irsm("t°dac  ");
+  }
+  if (m_eth_data.show_th_adc) {
+    irs::mlog() << irsm("t°adc  ");
+  }
+  if (m_eth_data.show_th_ldo) {
+    irs::mlog() << irsm("t°ldo  ");
+  }
+  if (m_eth_data.show_exp_time) {
+    irs::mlog() << irsm("Texp ");
+  }
+  if (m_eth_data.show_target_sko) {
+    irs::mlog() << irsm("tSKO ");
+  }
+  if (m_eth_data.show_target_balance_sko) {
+    irs::mlog() << irsm("tSKOb ");
+  }
+  if (m_eth_data.show_target_elab_sko) {
+    irs::mlog() << irsm("tSKOe");
+  }
   irs::mlog() << endl;
   
   for (size_t i = 0; i < m_exp_vector.size(); i++) {
     irs::mlog() << setprecision(10);
     irs::mlog() << setw(3) << i + 1;irs::mlog() << irsm(" ");
-    //irs::mlog() << setw(12) << m_exp_vector[i].ch_code * pow(2., 19);
-    //irs::mlog() << irsm(" ");
-    //irs::mlog() << setw(12) << m_exp_vector[i].et_code * pow(2., 19);
     irs::mlog() << setprecision(12);
-    //irs::mlog() << irsm(" ") << setw(14) << m_exp_vector[i].n0;
-    irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].result_old;
-    irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].result_5;
-    irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].result_4;
+    if (m_eth_data.show_old_result) {
+      irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].result_old;
+    }
+    if (m_eth_data.show_new_result) {
+      irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].result_new;
+    }
+    if (m_eth_data.show_old_unc_result) {
+      irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].result_old_uncorrect;
+    }
+    if (m_eth_data.show_new_unc_result) {
+      irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].result_new_uncorrect;
+    }
+    irs::mlog() << setprecision(1);
+    if (m_eth_data.show_th_ext) {
+      irs::mlog() << irsm(" ") << setw(3) << m_exp_vector[i].temperature_ext;
+    }
+    if (m_eth_data.show_th_dac) {
+      irs::mlog() << irsm("   ") << setw(3) << m_exp_vector[i].temperature_dac;
+    }
+    if (m_eth_data.show_th_adc) {
+      irs::mlog() << irsm("   ") << setw(3) << m_exp_vector[i].temperature_adc;
+    }
+    if (m_eth_data.show_th_ldo) {
+      irs::mlog() << irsm("   ") << setw(3) << m_exp_vector[i].temperature_ldo;
+    }
+    irs::mlog() << setprecision(0);
+    if (m_eth_data.show_exp_time) {
+      irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].exp_time;
+    }
+    irs::mlog() << setprecision(2);
+    if (m_eth_data.show_target_sko) {
+      irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].target_sko;
+    }
+    if (m_eth_data.show_target_balance_sko) {
+      irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].target_balance_sko;
+    }
+    if (m_eth_data.show_target_elab_sko) {
+      irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].target_elab_sko;
+    }
     irs::mlog() << endl;
   }
   
-  irs::mlog() << endl;
-  irs::mlog() << irsm("----------- Пересечения серии экспериментов");
-  irs::mlog() << irsm(" -----------") << endl;
-  irs::mlog() << irsm("  №   ");
-  irs::mlog() << irsm("NEG / POS                    ");
-  irs::mlog() << irsm("Результат INT ");
-  irs::mlog() << irsm("Результат FLOAT");
-  irs::mlog() << endl;
-  
-  for (size_t i = 0; i < m_exp_vector.size(); i++) {
-    //irs::mlog() << setprecision(6);
-    irs::mlog() << setw(3) << i + 1;irs::mlog() << irsm(" ");
-    irs::mlog() << setw(14) << m_exp_vector[i].ch_code * pow(2., 19);
-    irs::mlog() << irsm(" ");
-    irs::mlog() << setw(14) << m_exp_vector[i].et_code * pow(2., 19);
-    irs::mlog() << setprecision(12);
-    //irs::mlog() << irsm(" ") << setw(14) << m_exp_vector[i].n0;
-    //irs::mlog() << irsm(" ") << setw(12) << m_exp_vector[i].result_old;
-    irs::mlog() << irsm(" ") << setw(12) << m_exp_vector[i].n0_5;
-    irs::mlog() << irsm(" ") << setw(12) << m_exp_vector[i].n0_4;
+  if (m_eth_data.show_intersections) {
+    irs::mlog() << endl;
+    irs::mlog() << irsm("----------- Пересечения серии экспериментов");
+    irs::mlog() << irsm(" -----------") << endl;
+    irs::mlog() << irsm("№   ");
+    irs::mlog() << irsm("NEG           ");
+    irs::mlog() << irsm("NEG_0         ");
+    irs::mlog() << irsm("POS           ");
+    irs::mlog() << irsm("POS_0         ");
+    irs::mlog() << irsm("n0            ");
+    irs::mlog() << irsm("num           ");
+    irs::mlog() << irsm("den           ");
+    irs::mlog() << endl;
+    irs::mlog() << left;
+    
+    for (size_t i = 0; i < m_exp_vector.size(); i++) {
+      irs::mlog() << setw(3) << i + 1;
+      irs::mlog() << irsm(" ");
+      irs::mlog() << setprecision(5);
+      irs::mlog() << setw(13) << m_exp_vector[i].ch_code * pow(2., 19);
+      irs::mlog() << irsm(" ");
+      irs::mlog() << setprecision(0);
+      irs::mlog() << setw(13) << m_exp_vector[i].ch_balanced_code;
+      irs::mlog() << irsm(" ");
+      irs::mlog() << setprecision(5);
+      irs::mlog() << setw(13) << m_exp_vector[i].et_code * pow(2., 19);
+      irs::mlog() << setprecision(0);
+      irs::mlog() << irsm(" ");
+      irs::mlog() << setw(13) << m_exp_vector[i].et_balanced_code;
+      irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].n0;
+      irs::mlog() << setprecision(3);
+      irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].num;
+      irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].den;
+      irs::mlog() << endl;
+    }
+    
+    irs::mlog() << setprecision(8);
+    irs::mlog() << irsm("-------------------------------------------");
+    irs::mlog() << irsm("--------------");
     irs::mlog() << endl;
   }
-  
-  irs::mlog() << setprecision(8);
-  irs::mlog() << irsm("-------------------------------------------");
-  irs::mlog() << irsm("--------------");
-  irs::mlog() << endl;
   
   show_experiment_parameters();
 }
@@ -3372,4 +3997,284 @@ hrm::app_t::elab_mode_t hrm::app_t::convert_u8_to_elab_mode(irs_u8 a_mode)
     default:return_mode = em_none;
   }
   return return_mode;
+}
+
+hrm::app_t::remaining_time_calculator_t::remaining_time_calculator_t():
+  m_meas_prepare_time(0),
+  m_meas_balance_time(0),
+  m_meas_elab_time(0),
+  m_balance_action(ba_prepare),
+  m_remaining_time(0),
+  m_current_time(0),
+  m_current_percentage(0),
+  m_prepare_pause(0),
+  m_balance_points_count(0),
+  m_balance_current_point(0)
+{
+}
+
+void hrm::app_t::remaining_time_calculator_t::reset()
+{
+  m_balance_action = ba_prepare;
+  m_meas_prepare_time = 0;
+  m_meas_balance_time = 0;
+  m_meas_elab_time = 0;
+  m_remaining_time = 0;
+  m_current_time = 0;
+  m_current_percentage = 0;
+  m_prepare_pause = 0;
+  m_balance_points_count = max_balance_points_count;
+  m_balance_current_point = 0;
+  irs::mlog() << irsm("rem reset") << endl;
+}
+
+void hrm::app_t::remaining_time_calculator_t::start(irs_u32 a_prepare_pause)
+{
+  m_prepare_pause = a_prepare_pause;
+  m_remaining_time = a_prepare_pause + default_exp_time;
+  m_current_time = 0;
+  m_current_percentage = 0;
+  //irs::mlog() << irsm("rem start = ") << m_remaining_time << endl;
+}
+
+void hrm::app_t::remaining_time_calculator_t::secund_tick()
+{
+  //irs::mlog() << irsm("rem = ") << m_remaining_time;
+  switch (m_balance_action) {
+    case ba_prepare: {
+      m_remaining_time = irs::bound<irs_u32>(m_remaining_time - 1,
+        0, m_remaining_time);
+      break;
+    }
+    case ba_prepare_pause: {
+      m_current_time++;
+      m_remaining_time = irs::bound<irs_u32>(m_remaining_time - 1,
+        0, m_remaining_time);
+      m_current_percentage = m_current_time * default_prepare_pause_percentage /
+        m_prepare_pause;
+      m_current_percentage = irs::bound<irs_u32>(m_current_percentage, 
+        0, default_prepare_pause_percentage);
+      break;
+    }
+    case ba_balance_neg: {
+      m_current_time++;
+      m_remaining_time = irs::bound<irs_u32>(m_remaining_time - 1,
+        (default_exp_time * 3) / 4, m_remaining_time);
+      m_current_percentage = min_balance_neg +
+        m_balance_current_point * default_balance_percentage /
+        m_balance_points_count;
+      m_current_percentage = irs::bound<irs_u32>(m_current_percentage, 
+        min_balance_neg, max_balance_neg);
+      break;
+    }
+    case ba_elab_neg: {
+      m_current_time++;
+      m_remaining_time = irs::bound<irs_u32>(m_remaining_time - 1,
+        ((default_exp_time * 2) / 4) + m_meas_balance_time, m_remaining_time);
+      m_current_percentage = min_elab_neg +
+        m_balance_current_point * default_elab_percentage /
+        elab_points_count;
+      m_current_percentage = irs::bound<irs_u32>(m_current_percentage, 
+        min_elab_neg, max_elab_neg);
+      break;
+    }
+    case ba_balance_pos: {
+      m_current_time++;
+      m_remaining_time = irs::bound<irs_u32>(m_remaining_time - 1,
+        ((default_exp_time * 1) / 4) + m_meas_balance_time + m_meas_elab_time,
+        m_remaining_time);
+      m_current_percentage = min_balance_pos +
+        m_balance_current_point * default_balance_percentage /
+        m_balance_points_count;
+      m_current_percentage = irs::bound<irs_u32>(m_current_percentage, 
+        min_balance_pos, max_balance_pos);
+      break;
+    }
+    case ba_elab_pos: {
+      m_current_time++;
+      m_remaining_time = irs::bound<irs_u32>(m_remaining_time - 1,
+        m_meas_balance_time + m_meas_balance_time + m_meas_elab_time,
+        m_remaining_time);
+      m_current_percentage = min_elab_pos +
+        m_balance_current_point * default_elab_percentage /
+        elab_points_count;
+      m_current_percentage = irs::bound<irs_u32>(m_current_percentage, 
+        min_elab_pos, max_elab_pos);
+      break;
+    }
+  }
+  //irs::mlog() << irsm(" ") << m_remaining_time << endl;
+}
+
+irs_u32 hrm::app_t::remaining_time_calculator_t::get_remaining_time()
+{
+  return m_remaining_time;
+}
+
+irs_u32 hrm::app_t::remaining_time_calculator_t::get_percentage()
+{
+  return m_current_percentage;
+}
+
+void hrm::app_t::remaining_time_calculator_t::change_balance_action(
+  balance_action_t a_balance_action)
+{
+  m_balance_action = a_balance_action;
+  switch (m_balance_action) {
+    case ba_prepare: {
+      //
+      break;
+    }
+    case ba_prepare_pause: {
+      //
+      break;
+    }
+    case ba_balance_neg: {
+      m_meas_prepare_time = m_current_time;
+      irs::mlog() << irsm("Измеренное время подготовки ");
+      irs::mlog() << m_meas_prepare_time << irsm(" с") << endl;
+      break;
+    }
+    case ba_elab_neg: {
+      m_meas_balance_time = m_current_time - m_meas_prepare_time;
+      irs::mlog() << irsm("Измеренное время уравновешивания ");
+      irs::mlog() << m_meas_balance_time << irsm(" с") << endl;
+      break;
+    }
+    case ba_balance_pos: {
+      m_meas_elab_time = 
+        m_current_time - m_meas_prepare_time - m_meas_balance_time;
+      irs::mlog() << irsm("Измеренное время уточнения ");
+      irs::mlog() << m_meas_elab_time << irsm(" с") << endl;
+      break;
+    }
+    case ba_elab_pos: {
+      //
+      break;
+    }
+  }
+}
+
+void hrm::app_t::remaining_time_calculator_t::set_balance_points_count(
+  size_t a_balance_points_count)
+{
+  m_balance_points_count = a_balance_points_count;
+}
+
+void hrm::app_t::remaining_time_calculator_t::set_current_balance_point(
+  size_t a_point)
+{
+  m_balance_current_point = a_point;
+}
+
+//------------------------------------------------------------------------------
+
+hrm::app_t::adaptive_sko_calc_t::adaptive_sko_calc_t(eth_data_t& ap_eth_data, 
+  eeprom_data_t& ap_ee_data):
+  mp_eth_data(ap_eth_data),
+  mp_ee_data(ap_ee_data),
+  m_target_sko(0.0),
+  m_used(false),
+  m_target_balance_sko(0.0),
+  m_target_elab_sko(0.0),
+  m_adaptive_sko_balance_multiplier(0.0),
+  m_adaptive_sko_elab_multiplier(0.0),
+  m_sko_calc(default_len, default_len)
+{
+  mp_eth_data.use_adc_adaptive_sko = mp_ee_data.use_adc_adaptive_sko;
+  m_adaptive_sko_balance_multiplier = 
+    mp_ee_data.adaptive_sko_balance_multiplier;
+  m_adaptive_sko_elab_multiplier = 
+    mp_ee_data.adaptive_sko_elab_multiplier;
+  mp_eth_data.adaptive_sko_balance_multiplier = 
+    mp_ee_data.adaptive_sko_balance_multiplier;
+  mp_eth_data.adaptive_sko_elab_multiplier = 
+    mp_ee_data.adaptive_sko_elab_multiplier;
+  irs::mlog() << irsm("m_adaptive_sko_elab_multiplier = ");
+  irs::mlog() << m_adaptive_sko_elab_multiplier << endl;
+  irs::mlog() << irsm("eth.adaptive_sko_elab_multiplier = ");
+  irs::mlog() << mp_eth_data.adaptive_sko_elab_multiplier << endl;
+}
+
+void hrm::app_t::adaptive_sko_calc_t::reset(size_t a_len)
+{
+  if (mp_eth_data.use_adc_adaptive_sko) {
+    m_used = true;
+    m_started = true;
+    m_target_sko = 0.0;
+    m_sko_calc.clear();
+    m_sko_calc.resize(a_len);
+  } else {
+    m_used = false;
+  }
+}
+
+void hrm::app_t::adaptive_sko_calc_t::stop()
+{
+  m_started = false;
+}
+
+void hrm::app_t::adaptive_sko_calc_t::add(adc_value_t a_sko)
+{
+  if (m_started) {
+    m_sko_calc.add(a_sko);
+    m_target_sko = m_sko_calc.average();
+    /*if (m_target_sko <= 0.0) {
+      m_target_sko = a_sko;
+    } else {
+      if (m_target_sko > a_sko) {
+        m_target_sko = a_sko;
+      }
+    }*/
+  }
+}
+
+hrm::adc_value_t hrm::app_t::adaptive_sko_calc_t::get_target_sko()
+{
+  return m_target_sko;
+}
+
+hrm::adc_value_t hrm::app_t::adaptive_sko_calc_t::get_target_balance_sko()
+{
+  return m_target_sko * m_adaptive_sko_balance_multiplier;
+}
+
+hrm::adc_value_t hrm::app_t::adaptive_sko_calc_t::get_target_elab_sko()
+{
+  return m_target_sko * m_adaptive_sko_elab_multiplier;
+}
+
+void hrm::app_t::adaptive_sko_calc_t::sync_parameters()
+{
+  if (mp_eth_data.use_adc_adaptive_sko != mp_ee_data.use_adc_adaptive_sko) {
+    mp_ee_data.use_adc_adaptive_sko = mp_eth_data.use_adc_adaptive_sko;
+  }
+  if (mp_eth_data.adaptive_sko_elab_multiplier 
+      != mp_ee_data.adaptive_sko_elab_multiplier) {
+    m_adaptive_sko_elab_multiplier 
+      = static_cast<double>(mp_eth_data.adaptive_sko_elab_multiplier);
+    mp_ee_data.adaptive_sko_elab_multiplier 
+      = mp_eth_data.adaptive_sko_elab_multiplier;
+    
+    irs::mlog() << irsm("eth.adaptive_sko_elab_multiplier = ");
+    irs::mlog() << mp_eth_data.adaptive_sko_elab_multiplier << endl;
+    irs::mlog() << irsm("ee.adaptive_sko_elab_multiplier = ");
+    irs::mlog() << mp_ee_data.adaptive_sko_elab_multiplier << endl;
+    irs::mlog() << irsm("adaptive_sko_elab_multiplier = ");
+    irs::mlog() << m_adaptive_sko_elab_multiplier << endl;
+    irs::mlog() << irsm("TEST = ");
+    irs::mlog() << mp_eth_data.test << endl;
+  }
+  if (mp_eth_data.adaptive_sko_balance_multiplier 
+      != mp_ee_data.adaptive_sko_balance_multiplier) {
+    m_adaptive_sko_balance_multiplier 
+      = mp_eth_data.adaptive_sko_balance_multiplier;
+    mp_ee_data.adaptive_sko_balance_multiplier 
+      = mp_eth_data.adaptive_sko_balance_multiplier;
+  }
+  if (!m_started) {
+    if (!mp_eth_data.use_adc_adaptive_sko) {
+      m_used = false;
+    }
+  }
 }

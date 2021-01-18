@@ -12,23 +12,30 @@
 #include <irsfinal.h>
 
 enum { 
-  hardware_rev = 2,
-  software_rev = 52,
-  mxsrclib_rev = 1344,
-  extern_libs_rev = 25
+  hardware_rev = 3,
+  software_rev = 73,
+  mxsrclib_rev = 1361,
+  extern_libs_rev = 26
 };
 
-void app_start(hrm::cfg_t* ap_cfg);
+void app_start(hrm::cfg_t* ap_cfg, irs_u32 a_version);
 
 void main()
 {
+  // Ethernet PHY clock 50 MHz
+  RCC_CFGR_bit.MCO1PRE = 5; //  101 = Div 3
+  RCC_CFGR_bit.MCO1 = 3;    //  11 = PLL
+  irs::clock_enable(PA8);
+  irs::gpio_moder_alternate_function_enable(PA8);
+  irs::gpio_alternate_function_select(PA8, GPIO_AF_MCO);
+  GPIOA_OSPEEDR_bit.OSPEEDR8 = 3; //100 MHz High speed on 30 pF
   //pll_on();
   irs::param_pll_t param_pll;
   param_pll.freq_quartz = 25000000;
-  param_pll.PLLM = 20;  // Делитель на входе PLL
-  param_pll.PLLN = 192; // Множитель внутри PLL
-  param_pll.PLLP = 0;   // 0 это деление на 2, делитель для ядра 120 МГц
-  param_pll.PLLQ = 5;   // Делитель для USB 48 МГц
+  param_pll.PLLM = 25;  // Делитель на входе PLL, Fvco = 1 MHz
+  param_pll.PLLN = 300; // Множитель внутри PLL, Fpll = 300 MHz
+  param_pll.PLLP = 0;   // 0 это деление на 2, делитель для ядра 150 МГц
+  param_pll.PLLQ = 3;   // Делитель для USB 48 МГц
   // APB Low speed prescaler (APB1). 101: AHB clock divided by 4
   param_pll.PPRE1 = 5;
   // APB high-speed prescaler (APB2). 101: 100: AHB clock divided by 2
@@ -37,14 +44,11 @@ void main()
   param_pll.HSEBYP = 0; //HSE clock bypass External crystal/ceramic resonator
   irs::pll_on(param_pll);
 
-  static hard_fault_event_t hard_fault_event(GPIO_PORTF, 6);
+  static hard_fault_event_t hard_fault_event(GPIO_PORTD, 9);  //  Red LED
 
   static irs::arm::com_buf log_buf(1, 10, 115200);
   irs::loc();
   irs::mlog().rdbuf(&log_buf);
-  #ifdef HRM_DEBUG
-  static irs::mc_error_handler_t error_handler(GPIO_PORTD, 0, &irs::mlog());
-  #endif // HRM_DEBUG
   irs::mlog() << endl;
   irs::mlog() << endl;
   irs::mlog() << irsm("--------- INITIALIZATION --------") << endl;
@@ -54,20 +58,17 @@ void main()
   irs::mlog() << irsm("extern_libs rev. ") << extern_libs_rev << endl;
   irs::mlog() << endl;
 
-  irs::arm::io_pin_t m_memory_chip_select_pin(GPIO_PORTD, 7, irs::io_t::dir_out,
-    irs::io_pin_on);
-
   irs::pause(irs::make_cnt_s(1));
   
   static hrm::cfg_t cfg;
-  app_start(&cfg);
+  app_start(&cfg, software_rev);
 }
 
-void app_start(hrm::cfg_t* ap_cfg)
+void app_start(hrm::cfg_t* ap_cfg, irs_u32 a_version)
 {
-  static hrm::app_t app(ap_cfg);
+  static hrm::app_t app(ap_cfg, a_version);
 
-  //irs::mlog() << irsm("------------- START -------------") << endl;
+  irs::mlog() << irsm("------------- START -------------") << endl;
   while(true) {
     #ifdef HRM_DEBUG
     static const counter_t period = irs::make_cnt_s(1);
@@ -78,8 +79,8 @@ void app_start(hrm::cfg_t* ap_cfg)
     tick_measure_time.start();
     #endif // HRM_DEBUG
     app.tick();
-    static irs::blink_t F0_blink(GPIO_PORTD, 1, irs::make_cnt_ms(100));
-    F0_blink(); // Мигание светодиодом на плате arm
+    static irs::blink_t green_led_blink(GPIO_PORTD, 8, irs::make_cnt_ms(100));
+    green_led_blink(); // Мигание зелёным светодиодом на плате arm
 
     #ifdef HRM_DEBUG
     count++;

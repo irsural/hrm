@@ -30,8 +30,30 @@ enum adc_default_params_t {
   adc_default_cont_mode = 0
 };
 
+enum fan_mode_t {
+  fan_already_off = 0,
+  fan_already_on = 1,
+  fan_idle_on = 2
+};
+
+enum fan_status_t {
+  fan_off_now = 0,
+  fan_on_now = 1
+};
+
+enum balance_action_t {
+  ba_idle = 0,
+  ba_prepare = 1,
+  ba_prepare_pause = 2,
+  ba_balance_neg = 3,
+  ba_elab_neg = 4,
+  ba_balance_pos = 5,
+  ba_elab_pos = 6
+};
+
 typedef double  adc_value_t;
 typedef double  dac_value_t;
+typedef double  th_value_t;
 
 const adc_value_t adc_additional_gain = 1.0;
 const adc_value_t adc_ref = 4.096;
@@ -63,13 +85,13 @@ struct eth_data_t {
   irs::conn_data_t<double> result;          //  8 byte
   irs::conn_data_t<double> result_error;    //  8 byte
   irs::conn_data_t<double> ratio;           //  8 byte
-  irs::conn_data_t<double> prev_user_result;
+  irs::conn_data_t<double> checked_prev;    //  8 byte
   //  manual
-  irs::bit_data_t relay_1g;
-  irs::bit_data_t relay_100m;
-  irs::bit_data_t relay_10m;
-  irs::bit_data_t relay_1m;
-  irs::bit_data_t relay_100k;
+  irs::bit_data_t relay_hv_polarity;
+  irs::bit_data_t relay_hv_amps_gain;
+  irs::bit_data_t relay_hv_pos;
+  irs::bit_data_t relay_hv_neg;
+  irs::bit_data_t relay_hv_dac_amp;
   irs::bit_data_t relay_chon;
   irs::bit_data_t relay_eton;
   irs::bit_data_t relay_prot;
@@ -97,7 +119,7 @@ struct eth_data_t {
   irs::conn_data_t<dac_value_t> dac_center_scan;
   irs::conn_data_t<irs_i32> int_dac_center_scan;
   irs::conn_data_t<irs_u32> prepare_pause;
-  irs::conn_data_t<irs_u32> adc_average_cnt;
+  irs::conn_data_t<irs_u32> exp_percentage;
   irs::conn_data_t<irs_u32> exp_time;
   irs::conn_data_t<irs_u32> prev_exp_time;
   irs::conn_data_t<irs_u32> sum_time;
@@ -121,7 +143,10 @@ struct eth_data_t {
   irs::bit_data_t adc_continious;
   irs::bit_data_t adc_show_points;
   irs::bit_data_t show_last_result;
-  irs::conn_data_t<irs_u32> impf_iterations_cnt;
+  irs::bit_data_t use_adc_adaptive_sko;
+  irs::conn_data_t<irs_u8> balance_action;
+  irs::conn_data_t<irs_u8> reserve_1;
+  irs::conn_data_t<irs_u16> reserve_2;
   irs::conn_data_t<adc_value_t> adc_filter_constant;
   irs::conn_data_t<adc_value_t> adc_filter_value;
   irs::conn_data_t<irs_u32> adc_average_skip_cnt;
@@ -257,6 +282,71 @@ struct eth_data_t {
   irs::conn_data_t<double> bac_new_coefficient;       //  8
   irs::conn_data_t<irs_i32> bac_new_int_coefficient;  //  4
   irs::conn_data_t<double> bac_new_int_multiplier;    //  8
+  //  OnBoard temperature sensors, voltages and fans
+  irs::conn_data_t<th_value_t> th_dac;                //  8
+  irs::conn_data_t<th_value_t> th_box_ldo;            //  8
+  irs::conn_data_t<th_value_t> th_box_adc;            //  8
+  irs::conn_data_t<th_value_t> th_mcu;                //  8
+  irs::conn_data_t<th_value_t> th_ext_1;              //  8
+  irs::conn_data_t<th_value_t> th_ext_2;              //  8
+  irs::conn_data_t<th_value_t> volt_box_neg;          //  8
+  irs::conn_data_t<th_value_t> volt_box_pos;          //  8
+  irs::conn_data_t<irs_u8> fan_mode;                  //  1
+  irs::conn_data_t<irs_u8> fan_status;                //  1
+  irs::conn_data_t<irs_u8> fan_ac_speed;              //  1
+  irs::conn_data_t<irs_u8> fan_dc_speed;              //  1
+  irs::conn_data_t<float> fan_dc_speed_sense;         //  4
+  //  Termoregulator
+  irs::conn_data_t<th_value_t> treg_ref;              //  8
+  irs::conn_data_t<th_value_t> treg_result;           //  8
+  irs::conn_data_t<th_value_t> treg_k;                //  8
+  irs::conn_data_t<th_value_t> treg_ki;               //  8
+  irs::conn_data_t<th_value_t> treg_kd;               //  8
+  irs::conn_data_t<th_value_t> treg_iso_k;            //  8
+  irs::conn_data_t<th_value_t> treg_iso_t;            //  8
+  irs::conn_data_t<th_value_t> treg_pwm_rate_slope;   //  8
+  irs::conn_data_t<th_value_t> treg_pid_out;          //  8
+  irs::conn_data_t<th_value_t> treg_amplitude_code_float;   //  8
+  irs::conn_data_t<irs_u32> treg_options;             //  4
+  irs::bit_data_as_bool_t treg_enabled;
+  irs::bit_data_as_bool_t treg_pid_reg_enabled;
+  irs::bit_data_as_bool_t treg_polarity_pin_bit_data;
+  //  Termoregulator DAC
+  irs::conn_data_t<th_value_t> treg_dac_ref;              //  8
+  irs::conn_data_t<th_value_t> treg_dac_result;           //  8
+  irs::conn_data_t<th_value_t> treg_dac_k;                //  8
+  irs::conn_data_t<th_value_t> treg_dac_ki;               //  8
+  irs::conn_data_t<th_value_t> treg_dac_kd;               //  8
+  irs::conn_data_t<th_value_t> treg_dac_iso_k;            //  8
+  irs::conn_data_t<th_value_t> treg_dac_iso_t;            //  8
+  irs::conn_data_t<th_value_t> treg_dac_pwm_rate_slope;   //  8
+  irs::conn_data_t<th_value_t> treg_dac_pid_out;          //  8
+  irs::conn_data_t<th_value_t> treg_dac_amplitude_code_float;   //  8
+  irs::conn_data_t<irs_u32> treg_dac_options;             //  4
+  irs::bit_data_as_bool_t treg_dac_enabled;
+  irs::bit_data_as_bool_t treg_dac_pid_reg_enabled;
+  irs::bit_data_as_bool_t treg_dac_polarity_pin_bit_data;
+  //  Service info
+  irs::conn_data_t<irs_u32> version_info;             //  4
+  //  Show options
+  irs::conn_data_t<irs_u32> show_options;             //  4
+  irs::bit_data_as_bool_t show_old_result;
+  irs::bit_data_as_bool_t show_new_result;
+  irs::bit_data_as_bool_t show_old_unc_result;
+  irs::bit_data_as_bool_t show_new_unc_result;
+  irs::bit_data_as_bool_t show_th_ext;
+  irs::bit_data_as_bool_t show_th_dac;
+  irs::bit_data_as_bool_t show_th_adc;
+  irs::bit_data_as_bool_t show_th_ldo;
+  irs::bit_data_as_bool_t show_exp_time;
+  irs::bit_data_as_bool_t show_intersections;
+  irs::bit_data_as_bool_t show_target_sko;
+  irs::bit_data_as_bool_t show_target_balance_sko;
+  irs::bit_data_as_bool_t show_target_elab_sko;
+  //  Adaptive sko coefficients
+  irs::conn_data_t<double> adaptive_sko_balance_multiplier;  //  8
+  irs::conn_data_t<double> adaptive_sko_elab_multiplier;     //  8
+  irs::conn_data_t<irs_u32> test;     //  4
   //------------------------------------------
 
   eth_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
@@ -301,13 +391,13 @@ struct eth_data_t {
     index = result.connect(ap_data, index);
     index = result_error.connect(ap_data, index);
     index = ratio.connect(ap_data, index);
-    index = prev_user_result.connect(ap_data, index);
+    index = checked_prev.connect(ap_data, index);
 
-    relay_1g.connect(ap_data, index, 0);
-    relay_100m.connect(ap_data, index, 1);
-    relay_10m.connect(ap_data, index, 2);
-    relay_1m.connect(ap_data, index, 3);
-    relay_100k.connect(ap_data, index, 4);
+    relay_hv_polarity.connect(ap_data, index, 0);
+    relay_hv_amps_gain.connect(ap_data, index, 1);
+    relay_hv_pos.connect(ap_data, index, 2);
+    relay_hv_neg.connect(ap_data, index, 3);
+    relay_hv_dac_amp.connect(ap_data, index, 4);
     relay_chon.connect(ap_data, index, 5);
     relay_eton.connect(ap_data, index, 6);
     relay_prot.connect(ap_data, index, 7);
@@ -341,7 +431,7 @@ struct eth_data_t {
     index = dac_center_scan.connect(ap_data, index);
     index = int_dac_center_scan.connect(ap_data, index);
     index = prepare_pause.connect(ap_data, index);
-    index = adc_average_cnt.connect(ap_data, index);
+    index = exp_percentage.connect(ap_data, index);
     index = exp_time.connect(ap_data, index);
     index = prev_exp_time.connect(ap_data, index);
     index = sum_time.connect(ap_data, index);
@@ -365,9 +455,12 @@ struct eth_data_t {
     adc_continious.connect(ap_data,         index + 2, 6);
     adc_show_points.connect(ap_data,        index + 2, 7);
     show_last_result.connect(ap_data,       index + 3, 0);
+    use_adc_adaptive_sko.connect(ap_data,   index + 3, 1);
     index = options.connect(ap_data,        index);
     
-    index= impf_iterations_cnt.connect(ap_data, index);
+    index= balance_action.connect(ap_data, index);
+    index= reserve_1.connect(ap_data, index);
+    index= reserve_2.connect(ap_data, index);
 
     index= adc_filter_constant.connect(ap_data, index);
     index= adc_filter_value.connect(ap_data, index);
@@ -511,6 +604,72 @@ struct eth_data_t {
     index = bac_new_coefficient.connect(ap_data, index);
     index = bac_new_int_coefficient.connect(ap_data, index);
     index = bac_new_int_multiplier.connect(ap_data, index);
+    //  OnBoard temperature sensors, voltages and fans
+    index = th_dac.connect(ap_data, index);
+    index = th_box_ldo.connect(ap_data, index);
+    index = th_box_adc.connect(ap_data, index);
+    index = th_mcu.connect(ap_data, index);
+    index = th_ext_1.connect(ap_data, index);
+    index = th_ext_2.connect(ap_data, index);
+    index = volt_box_neg.connect(ap_data, index);
+    index = volt_box_pos.connect(ap_data, index);
+    index = fan_mode.connect(ap_data, index);
+    index = fan_status.connect(ap_data, index);
+    index = fan_ac_speed.connect(ap_data, index);
+    index = fan_dc_speed.connect(ap_data, index);
+    index = fan_dc_speed_sense.connect(ap_data, index);
+    //  Termoregulator
+    index = treg_ref.connect(ap_data, index);
+    index = treg_result.connect(ap_data, index);
+    index = treg_k.connect(ap_data, index);
+    index = treg_ki.connect(ap_data, index);
+    index = treg_kd.connect(ap_data, index);
+    index = treg_iso_k.connect(ap_data, index);
+    index = treg_iso_t.connect(ap_data, index);
+    index = treg_pwm_rate_slope.connect(ap_data, index);
+    index = treg_pid_out.connect(ap_data, index);
+    index = treg_amplitude_code_float.connect(ap_data, index);
+    treg_enabled.connect(ap_data, index, 0);
+    treg_pid_reg_enabled.connect(ap_data, index, 1);
+    treg_polarity_pin_bit_data.connect(ap_data, index, 2);
+    index = treg_options.connect(ap_data, index);
+    //  Termoregulator
+    index = treg_dac_ref.connect(ap_data, index);
+    index = treg_dac_result.connect(ap_data, index);
+    index = treg_dac_k.connect(ap_data, index);
+    index = treg_dac_ki.connect(ap_data, index);
+    index = treg_dac_kd.connect(ap_data, index);
+    index = treg_dac_iso_k.connect(ap_data, index);
+    index = treg_dac_iso_t.connect(ap_data, index);
+    index = treg_dac_pwm_rate_slope.connect(ap_data, index);
+    index = treg_dac_pid_out.connect(ap_data, index);
+    index = treg_dac_amplitude_code_float.connect(ap_data, index);
+    treg_dac_enabled.connect(ap_data, index, 0);
+    treg_dac_pid_reg_enabled.connect(ap_data, index, 1);
+    treg_dac_polarity_pin_bit_data.connect(ap_data, index, 2);
+    index = treg_dac_options.connect(ap_data, index);
+    //  Service info
+    index = version_info.connect(ap_data, index);
+    //  Show options
+    show_old_result.connect(ap_data, index, 0);
+    show_new_result.connect(ap_data, index, 1);
+    show_old_unc_result.connect(ap_data, index, 2);
+    show_new_unc_result.connect(ap_data, index, 3);
+    show_th_ext.connect(ap_data, index, 4);
+    show_th_dac.connect(ap_data, index, 5);
+    show_th_adc.connect(ap_data, index, 6);
+    show_th_ldo.connect(ap_data, index, 7);
+    show_exp_time.connect(ap_data, index + 1, 0);
+    show_intersections.connect(ap_data, index + 1, 1);
+    show_target_sko.connect(ap_data, index + 1, 2);
+    show_target_balance_sko.connect(ap_data, index + 1, 3);
+    show_target_elab_sko.connect(ap_data, index + 1, 4);
+    index = show_options.connect(ap_data, index);
+    //  Adaptive sko coefficients
+    index = adaptive_sko_balance_multiplier.connect(ap_data, index);
+    index = adaptive_sko_elab_multiplier.connect(ap_data, index);
+    index = test.connect(ap_data, index);
+    
     return index;
   }
 };  //  eth_data_t
@@ -545,6 +704,7 @@ struct eeprom_data_t {
   irs::bit_data_t adc_show_points;
   irs::bit_data_t adc_continious;
   irs::conn_data_t<irs_u8> elab_mode;
+  irs::bit_data_t use_adc_adaptive_sko;
   irs::conn_data_t<irs_i32> elab_step;                //  4
   irs::conn_data_t<irs_i32> min_elab_cnt;             //  4
   irs::conn_data_t<irs_i32> max_elab_cnt;             //  4
@@ -552,7 +712,7 @@ struct eeprom_data_t {
   irs::conn_data_t<dac_value_t> elab_step_multiplier; //  8
   irs::conn_data_t<dac_value_t> elab_max_delta;       //  8
   irs::conn_data_t<double> ratio;                     //  8
-  irs::conn_data_t<double> prev_user_result;          //  8 64
+  irs::conn_data_t<double> checked_prev;          //  8 64
   irs::conn_data_t<irs_u8> ip_0;          //  1 byte
   irs::conn_data_t<irs_u8> ip_1;          //  1 byte
   irs::conn_data_t<irs_u8> ip_2;          //  1 byte
@@ -645,6 +805,52 @@ struct eeprom_data_t {
   irs::conn_data_t<double> bac_new_coefficient;       //  8
   irs::conn_data_t<irs_i32> bac_new_int_coefficient;  //  4
   irs::conn_data_t<double> bac_new_int_multiplier;    //  8
+  //
+  irs::conn_data_t<irs_u8> fan_mode;                  //  1
+  irs::conn_data_t<irs_u8> fan_ac_speed;              //  1
+  irs::conn_data_t<irs_u8> fan_dc_speed;              //  1
+  //
+  irs::conn_data_t<th_value_t> treg_ref;              //  8
+  irs::conn_data_t<th_value_t> treg_k;                //  8
+  irs::conn_data_t<th_value_t> treg_ki;               //  8
+  irs::conn_data_t<th_value_t> treg_kd;               //  8
+  irs::conn_data_t<th_value_t> treg_iso_k;            //  8
+  irs::conn_data_t<th_value_t> treg_iso_t;            //  8
+  irs::conn_data_t<th_value_t> treg_pwm_rate_slope;   //  8
+  irs::conn_data_t<irs_u32> treg_options;             //  4
+  irs::bit_data_as_bool_t treg_enabled;
+  irs::bit_data_as_bool_t treg_pid_reg_enabled;
+  irs::bit_data_as_bool_t treg_polarity_pin_bit_data;
+  //
+  irs::conn_data_t<th_value_t> treg_dac_ref;              //  8
+  irs::conn_data_t<th_value_t> treg_dac_k;                //  8
+  irs::conn_data_t<th_value_t> treg_dac_ki;               //  8
+  irs::conn_data_t<th_value_t> treg_dac_kd;               //  8
+  irs::conn_data_t<th_value_t> treg_dac_iso_k;            //  8
+  irs::conn_data_t<th_value_t> treg_dac_iso_t;            //  8
+  irs::conn_data_t<th_value_t> treg_dac_pwm_rate_slope;   //  8
+  irs::conn_data_t<irs_u32> treg_dac_options;             //  4
+  irs::bit_data_as_bool_t treg_dac_enabled;
+  irs::bit_data_as_bool_t treg_dac_pid_reg_enabled;
+  irs::bit_data_as_bool_t treg_dac_polarity_pin_bit_data;
+  //  Show options
+  irs::conn_data_t<irs_u32> show_options;             //  4
+  irs::bit_data_as_bool_t show_old_result;
+  irs::bit_data_as_bool_t show_new_result;
+  irs::bit_data_as_bool_t show_old_unc_result;
+  irs::bit_data_as_bool_t show_new_unc_result;
+  irs::bit_data_as_bool_t show_th_ext;
+  irs::bit_data_as_bool_t show_th_dac;
+  irs::bit_data_as_bool_t show_th_adc;
+  irs::bit_data_as_bool_t show_th_ldo;
+  irs::bit_data_as_bool_t show_exp_time;
+  irs::bit_data_as_bool_t show_intersections;
+  irs::bit_data_as_bool_t show_target_sko;
+  irs::bit_data_as_bool_t show_target_balance_sko;
+  irs::bit_data_as_bool_t show_target_elab_sko;
+  //  Adaptive sko coefficients
+  irs::conn_data_t<double> adaptive_sko_balance_multiplier;  //  8
+  irs::conn_data_t<double> adaptive_sko_elab_multiplier;     //  8
   
   eeprom_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
@@ -685,6 +891,7 @@ struct eeprom_data_t {
     adc_show_points.connect(ap_data, index, 6);
     adc_continious.connect(ap_data, index, 7);
     elab_mode.connect(ap_data, index + 1);
+    use_adc_adaptive_sko.connect(ap_data, index + 2, 0);
     index = options.connect(ap_data, index);
     index = elab_step.connect(ap_data, index);
     index = min_elab_cnt.connect(ap_data, index);
@@ -693,7 +900,7 @@ struct eeprom_data_t {
     index = elab_step_multiplier.connect(ap_data, index);
     index = elab_max_delta.connect(ap_data, index);
     index = ratio.connect(ap_data, index);
-    index = prev_user_result.connect(ap_data, index);
+    index = checked_prev.connect(ap_data, index);
     index = ip_0.connect(ap_data, index);
     index = ip_1.connect(ap_data, index);
     index = ip_2.connect(ap_data, index);
@@ -787,6 +994,54 @@ struct eeprom_data_t {
     index = bac_new_coefficient.connect(ap_data, index);
     index = bac_new_int_coefficient.connect(ap_data, index);
     index = bac_new_int_multiplier.connect(ap_data, index);
+    
+    index = fan_mode.connect(ap_data, index);
+    index = fan_ac_speed.connect(ap_data, index);
+    index = fan_dc_speed.connect(ap_data, index);
+    index++;
+    //  Termoregulator
+    index = treg_ref.connect(ap_data, index);
+    index = treg_k.connect(ap_data, index);
+    index = treg_ki.connect(ap_data, index);
+    index = treg_kd.connect(ap_data, index);
+    index = treg_iso_k.connect(ap_data, index);
+    index = treg_iso_t.connect(ap_data, index);
+    index = treg_pwm_rate_slope.connect(ap_data, index);
+    treg_enabled.connect(ap_data, index, 0);
+    treg_pid_reg_enabled.connect(ap_data, index, 1);
+    treg_polarity_pin_bit_data.connect(ap_data, index, 2);
+    index = treg_options.connect(ap_data, index);
+    //  Termoregulator DAC
+    index = treg_dac_ref.connect(ap_data, index);
+    index = treg_dac_k.connect(ap_data, index);
+    index = treg_dac_ki.connect(ap_data, index);
+    index = treg_dac_kd.connect(ap_data, index);
+    index = treg_dac_iso_k.connect(ap_data, index);
+    index = treg_dac_iso_t.connect(ap_data, index);
+    index = treg_dac_pwm_rate_slope.connect(ap_data, index);
+    treg_dac_enabled.connect(ap_data, index, 0);
+    treg_dac_pid_reg_enabled.connect(ap_data, index, 1);
+    treg_dac_polarity_pin_bit_data.connect(ap_data, index, 2);
+    index = treg_dac_options.connect(ap_data, index);
+    //  Show options
+    show_old_result.connect(ap_data, index, 0);
+    show_new_result.connect(ap_data, index, 1);
+    show_old_unc_result.connect(ap_data, index, 2);
+    show_new_unc_result.connect(ap_data, index, 3);
+    show_th_ext.connect(ap_data, index, 4);
+    show_th_dac.connect(ap_data, index, 5);
+    show_th_adc.connect(ap_data, index, 6);
+    show_th_ldo.connect(ap_data, index, 7);
+    show_exp_time.connect(ap_data, index + 1, 0);
+    show_intersections.connect(ap_data, index + 1, 1);
+    show_target_sko.connect(ap_data, index + 1, 2);
+    show_target_balance_sko.connect(ap_data, index + 1, 3);
+    show_target_elab_sko.connect(ap_data, index + 1, 4);
+    index = show_options.connect(ap_data, index);
+    //  Adaptive sko coefficients
+    index = adaptive_sko_balance_multiplier.connect(ap_data, index);
+    index = adaptive_sko_elab_multiplier.connect(ap_data, index);
+    irs::mlog() << irsm("EEPROM size = ") << index << endl;
     return index;
   }
   inline void reset_to_default()
@@ -825,7 +1080,7 @@ struct eeprom_data_t {
     adc_continious = 0;
     elab_max_delta = 1.0;
     ratio = 1.0;
-    prev_user_result = 1.0;
+    checked_prev = 1.0;
     ip_0 = IP_0;
     ip_1 = IP_1;
     ip_2 = IP_2;
@@ -923,6 +1178,36 @@ struct eeprom_data_t {
     bac_new_coefficient = 1.0;
     bac_new_int_coefficient = 1;
     bac_new_int_multiplier = 1000.0;
+    //
+    fan_mode = fan_already_off;
+    //
+    treg_ref = 20.0;
+    treg_k = 0.1;
+    treg_ki = 0.1;
+    treg_kd = 0.0;
+    treg_iso_k = 1.0;
+    treg_iso_t = 0.0;
+    treg_pwm_rate_slope = 0.4;
+    treg_enabled = 1;
+    treg_pid_reg_enabled = 1;
+    treg_polarity_pin_bit_data = 1;
+    //
+    show_old_result = 1;
+    show_new_result = 0;
+    show_old_unc_result = 0;
+    show_new_unc_result = 0;
+    show_th_ext = 1;
+    show_th_dac = 0;
+    show_th_adc = 1;
+    show_th_ldo = 0;
+    show_exp_time = 1;
+    show_intersections = 0;
+    show_target_sko = 0;
+    show_target_balance_sko = 0;
+    show_target_elab_sko = 0;
+    //
+    adaptive_sko_balance_multiplier = 10.0;
+    adaptive_sko_elab_multiplier = 2.0;
   }
 };
 

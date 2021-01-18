@@ -200,7 +200,7 @@ void hrm::mono_relay_t::tick()
   switch (m_status) {
     case irs_st_busy: {
       if (m_timer.check()) {
-        irs::mlog() << irsm("Ğåëå ") << m_caption << irsm(" = ")
+        irs::mlog() << irsm("Relay ") << m_caption << irsm(" = ")
           << mp_pin->pin() << endl;
         m_status = irs_st_ready;
       }
@@ -336,7 +336,7 @@ void hrm::bi_relay_t::tick()
     }
     case st_after_pause: {
       if (m_timer.check()) {
-        irs::mlog() << irsm("Ğåëå ") << m_caption << irsm(" = ")
+        irs::mlog() << irsm("Relay ") << m_caption << irsm(" = ")
           << m_current_value << endl;
         m_status = st_ready;
       }
@@ -426,8 +426,8 @@ hrm::dac_t::dac_t(irs::mxdata_t* ap_raw_dac):
   m_dac_data.sdodis_bit = 1;
   m_dac_data.lin_comp = 0xC;
   m_dac_data.signed_voltage_code = 0;
-  irs::mlog() << irsm("ÖÀÏ: âêëş÷¸í") << endl;
-  irs::mlog() << irsm("ÖÀÏ: êîä = 0") << endl;
+  irs::mlog() << irsm("DAC: on") << endl;
+  irs::mlog() << irsm("DAC: code = 0") << endl;
 }
 
 void hrm::dac_t::on()
@@ -437,7 +437,7 @@ void hrm::dac_t::on()
   m_status = st_wait;
   m_timer.set(m_after_pause);
   if (m_show) {
-    irs::mlog() << irsm("ÖÀÏ: âêëş÷¸í") << endl;
+    irs::mlog() << irsm("DAC: on") << endl;
   }
 }
 
@@ -448,7 +448,7 @@ void hrm::dac_t::off()
   m_status = st_wait;
   m_timer.set(m_after_pause);
   if (m_show) {
-    irs::mlog() << irsm("ÖÀÏ: âûêëş÷åí") << endl;
+    irs::mlog() << irsm("DAC: off") << endl;
   }
 }
 
@@ -466,7 +466,7 @@ void hrm::dac_t::set_normalize_code(hrm::dac_value_t a_code)
   m_status = st_wait;
   m_timer.set(m_after_pause);
   if (m_show) {
-    irs::mlog() << irsm("ÖÀÏ: êîä = ") << code << irsm(" / ")
+    irs::mlog() << irsm("DAC: code = ") << code << irsm(" / ")
       << (m_dac_data.signed_voltage_code >> 12) << endl;
   }
 }
@@ -474,10 +474,10 @@ void hrm::dac_t::set_normalize_code(hrm::dac_value_t a_code)
 void hrm::dac_t::set_code(dac_value_t a_code)
 {
   irs_i32 code = static_cast<irs_i32>(a_code);
-  m_dac_data.signed_voltage_code = code << 12;  //  áûëî unsigned_voltage_code
+  m_dac_data.signed_voltage_code = code << 12;
   m_status = st_wait;
   if (m_show) {
-    irs::mlog() << irsm("ÖÀÏ: êîä = ")
+    irs::mlog() << irsm("DAC: code = ")
       << static_cast<dac_value_t>(code) / pow(2., 19) << irsm(" / ")
       << code << endl;
   }
@@ -488,7 +488,7 @@ void hrm::dac_t::set_lin(irs_u8 a_lin)
   m_dac_data.lin_comp = a_lin;
   m_status = st_wait;
   if (m_show) {
-    irs::mlog() << irsm("ÖÀÏ: lin = 0x") << hex << static_cast<int>(a_lin);
+    irs::mlog() << irsm("DAC: lin = 0x") << hex << static_cast<int>(a_lin);
     irs::mlog() << dec << endl;
   }
 }
@@ -511,7 +511,7 @@ irs_u8 hrm::dac_t::get_lin()
 void hrm::dac_t::set_after_pause(counter_t a_after_pause)
 {
   double pause = CNT_TO_DBLTIME(a_after_pause);
-  irs::mlog() << irsm("ÖÀÏ: ïàóçà = ") << pause << irsm(" c.") << endl;
+  irs::mlog() << irsm("DAC: pause = ") << pause << irsm(" s.") << endl;
   m_after_pause = a_after_pause;
 }
 
@@ -639,7 +639,7 @@ void hrm::adc_t::set_additional_gain(adc_value_t a_gain)
 {
   m_additional_gain = a_gain;
   if (m_show) {
-    irs::mlog() << irsm("ÀÖÏ Käîï = ") << m_additional_gain << endl;
+    irs::mlog() << irsm("ADC Gain Add = ") << m_additional_gain << endl;
   }
 }
 
@@ -647,7 +647,7 @@ void hrm::adc_t::set_ref(adc_value_t a_ref)
 {
   m_ref = a_ref;
   if (m_show) {
-    irs::mlog() << irsm("ÀÖÏ REF = ") << m_ref << endl;
+    irs::mlog() << irsm("ADC REF = ") << m_ref << endl;
   }
 }
 
@@ -680,7 +680,7 @@ void hrm::adc_t::tick()
       mp_raw_adc->set_param(irs::adc_gain, m_current_gain);
       m_status = st_wait_param;
       if (m_show) {
-        irs::mlog() << irsm("Óñèëåíèå ÀÖÏ = ") << (1 << m_current_gain) << endl;
+        irs::mlog() << irsm("ADC Gain = ") << (1 << m_current_gain) << endl;
       }
     }
     break;
@@ -690,7 +690,7 @@ void hrm::adc_t::tick()
       mp_raw_adc->set_param(irs::adc_channel, m_current_channel);
       m_status = st_wait_param;
       if (m_show) {
-        irs::mlog() << irsm("Êàíàë ÀÖÏ = ") << (m_current_channel + 1) << endl;
+        irs::mlog() << irsm("ADC Channel = ") << (m_current_channel + 1) << endl;
       }
     }
     break;
@@ -700,7 +700,7 @@ void hrm::adc_t::tick()
       mp_raw_adc->set_param(irs::adc_mode, m_current_mode);
       m_status = st_wait_param;
       if (m_show) {
-        irs::mlog() << irsm("Ğåæèì ÀÖÏ = ")
+        irs::mlog() << irsm("ADC Mode = ")
           << static_cast<int>(m_current_mode) << endl;
       }
     }
@@ -711,7 +711,7 @@ void hrm::adc_t::tick()
       mp_raw_adc->set_param(irs::adc_freq, m_current_filter);
       m_status = st_wait_param;
       if (m_show) {
-        irs::mlog() << irsm("Ôèëüòğ ÀÖÏ = ")
+        irs::mlog() << irsm("ADC Filter = ")
           << static_cast<int>(m_current_filter) << endl;
       }
     }
@@ -747,8 +747,8 @@ void hrm::adc_t::tick()
       m_zero = convert_adc32(
         m_adc_value, m_current_gain, m_additional_gain, m_ref);
       if (m_show) {
-        irs::mlog() << irsm("Íîëü ÀÖÏ = ") << (m_zero * 1.e6)
-          << irsm(" ìêÂ") << endl;
+        irs::mlog() << irsm("ADC Zero = ") << (m_zero * 1.e6)
+          /*<< irsm(" ˜˜˜")*/ << endl;
       }
     }
     break;
@@ -799,7 +799,7 @@ void hrm::adc_t::tick()
         mp_raw_adc->get_value(), m_current_gain, 1.0, m_ref);
       m_temperature = (-adc_value - 0.4) / 0.0195;
       if (m_show) {
-        irs::mlog() << irsm("Òåìïåğàòóğà = ") << m_temperature << irsm(" °C");
+        irs::mlog() << irsm("Temperature = ") << m_temperature << irsm(" °C");
         irs::mlog() << endl;
       }
       m_status = st_restore_adc_channel;
@@ -833,13 +833,13 @@ void hrm::adc_t::tick()
       m_voltage = convert_adc32(
         m_adc_value, m_current_gain, m_additional_gain, m_ref);
       if (m_show) {
-        irs::mlog() << irsm("Íàïğÿæåíèå ÀÖÏ = ");
+        irs::mlog() << irsm("ADC Voltage = ");
         if (abs(m_voltage) < 1.1e-3) {
-          irs::mlog() << (m_voltage * 1.e6) << irsm(" ìêÂ");
+          irs::mlog() << (m_voltage * 1.e6) << irsm(" uV");
         } else if (abs(m_voltage < 1.1)) {
-          irs::mlog() << (m_voltage * 1.e3) << irsm(" ìÂ");
+          irs::mlog() << (m_voltage * 1.e3) << irsm(" mV");
         } else {
-          irs::mlog() << m_voltage << irsm(" Â");
+          irs::mlog() << m_voltage << irsm(" V");
         }
         irs::mlog() << endl;
       }
@@ -928,6 +928,21 @@ void hrm::buzzer_t::tick()
 }
 
 //------------------------------------------------------------------------------
+
+void hrm::adc_param_data_t::copy(adc_param_data_t* ap_data)
+{
+  gain = ap_data->gain;
+  filter = ap_data->filter;
+  channel = ap_data->channel;
+  cnv_cnt = ap_data->cnv_cnt;
+  additional_gain = ap_data->additional_gain;
+  ref = ap_data->ref;
+  cont_cnv_cnt = ap_data->cont_cnv_cnt;
+  impf_iterations_cnt = ap_data->impf_iterations_cnt;
+  impf_type = ap_data->impf_type;
+  cont_mode = ap_data->cont_mode;
+  cont_sko = ap_data->cont_sko;
+}
 
 hrm::ad7799_cread_t::ad7799_cread_t(irs::spi_t *ap_spi,
   irs::gpio_pin_t* ap_cs_pin, adc_exti_t* ap_adc_exti):
@@ -1439,8 +1454,7 @@ hrm::adc_value_t hrm::ad7799_cread_t::calc_impf(
   irs_i32 N = 0;
   adc_value_t Dtotal = 0.0;
   deque<adc_value_t> impf_deque;
-  //  Âû÷èñëåíèå ñğåäíåãî è çàìåíà àáñîëşòíûõ ìàêñèìóìà 
-  //  è ìèíèìóìà íà ñğåäíåå
+  
   for (size_t i = 0; i < cnt; i++) {
     adc_value_t value = (*ap_impf_deque)[i];
     impf_deque.push_back(value);
@@ -1456,7 +1470,6 @@ hrm::adc_value_t hrm::ad7799_cread_t::calc_impf(
   avg = (summa - min - max) / (cnt - 2);
   impf_deque[min_index] = avg;
   impf_deque[max_index] = avg;
-  //  Ïîäñ÷¸ò êîëè÷åñòâà è ñóììû îòêëîíåíèé îò ñğåäíåãî
   for (size_t i = 0; i < cnt; i++) {
     adc_value_t value = impf_deque[i];
     if (value > avg) {
@@ -1490,7 +1503,7 @@ void hrm::ad7799_cread_t::show_impf_test_data(
   double time = CNT_TO_DBLTIME(ap_test_data->time);
   size_t cnt = ap_value_deque->size();
   irs::mlog() << irsm("---------------------------------") << endl;
-  irs::mlog() << irsm("Èòåğàöèÿ ");
+  irs::mlog() << irsm("ADC result ");
   irs::mlog() << a_iteration_number << endl;
   for (size_t i = 0; i < cnt; i++) {
     irs::mlog() << (*ap_value_deque)[i];
@@ -1576,7 +1589,7 @@ void hrm::ad7799_cread_t::show_start_message(bool a_show,
 {
   if (a_show) {
     irs::mlog() << irsm("---------------------------------") << endl;
-    irs::mlog() << irsm("ÀÖÏ: ") << ap_param_data->cnv_cnt << irsm(" òî÷åê");
+    irs::mlog() << irsm("ADC: ") << ap_param_data->cnv_cnt << irsm(" points");
     irs::mlog() << endl;
     irs::mlog() << irsm("Gain: ") << static_cast<int>(ap_param_data->gain);
     irs::mlog() << endl;
@@ -1627,8 +1640,8 @@ void hrm::ad7799_cread_t::show_verify_message(bool a_show, irs_u8 a_status_reg,
   if (channel != a_channel) {
     irs::mlog() << irsm("---------------------------------") << endl;
     irs::mlog() << irsm("ADC Invalid channel:") << endl;
-    irs::mlog() << irsm("Write = ") << irs_u32(a_channel) << endl;
-    irs::mlog() << irsm("Read =  ") << irs_u32(channel) << endl;
+    irs::mlog() << irsm("Write = ") << static_cast<irs_u32>(a_channel) << endl;
+    irs::mlog() << irsm("Read =  ") << static_cast<irs_u32>(channel) << endl;
     a_show = true;
   }
   if (err) {
@@ -1642,7 +1655,8 @@ void hrm::ad7799_cread_t::show_verify_message(bool a_show, irs_u8 a_status_reg,
     irs_u8 rdy = (a_status_reg >> 7) & 0x01;
     irs::mlog() << irsm("---------------------------------") << endl;
     irs::mlog() << irsm("STATUS register:") << endl;
-    irs::mlog() << irsm("RAW =     0x") << hex << static_cast<int>(a_status_reg);
+    irs::mlog() << irsm("RAW =     0x");
+    irs::mlog() << hex << static_cast<int>(a_status_reg);
     irs::mlog() << endl;
     irs::mlog() << irsm("Channel:  ") << dec << static_cast<int>(channel);
     irs::mlog() << endl;
@@ -1698,7 +1712,7 @@ void hrm::ad7799_cread_t::result(adc_result_data_t* ap_result_data)
 void hrm::ad7799_cread_t::set_max_value(adc_value_t a_max_value) 
 { 
   m_max_value = a_max_value; 
-  irs::mlog() << irsm("ÀÖÏ íàñûùåíèå ") << m_max_value << irsm(" Â") << endl;
+  irs::mlog() << irsm("ADC saturation ") << m_max_value << irsm(" V") << endl;
 }
 
 hrm::impf_type_t hrm::convert_to_impf_type(irs_u8 a_value)
@@ -1759,10 +1773,10 @@ void hrm::termostat_t::set_off(bool a_off)
 {
   if (a_off) {
     mp_off_pin->set();
-    //irs::mlog() << irsm("Òåğìîñòàò OFF") << endl;
+    //irs::mlog() << irsm("˜˜˜˜˜˜˜˜˜ OFF") << endl;
   } else {
     mp_off_pin->clear();
-    //irs::mlog() << irsm("Òåğìîñòàò ON") << endl;
+    //irs::mlog() << irsm("˜˜˜˜˜˜˜˜˜ ON") << endl;
   }
   m_status = irs_st_busy;
   m_timer.start();
@@ -1776,8 +1790,8 @@ bool hrm::termostat_t::is_off()
 void hrm::termostat_t::set_after_pause(counter_t a_after_pause)
 {
   m_timer.set(a_after_pause);
-  irs::mlog() << irsm("Òåğìîñòàò ïàóçà ") << CNT_TO_DBLTIME(a_after_pause);
-  irs::mlog() << irsm(" ñ.") << endl;
+  irs::mlog() << irsm("Termostat pause ") << CNT_TO_DBLTIME(a_after_pause);
+  irs::mlog() << irsm(" s.") << endl;
 }
 
 irs_status_t hrm::termostat_t::status()
@@ -1789,6 +1803,807 @@ void hrm::termostat_t::tick()
 {
   if (m_timer.check()) {
     m_status = irs_st_ready;
-    //irs::mlog() << irsm("Òåğìîñòàò ãîòîâ") << endl;
+    //irs::mlog() << irsm("˜˜˜˜˜˜˜˜˜ ˜˜˜˜˜") << endl;
+  }
+}
+
+//------------------------------------------------------------------------------
+
+hrm::show_network_params_t::show_network_params_t(network_config_t* ap_config)
+{
+  mxip_t ip;
+  mxip_t mask; 
+  mxip_t gateway;
+  bool dhcp_enabled;
+  mxmac_t mac;
+  
+  ap_config->get(&ip, &mask, &gateway, &dhcp_enabled);
+  ap_config->get_mac(&mac);
+  
+  irs::mlog() << endl;
+  irs::mlog() << irsm("Network parameters") << endl;
+  irs::mlog() << irsm("IP:   ");
+  irs::mlog() << static_cast<int>(ip.val[0]) << irsm(".");
+  irs::mlog() << static_cast<int>(ip.val[1]) << irsm(".");
+  irs::mlog() << static_cast<int>(ip.val[2]) << irsm(".");
+  irs::mlog() << static_cast<int>(ip.val[3]) << endl;
+  irs::mlog() << irsm("MASK: ");
+  irs::mlog() << static_cast<int>(mask.val[0]) << irsm(".");
+  irs::mlog() << static_cast<int>(mask.val[1]) << irsm(".");
+  irs::mlog() << static_cast<int>(mask.val[2]) << irsm(".");
+  irs::mlog() << static_cast<int>(mask.val[3]) << endl;
+  irs::mlog() << irsm("GATE: ");
+  irs::mlog() << static_cast<int>(gateway.val[0]) << irsm(".");
+  irs::mlog() << static_cast<int>(gateway.val[1]) << irsm(".");
+  irs::mlog() << static_cast<int>(gateway.val[2]) << irsm(".");
+  irs::mlog() << static_cast<int>(gateway.val[3]) << endl;
+  irs::mlog() << irsm("DHCP: ");
+  irs::mlog() << static_cast<int>(dhcp_enabled) << endl;
+  irs::mlog() << irsm("MAC:  ");
+  irs::mlog().width(2);
+  irs::mlog() << hex << right << uppercase << setfill('0');
+  irs::mlog() << static_cast<int>(mac.val[0]) << irsm(":");
+  irs::mlog() << static_cast<int>(mac.val[1]) << irsm(":");
+  irs::mlog() << static_cast<int>(mac.val[2]) << irsm(":");
+  irs::mlog() << static_cast<int>(mac.val[3]) << irsm(":");
+  irs::mlog() << static_cast<int>(mac.val[4]) << irsm(":");
+  irs::mlog() << static_cast<int>(mac.val[5]) << endl;
+  irs::mlog() << endl;
+  irs::mlog() << dec << setfill(' ');
+}
+
+//------------------------------------------------------------------------------
+
+hrm::device_condition_controller_t::device_condition_controller_t(
+  irs::gpio_pin_t* ap_fan_ac_on,
+  irs::gpio_pin_t* ap_fan_dc_ls,
+  irs::gpio_pin_t* ap_fan_dc_hs,
+  irs::gpio_pin_t* ap_fan_dc_sen,
+  irs::conn_data_t<th_value_t>* ap_th_dac_data,
+  irs::conn_data_t<th_value_t>* ap_th_box_ldo_data,
+  irs::conn_data_t<th_value_t>* ap_th_box_adc_data,
+  irs::conn_data_t<th_value_t>* ap_th_mcu_data,
+  irs::conn_data_t<th_value_t>* ap_th_ext_1_data,
+  irs::conn_data_t<th_value_t>* ap_th_ext_2_data,
+  irs::conn_data_t<th_value_t>* ap_volt_box_neg_data,
+  irs::conn_data_t<th_value_t>* ap_volt_box_pos_data,
+  irs::conn_data_t<irs_u8>* ap_fan_mode_data,
+  irs::conn_data_t<irs_u8>* ap_fan_mode_ee_data,
+  irs::conn_data_t<irs_u8>* ap_fan_status_data,
+  irs::conn_data_t<irs_u8>* ap_fan_ac_speed_data,
+  irs::conn_data_t<irs_u8>* ap_fan_ac_speed_ee_data,
+  irs::conn_data_t<irs_u8>* ap_fan_dc_speed_data,
+  irs::conn_data_t<irs_u8>* ap_fan_dc_speed_ee_data,
+  irs::conn_data_t<float>* ap_fan_dc_speed_sence_data):
+  m_fade_tau(30.0),
+  m_vref(3.3),
+  mp_fan_ac_on(ap_fan_ac_on),
+  mp_fan_dc_ls(ap_fan_dc_ls),
+  mp_fan_dc_hs(ap_fan_dc_hs),
+  mp_fan_dc_sen(ap_fan_dc_sen),
+  mp_fan_mode_data(ap_fan_mode_data),
+  mp_fan_mode_ee_data(ap_fan_mode_ee_data),
+  mp_fan_status_data(ap_fan_status_data),
+  mp_fan_ac_speed_data(ap_fan_ac_speed_data),
+  mp_fan_ac_speed_ee_data(ap_fan_ac_speed_ee_data),
+  mp_fan_dc_speed_data(ap_fan_dc_speed_data),
+  mp_fan_dc_speed_ee_data(ap_fan_dc_speed_ee_data),
+  mp_fan_dc_speed_sence_data(ap_fan_dc_speed_sence_data),
+  m_th_dac_channel_number(2),
+  m_th_box_ldo_channel_number(1),
+  m_th_box_adc_channel_number(0),
+  m_volt_box_neg_channel_number(2),
+  m_volt_box_pos_channel_number(1),
+  m_th_mcu_channel_number(5),
+  m_th_ext_1_channel_number(0),
+  m_th_ext_2_channel_number(4),
+  m_adc1(adc1_address, adc1_mask),
+  m_adc2(adc2_address, adc2_mask),
+  m_polling_timer(irs::make_cnt_ms(100)),
+  m_th_dac_conditioner(ap_th_dac_data, 0.4, 0.0195, m_vref, m_fade_tau),
+  m_th_box_ldo_conditioner(ap_th_box_ldo_data, 0.4, 0.0195, m_vref, m_fade_tau),
+  m_th_box_adc_conditioner(ap_th_box_adc_data, 0.4, 0.0195, m_vref, m_fade_tau),
+  m_volt_box_neg_conditioner(ap_volt_box_neg_data, 3.3,4.92,m_vref, m_fade_tau),
+  m_volt_box_pos_conditioner(ap_volt_box_pos_data,0.0,1.255,m_vref, m_fade_tau),
+//  m_volt_box_neg_conditioner(ap_volt_box_neg_data, 0.0,1.0, 1.0, m_fade_tau),
+//  m_volt_box_pos_conditioner(ap_volt_box_pos_data,0.0,1.0, 1.0, m_fade_tau),
+  m_th_mcu_conditioner(ap_th_mcu_data, 1.0, 1.0, m_vref, m_fade_tau),
+  m_th_ext_1_conditioner(ap_th_ext_1_data, 0.4, 0.0195, m_vref, m_fade_tau),
+  m_th_ext_2_conditioner(ap_th_ext_2_data, 0.4, 0.0195, m_vref, m_fade_tau),
+  m_fan_mode(fan_already_off),
+  m_fan_status(fan_off_now),
+  m_fan_ac_speed(0),
+  m_fan_dc_speed(0),
+  m_idle(true),
+  m_need_changes(true),
+  m_show(false)
+{
+  mp_fan_ac_on->clear();
+  mp_fan_dc_ls->clear();
+  mp_fan_dc_hs->clear();
+  m_fan_mode = convert_u8_to_fan_mode(*mp_fan_mode_ee_data);
+  *mp_fan_mode_data = convert_fan_mode_to_u8(m_fan_mode);
+  *mp_fan_status_data = convert_fan_status_to_u8(m_fan_status);
+  m_fan_ac_speed = *mp_fan_ac_speed_ee_data;
+  *mp_fan_ac_speed_data = m_fan_ac_speed;
+  m_fan_dc_speed = *mp_fan_dc_speed_ee_data;
+  *mp_fan_dc_speed_data = m_fan_dc_speed;
+}
+
+void hrm::device_condition_controller_t::set_fan_speed_ac(irs_u8 a_speed)
+{
+  if (a_speed > 0) {
+    mp_fan_ac_on->set();
+  } else {
+    mp_fan_ac_on->clear();
+  }
+}
+
+void hrm::device_condition_controller_t::set_fan_speed_dc(irs_u8 a_speed)
+{
+  if ((a_speed > 0) && (a_speed <= 1)) {
+    mp_fan_dc_ls->set();
+    mp_fan_dc_hs->clear();
+  } else if (a_speed > 1) {
+    mp_fan_dc_ls->clear();
+    mp_fan_dc_hs->set();
+  } else {
+    mp_fan_dc_ls->clear();
+    mp_fan_dc_hs->clear();
+  }
+}
+
+
+hrm::fan_mode_t hrm::device_condition_controller_t::convert_u8_to_fan_mode(
+  irs_u8 a_mode)
+{
+  fan_mode_t result = fan_already_off;
+  switch (a_mode) {
+    case 1: result = fan_already_on; break;
+    case 2: result = fan_idle_on; break;
+    default: result = fan_already_off;
+  };
+  return result;
+}
+
+irs_u8 hrm::device_condition_controller_t::convert_fan_mode_to_u8(
+  fan_mode_t a_fan_mode)
+{
+  irs_u8 result = 0;
+  switch (a_fan_mode) {
+    case fan_already_off: result = 0; break;
+    case fan_already_on: result = 1; break;
+    case fan_idle_on: result = 2; break;
+    default: result = 0;
+  }
+  return result;
+}
+
+
+irs_u8 hrm::device_condition_controller_t::convert_fan_status_to_u8(
+  fan_status_t a_fan_status)
+{
+  irs_u8 result = 0;
+  if (a_fan_status == fan_on_now) {
+    result = 1;
+  }
+  return result;
+}
+
+void hrm::device_condition_controller_t::tick()
+{
+  m_adc1.tick();
+  m_adc2.tick();
+  if (m_polling_timer.check()) {
+    //  Temperatures / Voltages
+    m_th_dac_conditioner.convert(m_adc1.get_u16_data(m_th_dac_channel_number));
+    m_th_box_ldo_conditioner.convert(
+      m_adc1.get_u16_data(m_th_box_ldo_channel_number));
+    m_th_box_adc_conditioner.convert(
+      m_adc2.get_u16_data(m_th_box_adc_channel_number));
+    m_volt_box_neg_conditioner.convert(
+      m_adc1.get_u16_data(m_volt_box_neg_channel_number));
+    m_volt_box_pos_conditioner.convert(
+      m_adc2.get_u16_data(m_th_box_adc_channel_number));
+    m_th_mcu_conditioner.convert(
+      m_adc1.get_temperature_degree_celsius(m_vref));
+    m_th_ext_1_conditioner.convert(
+      m_adc1.get_u16_data(m_th_ext_1_channel_number));
+    m_th_ext_2_conditioner.convert(
+      m_adc1.get_u16_data(m_th_ext_2_channel_number));
+    //  Fans
+    if (m_fan_mode != *mp_fan_mode_data) {
+      bool valid_mode = false;
+      switch (*mp_fan_mode_data) {
+        case fan_already_off: valid_mode = true; break;
+        case fan_already_on: valid_mode = true; break;
+        case fan_idle_on: valid_mode = true; break;
+      }
+      if (valid_mode) {
+        m_fan_mode = convert_u8_to_fan_mode(*mp_fan_mode_data);
+        *mp_fan_mode_ee_data = convert_fan_mode_to_u8(m_fan_mode);
+        m_need_changes = true;
+      } else {
+        *mp_fan_mode_data = m_fan_mode;
+      }
+    }
+    if (m_fan_ac_speed != *mp_fan_ac_speed_data) {
+      if (*mp_fan_ac_speed_data <= m_fan_ac_max_speed) {
+        m_fan_ac_speed = *mp_fan_ac_speed_data;
+        *mp_fan_ac_speed_ee_data = m_fan_ac_speed;
+        m_need_changes = true;
+      }
+    }
+    if (m_fan_dc_speed != *mp_fan_dc_speed_data) {
+      if (*mp_fan_dc_speed_data <= m_fan_dc_max_speed) {
+        m_fan_dc_speed = *mp_fan_dc_speed_data;
+        *mp_fan_dc_speed_ee_data = m_fan_dc_speed;
+        m_need_changes = true;
+      }
+    }
+    
+    if (m_need_changes) {
+      m_need_changes = false;
+      switch (m_fan_mode) {
+        case fan_already_off: {
+          set_fan_speed_ac(0);
+          set_fan_speed_dc(0);
+          m_fan_status = fan_off_now;
+          if (m_show) {
+            irs::mlog() << irsm("FAN OFF") << endl;
+          }
+          break;
+        }
+        case fan_already_on: {
+          set_fan_speed_ac(m_fan_ac_speed);
+          set_fan_speed_dc(m_fan_dc_speed);
+          m_fan_status = fan_on_now;
+          if (m_show) {
+            irs::mlog() << irsm("FAN AC ");
+            irs::mlog() << static_cast<int>(m_fan_ac_speed) << endl;
+            irs::mlog() << irsm("FAN DC ");
+            irs::mlog() << static_cast<int>(m_fan_dc_speed) << endl;
+          }
+          break;
+        }
+        case fan_idle_on: {
+          if (m_idle) {
+            set_fan_speed_ac(m_fan_ac_speed);
+            set_fan_speed_dc(m_fan_dc_speed);
+            m_fan_status = fan_on_now;
+            if (m_show) {
+              irs::mlog() << irsm("FAN IDLE AC ");
+              irs::mlog() << static_cast<int>(m_fan_ac_speed) << endl;
+              irs::mlog() << irsm("FAN IDLE DC ");
+              irs::mlog() << static_cast<int>(m_fan_dc_speed) << endl;
+            }
+          } else {
+            set_fan_speed_ac(0);
+            set_fan_speed_dc(0);
+            m_fan_status = fan_off_now;
+            if (m_show) {
+              irs::mlog() << irsm("FAN IDLE OFF") << endl;
+            }
+          }
+          break;
+        }
+      }
+    }
+    *mp_fan_status_data = convert_fan_status_to_u8(m_fan_status);
+  }
+}
+
+//------------------------------------------------------------------------------
+
+hrm::adc_conditioner_t::adc_conditioner_t(
+  irs::conn_data_t<th_value_t>* ap_out_data,
+  hrm::th_value_t a_sub, hrm::th_value_t a_div, 
+  th_value_t a_vref, th_value_t a_tau):
+  mp_out_data(ap_out_data),
+  m_sub(a_sub),
+  m_div(a_div),
+  m_fade_data(),
+  m_need_fade_preset(true),
+  m_fade_tau(a_tau),
+  m_vref(a_vref)
+{
+  m_fade_data.t = m_fade_tau;
+}
+
+hrm::th_value_t hrm::adc_conditioner_t::convert(irs_u16 a_value)
+{
+  th_value_t result = (static_cast<th_value_t>(a_value)*m_vref) / pow(2.0, 16);
+  result = (result - m_sub) / m_div;
+  if (m_need_fade_preset) {
+    m_fade_data.x1 = result;
+    m_fade_data.y1 = result;
+    //fade(&m_fade_data, result);
+    m_need_fade_preset = false;
+  } else {
+    result = fade(&m_fade_data, result);
+  }
+  *mp_out_data = result;
+  return result;
+}
+
+hrm::th_value_t hrm::adc_conditioner_t::convert(hrm::th_value_t a_value)
+{
+  if (m_need_fade_preset) {
+    m_fade_data.x1 = a_value;
+    m_fade_data.y1 = a_value;
+    //fade(&m_fade_data, a_value);
+    m_need_fade_preset = false;
+  } else {
+    a_value = fade(&m_fade_data, a_value);
+  }
+  *mp_out_data = a_value;
+  return a_value;
+}
+
+//-----------------------------------------------------------------------------
+// class operating_duty_detector_t
+hrm::operating_duty_detector_t::operating_duty_detector_t(
+    double a_allowable_diviation, double a_time_interval):
+  m_range_allowable_diviation(a_allowable_diviation),
+  m_allowable_deviation(a_allowable_diviation),
+  m_reference_value(0),
+  m_range_min(0),
+  m_time_interval(a_time_interval),
+  m_time()
+{
+}
+
+void hrm::operating_duty_detector_t::add_current_value(double a_value)
+{
+  float deviation = fabs(1.f - (a_value/m_reference_value));
+  if (deviation > m_allowable_deviation) {
+    m_time.start();
+  }
+
+  /*static irs::loop_timer_t t(irs::make_cnt_s(1));
+  if ((m_reference_value == 1) && t.check()) {
+    CLB_DBG_MSG("dev = " << deviation);
+    CLB_DBG_MSG("adev = " << m_allowable_deviation);
+  }*/
+}
+
+void hrm::operating_duty_detector_t::set_allowable_diviation(
+  double a_diviation)
+{
+  m_range_allowable_diviation = a_diviation;
+  update_allowable_deviation();
+}
+
+void hrm::operating_duty_detector_t::set_reference_value(
+  double a_reference_value)
+{
+  m_reference_value = a_reference_value;
+  update_allowable_deviation();
+}
+
+void hrm::operating_duty_detector_t::set_range_min(double a_range_min)
+{
+  m_range_min = a_range_min;
+  update_allowable_deviation();
+}
+
+void hrm::operating_duty_detector_t::update_allowable_deviation()
+{
+  m_allowable_deviation = m_range_allowable_diviation;
+  // ˜˜˜˜ ˜˜˜˜˜ ˜˜ ˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜˜˜, ˜˜ ˜˜˜˜˜˜˜˜˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜˜˜˜˜
+  // ˜˜˜˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜˜˜˜
+  if ((m_reference_value < m_range_min) && (m_range_min > 0)) {
+    const double k = m_range_min/m_reference_value;
+
+    double k1 = 1;
+    /*if (k > 50) {
+      k1 = 5; // ˜˜˜˜˜˜˜˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜˜˜˜˜. ˜˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜˜˜˜˜˜˜˜˜˜
+    }*/
+
+    m_allowable_deviation *= (k1*k);
+  }
+  //irs::mlog() << irsm("ad = ") << m_allowable_deviation << endl;
+  //CLB_DBG_MSG("ad = " << m_allowable_deviation);
+}
+
+void hrm::operating_duty_detector_t::set_time_interval(
+  double a_time_interval)
+{
+  m_time_interval = a_time_interval;
+}
+
+void hrm::operating_duty_detector_t::reset()
+{
+  m_time.start();
+}
+
+bool hrm::operating_duty_detector_t::ready() const
+{
+  return (m_time.get() >= m_time_interval);
+}
+
+//-----------------------------------------------------------------------------
+
+hrm::temperature_sensor_conn_data_t::temperature_sensor_conn_data_t(
+  irs::conn_data_t<double>* ap_th_data,
+  double a_min_temperature, double a_max_temperature):
+  mp_th_data(ap_th_data),
+  m_min_temperature(a_min_temperature),
+  m_max_temperature(a_max_temperature)
+{
+}
+
+bool hrm::temperature_sensor_conn_data_t::temperature_is_normal()
+{
+  bool result = false;
+  if (*mp_th_data > m_min_temperature && *mp_th_data < m_max_temperature) {
+    result = true;
+  }
+  return result;
+}
+
+//-----------------------------------------------------------------------------
+// class peltier_t
+hrm::peltier_t::peltier_t(const parameters_t& a_parameters):
+  m_parameters(a_parameters),
+  mp_temp_sensor(a_parameters.temperature_sensor),
+  mp_pwm(dynamic_cast<irs::arm::st_pwm_gen_t*>(a_parameters.pwm)),
+  mp_polarity_pin(a_parameters.polarity_pin),
+  m_enabled(true),
+  m_polarity(polarity_cool),
+  m_duty_setpoint(0),
+  m_duty_actual(0),
+  m_duty_max(min(fabs(a_parameters.pwm_max_code_float), 1.)),
+  m_setpoint(20),
+  m_pid_reg_enabled(true),
+  m_reg_pid_interval(0.1),
+  m_reg_pid_timer(irs::make_cnt_s(m_reg_pid_interval)),
+  m_reg_pid_data(),
+  m_pid_reg_k_factor(0),
+  m_iso_data(irs::zero_struct_t<irs::isodr_data_t>::get()),
+  m_rate_data(),
+  m_operating_duty_detector(a_parameters.operating_duty_deviation,
+    a_parameters.operating_duty_time_interval_s),
+  m_ready(false),
+  m_sync_data_timer(irs::make_cnt_ms(100)),
+  m_change_polarity_timer(irs::make_cnt_s(10)),
+  m_polarity_change(false),
+  polarity_cool(
+    a_parameters.polarity_map == default_polarity_map ?
+    polarity_cool_def : polarity_heat_def
+  ),
+  polarity_heat(
+    a_parameters.polarity_map == default_polarity_map ?
+    polarity_heat_def : polarity_cool_def
+  )
+{
+  //IRS_LIB_ASSERT(mp_pwm);
+
+  mp_polarity_pin->clear();
+
+  //  ˜˜˜˜˜˜˜˜˜
+  m_reg_pid_data.k = 1;
+  m_reg_pid_data.ki = 0;
+  m_reg_pid_data.kd = 0;
+  m_reg_pid_data.min = -1*m_duty_max;
+  m_reg_pid_data.max = 1*m_duty_max;
+  m_reg_pid_data.prev_e = 0.;
+  m_reg_pid_data.pp_e = 0.;
+  m_reg_pid_data.prev_out = 0.;
+  m_reg_pid_data.block_int = 0;
+  m_reg_pid_data.block_int_ext = 0;
+  m_reg_pid_data.int_val = 0.;
+  m_reg_pid_data.k_d_pid = 0.1;
+
+  m_rate_data.cur = 0;
+  m_rate_data.dt = m_reg_pid_interval;
+  m_rate_data.slope = 0.03;
+  m_rate_data.recalc = 0;
+  m_rate_data.dl = 0;
+  m_rate_data.slope_prev = 0;
+  m_rate_data.dt_prev = 0;
+
+  m_iso_data.fd.t = 0;
+  m_iso_data.k = 1;
+
+  *m_parameters.amplitude_code_float = m_duty_actual;
+  *m_parameters.enabled = m_enabled;
+  *m_parameters.pid_reg_enabled = m_pid_reg_enabled;
+  *m_parameters.polarity_pin_bit_data = (m_polarity == polarity_heat);
+
+  m_operating_duty_detector.set_reference_value(m_setpoint);
+
+  mp_pwm->start();
+}
+
+double hrm::peltier_t::get_temperature()
+{
+  return mp_temp_sensor->get_temperature();
+}
+
+void hrm::peltier_t::set_temperature_setpoint(double a_setpoint)
+{
+  if (m_setpoint != a_setpoint) {
+    m_ready = false;
+  }
+  m_setpoint = a_setpoint;
+  *m_parameters.temperature_setpoint = m_setpoint;
+  m_operating_duty_detector.set_reference_value(m_setpoint);
+}
+
+bool hrm::peltier_t::ready() const
+{
+  return m_ready;
+}
+
+bool hrm::peltier_t::regulator_enabled() const
+{
+  return m_pid_reg_enabled;
+}
+
+void hrm::peltier_t::regulator_enabled(bool a_enabled)
+{
+  m_pid_reg_enabled = a_enabled;
+}
+
+void hrm::peltier_t::pwm_regulator()
+{
+  #define CLB_POLARITY_DELAY
+
+  #ifdef CLB_POLARITY_DELAY
+  // ˜˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜ ˜ ˜˜˜˜˜˜˜˜ ˜˜ 0 ˜˜ m_duty_max
+  double setpoint = 0;
+  if (is_same_polarity(m_duty_setpoint)) {
+    setpoint = irs::range(fabs(m_duty_setpoint), 0., m_duty_max);
+  } else {
+    setpoint = 0;
+  }
+
+  // ˜˜˜˜˜˜ ˜˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜˜ ˜˜˜˜
+  const double cur_duty = irs::rate_limiter(&m_rate_data, setpoint);
+  set_duty_hard(cur_duty);
+
+  // ˜˜˜˜ ˜˜˜˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜˜˜˜˜, ˜˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜˜˜˜
+  if (is_same_polarity(m_duty_setpoint)) {
+    m_polarity_change = false;
+  } else {
+
+    // ˜˜˜˜ ˜˜˜˜˜˜˜˜˜˜ ˜˜˜˜˜ ˜˜˜˜˜˜˜, ˜˜ ˜˜˜˜˜˜˜˜ ˜˜˜˜˜˜˜˜ ˜˜ 0 ˜ ˜˜˜˜ ˜˜˜˜˜
+    // ˜˜ ˜˜˜˜˜˜˜
+
+    if (m_polarity_change) {
+      if (m_change_polarity_timer.check()) {
+        m_polarity_change = false;
+        if (m_duty_setpoint >= 0) {
+          set_polarity(polarity_cool);
+        } else {
+          set_polarity(polarity_heat);
+        }
+        set_duty_hard(0);
+      }
+    } else {
+      if (cur_duty == 0) {
+        m_polarity_change = true;
+        m_change_polarity_timer.start();
+      }
+    }
+  }
+  #else //CLB_POLARITY_DELAY
+  double setpoint = irs::range(fabs(m_duty_setpoint), 0., m_duty_max);
+  const double cur_duty = irs::rate_limiter(&m_rate_data, setpoint);
+  set_duty_hard(cur_duty);
+  if (m_duty_setpoint >= 0) {
+    set_polarity(polarity_cool);
+  } else {
+    set_polarity(polarity_heat);
+  }
+  #endif //CLB_POLARITY_DELAY
+
+}
+
+void hrm::peltier_t::set_polarity(polarity_t a_polarity)
+{
+  if (m_polarity != a_polarity) {
+    set_duty_hard(0);
+  }
+  m_polarity = a_polarity;
+  m_parameters.polarity_pin->set_pin(m_polarity);
+  *m_parameters.polarity_pin_bit_data = m_polarity;
+}
+
+hrm::peltier_t::polarity_t
+hrm::peltier_t::get_bit_data_polarity() const
+{
+  if (*m_parameters.polarity_pin_bit_data == static_cast<bool>(polarity_cool))
+  {
+    return polarity_cool;
+  } else {
+    return polarity_heat;
+  }
+}
+
+void hrm::peltier_t::tick()
+{
+  sync_remote_data();
+  if (m_reg_pid_timer.check()) {
+
+    const double cur_ref_value = m_setpoint;
+
+    double cur_value = get_temperature();
+
+    m_operating_duty_detector.add_current_value(cur_value);
+    m_ready = m_operating_duty_detector.ready();
+
+    const double e = irs::isodr(&m_iso_data, cur_value) - cur_ref_value;
+
+    if (m_enabled && m_pid_reg_enabled) {
+      const double setpoint = irs::pid_reg(&m_reg_pid_data, e);
+      set_duty_soft(setpoint);
+    } else {
+      pid_reg_sync(&m_reg_pid_data, e, m_duty_setpoint);
+    }
+    pwm_regulator();
+  }
+}
+
+bool hrm::peltier_t::is_same_polarity(double a_duty)
+{
+  return (a_duty >= 0) == (m_polarity == polarity_cool);
+}
+
+void hrm::peltier_t::set_duty_soft(double a_duty)
+{
+  m_duty_setpoint = irs::range<double>(a_duty, -1*m_duty_max, m_duty_max);
+  *m_parameters.pid_out = -m_duty_setpoint;
+}
+
+void hrm::peltier_t::set_duty_hard(double a_duty)
+{
+  #if (CLB_HARDWARE_REV >= CLB_HW_REV_2)
+  m_duty_actual = a_duty;
+  #elif (CLB_HARDWARE_REV == CLB_HW_REV_1)
+  m_duty_actual = (m_polarity == polarity_cool) ? a_duty: (1 - a_duty);
+  #endif // (CLB_HARDWARE_REV == CLB_HW_REV_1)
+  const float duty = irs::range<float>(m_duty_actual, 0, 1);
+  mp_pwm->set_duty(m_parameters.pwm_channel, duty);
+  *m_parameters.amplitude_code_float =
+    (m_polarity == polarity_cool) ? -a_duty: a_duty;
+}
+
+void hrm::peltier_t::sync_remote_data()
+{
+  if (m_sync_data_timer.check()) {
+
+    if (m_setpoint != *m_parameters.temperature_setpoint) {
+      m_setpoint = *m_parameters.temperature_setpoint;
+      m_operating_duty_detector.set_reference_value(m_setpoint);
+      m_ready = false;
+    }
+
+    //*m_parameters.temperature = get_temperature();
+
+    m_reg_pid_data.k = *m_parameters.pid_k;
+    m_reg_pid_data.ki = *m_parameters.pid_ki*m_reg_pid_interval;
+    m_reg_pid_data.kd = *m_parameters.pid_kd/m_reg_pid_interval;
+    pid_reg_sync(&m_reg_pid_data);
+
+    m_iso_data.k = *m_parameters.iso_k;
+    m_iso_data.fd.t = *m_parameters.iso_t;
+
+    m_rate_data.slope = *m_parameters.pwm_rate_slope;
+
+    if (*m_parameters.pid_out != m_duty_setpoint) {
+      set_duty_soft(*m_parameters.pid_out);
+    }
+
+    /*if (*m_parameters.amplitude_code_float != m_duty_actual) {
+      m_duty_actual = *m_parameters.amplitude_code_float;
+      mp_pwm->set_duty(m_parameters.pwm_channel, m_duty_actual);
+    }*/
+    if (*m_parameters.polarity_pin_bit_data != static_cast<bool>(m_polarity)) {
+      set_polarity(get_bit_data_polarity());
+    }
+
+    if (*m_parameters.pid_reg_enabled != m_pid_reg_enabled) {
+      m_pid_reg_enabled = *m_parameters.pid_reg_enabled;
+    }
+
+    if (*m_parameters.enabled != m_enabled) {
+      m_enabled = *m_parameters.enabled;
+      if (!m_enabled) {
+        set_duty_soft(0);
+      }
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
+hrm::sync_treg_parameters_t::sync_treg_parameters_t(
+  irs::conn_data_t<th_value_t>* ap_eth_treg_ref,
+  irs::conn_data_t<th_value_t>* ap_eth_treg_k,
+  irs::conn_data_t<th_value_t>* ap_eth_treg_ki,
+  irs::conn_data_t<th_value_t>* ap_eth_treg_kd,
+  irs::conn_data_t<th_value_t>* ap_eth_treg_iso_k,
+  irs::conn_data_t<th_value_t>* ap_eth_treg_iso_t,
+  irs::conn_data_t<th_value_t>* ap_eth_treg_pwm_rate_slope,
+  irs::bit_data_as_bool_t* ap_eth_treg_enabled,
+  irs::bit_data_as_bool_t* ap_eth_treg_pid_reg_enabled,
+  irs::bit_data_as_bool_t* ap_eth_treg_polarity_pin_bit_data,
+  irs::conn_data_t<th_value_t>* ap_ee_treg_ref,
+  irs::conn_data_t<th_value_t>* ap_ee_treg_k,
+  irs::conn_data_t<th_value_t>* ap_ee_treg_ki,
+  irs::conn_data_t<th_value_t>* ap_ee_treg_kd,
+  irs::conn_data_t<th_value_t>* ap_ee_treg_iso_k,
+  irs::conn_data_t<th_value_t>* ap_ee_treg_iso_t,
+  irs::conn_data_t<th_value_t>* ap_ee_treg_pwm_rate_slope,
+  irs::bit_data_as_bool_t* ap_ee_treg_enabled,
+  irs::bit_data_as_bool_t* ap_ee_treg_pid_reg_enabled,
+  irs::bit_data_as_bool_t* ap_ee_treg_polarity_pin_bit_data):
+  mp_eth_treg_ref(ap_eth_treg_ref),
+  mp_eth_treg_k(ap_eth_treg_k),
+  mp_eth_treg_ki(ap_eth_treg_ki),
+  mp_eth_treg_kd(ap_eth_treg_kd),
+  mp_eth_treg_iso_k(ap_eth_treg_iso_k),
+  mp_eth_treg_iso_t(ap_eth_treg_iso_t),
+  mp_eth_treg_pwm_rate_slope(ap_eth_treg_pwm_rate_slope),
+  mp_eth_treg_enabled(ap_eth_treg_enabled),
+  mp_eth_treg_pid_reg_enabled(ap_eth_treg_pid_reg_enabled),
+  mp_eth_treg_polarity_pin_bit_data(ap_eth_treg_polarity_pin_bit_data),
+  mp_ee_treg_ref(ap_ee_treg_ref),
+  mp_ee_treg_k(ap_ee_treg_k),
+  mp_ee_treg_ki(ap_ee_treg_ki),
+  mp_ee_treg_kd(ap_ee_treg_kd),
+  mp_ee_treg_iso_k(ap_ee_treg_iso_k),
+  mp_ee_treg_iso_t(ap_ee_treg_iso_t),
+  mp_ee_treg_pwm_rate_slope(ap_ee_treg_pwm_rate_slope),
+  mp_ee_treg_enabled(ap_ee_treg_enabled),
+  mp_ee_treg_pid_reg_enabled(ap_ee_treg_pid_reg_enabled),
+  mp_ee_treg_polarity_pin_bit_data(ap_ee_treg_polarity_pin_bit_data)
+{
+  *mp_eth_treg_ref = *mp_ee_treg_ref;
+  *mp_eth_treg_k = *mp_ee_treg_k;
+  *mp_eth_treg_ki = *mp_ee_treg_ki;
+  *mp_eth_treg_kd = *mp_ee_treg_kd;
+  *mp_eth_treg_iso_k = *mp_ee_treg_iso_k;
+  *mp_eth_treg_iso_t = *mp_ee_treg_iso_t;
+  *mp_eth_treg_pwm_rate_slope = *mp_ee_treg_pwm_rate_slope;
+  *mp_eth_treg_enabled = *mp_ee_treg_enabled;
+  *mp_eth_treg_pid_reg_enabled = *mp_ee_treg_pid_reg_enabled;
+  *mp_eth_treg_polarity_pin_bit_data = *mp_ee_treg_polarity_pin_bit_data;
+}
+
+void hrm::sync_treg_parameters_t::sync()
+{
+  if (*mp_eth_treg_ref != *mp_ee_treg_ref) {
+    *mp_ee_treg_ref = *mp_eth_treg_ref;
+  }
+  if (*mp_eth_treg_k != *mp_ee_treg_k) {
+    *mp_ee_treg_k = *mp_eth_treg_k;
+  }
+  if (*mp_eth_treg_ki != *mp_ee_treg_ki) {
+    *mp_ee_treg_ki = *mp_eth_treg_ki;
+  }
+  if (*mp_eth_treg_kd != *mp_ee_treg_kd) {
+    *mp_ee_treg_kd = *mp_eth_treg_kd;
+  }
+  if (*mp_eth_treg_iso_k != *mp_ee_treg_iso_k) {
+    *mp_ee_treg_iso_k = *mp_eth_treg_iso_k;
+  }
+  if (*mp_eth_treg_iso_t != *mp_ee_treg_iso_t) {
+    *mp_ee_treg_iso_t = *mp_eth_treg_iso_t;
+  }
+  if (*mp_eth_treg_pwm_rate_slope != *mp_ee_treg_pwm_rate_slope) {
+    *mp_ee_treg_pwm_rate_slope = *mp_eth_treg_pwm_rate_slope;
+  }
+  if (*mp_eth_treg_enabled != *mp_ee_treg_enabled) {
+    
+    *mp_ee_treg_enabled = *mp_eth_treg_enabled;
+  }
+  if (*mp_eth_treg_pid_reg_enabled != *mp_ee_treg_pid_reg_enabled) {
+    *mp_ee_treg_pid_reg_enabled = *mp_eth_treg_pid_reg_enabled;
+  }
+  if (*mp_eth_treg_polarity_pin_bit_data != *mp_ee_treg_polarity_pin_bit_data) {
+    *mp_ee_treg_polarity_pin_bit_data = *mp_eth_treg_polarity_pin_bit_data;
   }
 }

@@ -89,14 +89,21 @@ hrm::screensaver_t::screensaver_t(
   m_str_2_item(),
   m_str_3_item(),
   m_str_4_item(),
+  m_version(1.0f),
+  m_version_item(&m_version),
   m_main_screen(),
   mp_cur_menu(&m_main_screen),
   m_timeout(irs::make_cnt_s(5))
 {
-  m_str_1_item.set_parametr_string("    Высокоомная");
-  m_str_2_item.set_parametr_string("     установка");
-  m_str_3_item.set_parametr_string("     ООО \"РЭС\"");
-  m_str_4_item.set_parametr_string("  www.irsural.ru");
+  m_str_1_item.set_parametr_string("  www.irsural.ru");
+  m_str_2_item.set_parametr_string("       У401М");
+  m_str_3_item.set_parametr_string(" Хэш CAB2");
+  m_str_4_item.set_parametr_string("     ООО \"РЭС\"");
+  
+  m_version = 1.0 + static_cast<float>(mp_eth_data->version_info) / 1000.0;
+  
+  m_version_item.set_header("Версия");
+  m_version_item.set_str(mp_user_str, "Вер.", "", 5, 3);
 
   m_main_screen.set_disp_drv(ap_lcd_drv_service);
   m_main_screen.set_key_event(ap_menu_kb_event);
@@ -106,6 +113,7 @@ hrm::screensaver_t::screensaver_t(
   m_main_screen.add(&m_str_2_item, 0, 1, IMM_FULL);
   m_main_screen.add(&m_str_3_item, 0, 2, IMM_FULL);
   m_main_screen.add(&m_str_4_item, 0, 3, IMM_FULL);
+  m_main_screen.add(&m_version_item, 10, 2, IMM_WITHOUT_SUFFIX);
 
   m_timeout.start();
 }
@@ -120,6 +128,7 @@ void hrm::screensaver_t::tick()
 
 void hrm::screensaver_t::draw()
 {
+  m_version = 1.0 + static_cast<float>(mp_eth_data->version_info) / 1000.0;
   mp_cur_menu->draw(&mp_cur_menu);
 }
 
@@ -133,30 +142,65 @@ hrm::experiment_options_dialog_t::experiment_options_dialog_t(
   mp_eth_data(ap_eth_data),
   m_mode_item(),
   m_hint_item(),
+  
+  m_prepare_pause_value(mp_eth_data->prepare_pause),
+  m_prepare_pause_item(&m_prepare_pause_value, item_edited),
+  m_prepare_pause_event(),
+  
+  m_r_checked_prev(mp_eth_data->checked_prev),
+  m_r_checked_prev_item(&m_r_checked_prev, item_edited),
+  m_r_checked_prev_event(),
+  
   m_r_standard(mp_eth_data->etalon),
   m_r_standard_item(&m_r_standard, true),
   m_r_standard_changed_event(),
 
-  m_menu_r_standart_type(r_standard_type_original),
-  m_r_standart_type_item(&m_menu_r_standart_type, true),
-  m_r_standart_type_changed_event(),
+  m_r_checked(mp_eth_data->checked),
+  m_r_checked_item(&m_r_checked, true),
+  m_r_checked_changed_event(),
+  
   m_main_screen(),
   mp_cur_menu(&m_main_screen)
 {
-  m_mode_item.set_parametr_string("Ввод эталона");
+  m_mode_item.set_parametr_string("Ввод значений");
   m_hint_item.set_parametr_string("€-Пуск");
 
+  m_prepare_pause_item.set_header("Предварит. пауза");
+  m_prepare_pause_item.set_str(mp_user_str, "Пауза", "с", 6, 0);
+  m_prepare_pause_item.set_max_value(100000);
+  m_prepare_pause_item.set_min_value(1);
+  m_prepare_pause_item.add_change_event(&m_prepare_pause_event);
+  m_prepare_pause_item.set_key_type(IMK_DIGITS);
+  m_prepare_pause_item.set_disp_drv(ap_lcd_drv_service);
+  m_prepare_pause_item.set_key_event(ap_menu_kb_event);
+  m_prepare_pause_item.set_cursor_symbol(0x01);
+  
+  m_r_checked_prev_item.set_header("Пред. поверяемая");
+  m_r_checked_prev_item.set_str(mp_user_str, "Rпп", "Ом", r_width, r_precision,
+    irs::num_mode_general);
+  m_r_checked_prev_item.set_max_value(r_max);
+  m_r_checked_prev_item.set_min_value(r_min);
+  m_r_checked_prev_item.add_change_event(&m_r_checked_prev_event);
+  m_r_checked_prev_item.set_key_type(IMK_DIGITS);
+  m_r_checked_prev_item.set_disp_drv(ap_lcd_drv_service);
+  m_r_checked_prev_item.set_key_event(ap_menu_kb_event);
+  m_r_checked_prev_item.set_cursor_symbol(0x01);
+  
   m_r_standard_item.set_header("Ввод эталона");
-  m_r_standard_item.set_str(mp_user_str, "Rэ ", "Ом", r_width, r_precision,
+  m_r_standard_item.set_str(mp_user_str, "Rэн", "Ом", r_width, r_precision,
     irs::num_mode_general);
   m_r_standard_item.set_max_value(r_max);
   m_r_standard_item.set_min_value(r_min);
   m_r_standard_item.add_change_event(&m_r_standard_changed_event);
   m_r_standard_item.set_key_type(IMK_DIGITS);
-
-  m_r_standart_type_item.set_header("Тип Rэ");
-  m_r_standart_type_item.set_str("        МЭС", "   Имитатор");
-  m_r_standart_type_item.add_change_event(&m_r_standart_type_changed_event);
+  
+  m_r_checked_item.set_header("Ввод поверяемой");
+  m_r_checked_item.set_str(mp_user_str, "Rпн", "Ом", r_width, r_precision,
+    irs::num_mode_general);
+  m_r_checked_item.set_max_value(r_max);
+  m_r_checked_item.set_min_value(r_min);
+  m_r_checked_item.add_change_event(&m_r_checked_changed_event);
+  m_r_checked_item.set_key_type(IMK_DIGITS);
 
   m_main_screen.set_disp_drv(ap_lcd_drv_service);
   m_main_screen.set_key_event(ap_menu_kb_event);
@@ -164,7 +208,7 @@ hrm::experiment_options_dialog_t::experiment_options_dialog_t(
   m_main_screen.creep_stop();
   m_main_screen.add(&m_mode_item, 0, 0, IMM_FULL);
   m_main_screen.add(&m_r_standard_item, 0, 1, IMM_FULL);
-  m_main_screen.add(&m_r_standart_type_item, 0, 2, IMM_FULL);
+  m_main_screen.add(&m_r_checked_item, 0, 2, IMM_FULL);
   m_main_screen.add(&m_hint_item, 0, 3, IMM_FULL);
 }
 
@@ -181,13 +225,32 @@ void hrm::experiment_options_dialog_t::draw()
 
 void hrm::experiment_options_dialog_t::menu_check()
 {
-  if(m_r_standard_changed_event.check()) {
+  if (m_r_standard_changed_event.check()) {
     mp_eth_data->etalon = m_r_standard;
+  }
+  if (m_r_checked_changed_event.check()) {
+    mp_eth_data->checked = m_r_checked;
+  }
+  if (m_r_checked_prev_event.check()) {
+    mp_eth_data->checked_prev = m_r_checked_prev;
+  }
+  if (m_prepare_pause_event.check()) {
+    mp_eth_data->prepare_pause =
+      irs::round<double, irs_i32>(m_prepare_pause_value);
   }
 
   if (mp_cur_menu == &m_main_screen) {
     if (mp_eth_data->etalon != m_r_standard) {
       m_r_standard = mp_eth_data->etalon;
+    }
+    if (mp_eth_data->checked != m_r_checked) {
+      m_r_checked = mp_eth_data->checked;
+    }
+    if (mp_eth_data->prepare_pause != m_prepare_pause_value) {
+      m_prepare_pause_value = mp_eth_data->prepare_pause;
+    }
+    if (mp_eth_data->checked_prev != m_r_checked_prev) {
+      m_r_checked_prev = mp_eth_data->checked_prev;
     }
     irskey_t key = mp_menu_kb_event->check();
     switch (key) {
@@ -197,9 +260,19 @@ void hrm::experiment_options_dialog_t::menu_check()
         m_r_standard_item.show();
       } break;
       case irskey_6: {
-        mp_cur_menu = &m_r_standart_type_item;
-        m_r_standart_type_item.set_master_menu(&m_main_screen);
-        m_r_standart_type_item.show();
+        mp_cur_menu = &m_r_checked_item;
+        m_r_checked_item.set_master_menu(&m_main_screen);
+        m_r_checked_item.show();
+      } break;
+      case irskey_8: {
+        mp_cur_menu = &m_prepare_pause_item;
+        m_prepare_pause_item.set_master_menu(&m_main_screen);
+        m_prepare_pause_item.show();
+      } break;
+      case irskey_9: {
+        mp_cur_menu = &m_r_checked_prev_item;
+        m_r_checked_prev_item.set_master_menu(&m_main_screen);
+        m_r_checked_prev_item.show();
       } break;
       case irskey_enter: {
         mp_eth_data->mode = md_balance;
@@ -221,6 +294,7 @@ hrm::experiment_progress_t::experiment_progress_t(
   form_t(),
   mp_menu_kb_event(ap_menu_kb_event),
   mp_eth_data(ap_eth_data),
+  m_caption_item(),
   m_mode_item(),
   m_elapsed_time_item(),
   m_remaining_time_item(),
@@ -229,7 +303,8 @@ hrm::experiment_progress_t::experiment_progress_t(
   m_main_screen(),
   mp_cur_menu(&m_main_screen)
 {
-  m_mode_item.set_parametr_string("Идет измерение");
+  m_caption_item.set_parametr_string("Идет измерение");
+  m_mode_item.set_parametr_string("Подготовка");
 
   m_elapsed_time_item.prefix = irst("Прошло ");
   set_str_item(mp_eth_data->sum_time, &m_elapsed_time_item);
@@ -241,9 +316,10 @@ hrm::experiment_progress_t::experiment_progress_t(
   m_main_screen.set_key_event(ap_menu_kb_event);
   m_main_screen.set_cursor_symbol(0x01);
   m_main_screen.creep_stop();
-  m_main_screen.add(&m_mode_item, 0, 0, IMM_FULL);
-  m_main_screen.add(&m_elapsed_time_item.menu_item, 0, 1, IMM_FULL);
-  m_main_screen.add(&m_remaining_time_item.menu_item, 0, 2, IMM_FULL);
+  m_main_screen.add(&m_caption_item, 0, 0, IMM_FULL);
+  m_main_screen.add(&m_mode_item, 0, 1, IMM_FULL);
+  m_main_screen.add(&m_elapsed_time_item.menu_item, 0, 2, IMM_FULL);
+  //m_main_screen.add(&m_remaining_time_item.menu_item, 0, 2, IMM_FULL);
   m_main_screen.add(&m_progress_bar_item, 0, 3, IMM_FULL);
 }
 
@@ -271,6 +347,32 @@ void hrm::experiment_progress_t::menu_check()
   if (m_update_items.check()) {
     set_str_item(mp_eth_data->sum_time, &m_elapsed_time_item);
     set_str_item(mp_eth_data->remaining_time, &m_remaining_time_item);
+    switch (mp_eth_data->balance_action) {
+      case ba_prepare: {
+        m_mode_item.set_parametr_string("Подготовка"); 
+        break;
+      }
+      case ba_prepare_pause: {
+        m_mode_item.set_parametr_string("Выравнивание темп-ры"); 
+        break;
+      }
+      case ba_balance_neg: {
+        m_mode_item.set_parametr_string("Уравновешивание -"); 
+        break;
+      }
+      case ba_elab_neg: {
+        m_mode_item.set_parametr_string("Уточнение -"); 
+        break;
+      }
+      case ba_balance_pos: {
+        m_mode_item.set_parametr_string("Уравновешивание +"); 
+        break;
+      }
+      case ba_elab_pos: {
+        m_mode_item.set_parametr_string("Уточнение +"); 
+        break;
+      }
+    }
     update_progress();
   }
 }
@@ -299,14 +401,14 @@ void hrm::experiment_progress_t::set_str_item(
 
 void hrm::experiment_progress_t::update_progress()
 {
-  const double elapsed_time = mp_eth_data->sum_time;
-  const double remaining_time = mp_eth_data->remaining_time;
-  float progress = 0;
-  if ((elapsed_time == 0) && (remaining_time == 0)) {
-    progress = 0.f;
-  }  else {
-    progress = static_cast<float>(elapsed_time/(elapsed_time + remaining_time));
-  }
+  //const double elapsed_time = mp_eth_data->sum_time;
+  //const double remaining_time = mp_eth_data->remaining_time;
+  float progress = mp_eth_data->exp_percentage / 100.0;
+//  if ((elapsed_time == 0) && (remaining_time == 0)) {
+//    progress = 0.f;
+//  }  else {
+//    progress = static_cast<float>(elapsed_time/(elapsed_time + remaining_time));
+//  }
   m_progress_bar_item.set_value(progress);
 }
 
@@ -319,6 +421,8 @@ hrm::experiment_result_t::experiment_result_t(
   mp_menu_kb_event(ap_menu_kb_event),
   mp_eth_data(ap_eth_data),
   m_mode_item(),
+  m_ratio(mp_eth_data->ratio),
+  m_ratio_item(&m_ratio, item_read_only),
   m_r_standard(mp_eth_data->etalon),
   m_r_standard_item(&m_r_standard, item_read_only),
   m_r_verifiable(mp_eth_data->result),
@@ -329,7 +433,13 @@ hrm::experiment_result_t::experiment_result_t(
 {
   m_mode_item.set_parametr_string("Результат:");
 
-  m_r_standard_item.set_str(mp_r_standard_str, "Rэ ", "Ом",
+  m_ratio_item.set_str(mp_r_standard_str, "D  ", "  ",
+    r_width, r_precision_D, irs::num_mode_general);
+  m_ratio_item.set_max_value(11.0);
+  m_ratio_item.set_min_value(-11.0);
+  m_ratio_item.set_key_type(IMK_DIGITS);
+  
+  m_r_standard_item.set_str(mp_r_standard_str, "Rэн", "Ом",
     r_width, r_precision, irs::num_mode_general);
   m_r_standard_item.set_max_value(r_max);
   m_r_standard_item.set_min_value(r_min);
@@ -347,9 +457,9 @@ hrm::experiment_result_t::experiment_result_t(
   m_main_screen.set_key_event(ap_menu_kb_event);
   m_main_screen.set_cursor_symbol(0x01);
   m_main_screen.creep_stop();
-  m_main_screen.add(&m_mode_item, 0, 0, IMM_FULL);
-  m_main_screen.add(&m_r_standard_item, 0, 1, IMM_FULL);
-  m_main_screen.add(&m_r_verifiable_item, 0, 2, IMM_FULL);
+  m_main_screen.add(&m_ratio_item, 0, 1, IMM_FULL);
+  m_main_screen.add(&m_r_standard_item, 0, 2, IMM_FULL);
+  m_main_screen.add(&m_r_verifiable_item, 0, 0, IMM_FULL);
   m_main_screen.add(&m_hint_item, 0, 3, IMM_FULL);
 }
 
@@ -481,10 +591,10 @@ hrm::calculation_errors_dialog_t::calculation_errors_dialog_t(
   mp_cur_menu(&m_main_screen),
   m_recalculation_period_timer(irs::make_cnt_s(0.1))
 {
-  m_r_nominal_item.set_header("Ввод номинала");
+  m_r_nominal_item.set_header("Ввод поверяемой");
 
   m_r_nominal_item.set_str(mp_user_str,
-    "Rн ", "Ом", r_width, r_precision, irs::num_mode_general);
+    "Rпн", "Ом", r_width, r_precision, irs::num_mode_general);
   m_r_nominal_item.set_max_value(r_max);
   m_r_nominal_item.set_min_value(r_min);
   m_r_nominal_item.add_change_event(&m_r_nominal_changed_event);
@@ -514,7 +624,7 @@ hrm::calculation_errors_dialog_t::calculation_errors_dialog_t(
   m_r_standard_item.set_key_event(ap_menu_kb_event);
   m_r_standard_item.set_cursor_symbol(0x01);
   m_r_standard_item.set_header("Ввод эталона");
-  m_r_standard_item.set_str(mp_user_str, "Rэ ", "Ом",
+  m_r_standard_item.set_str(mp_user_str, "Rэн", "Ом",
     r_width, r_precision, irs::num_mode_general);
   m_r_standard_item.set_max_value(r_max);
   m_r_standard_item.set_min_value(r_min);
@@ -550,7 +660,7 @@ void hrm::calculation_errors_dialog_t::menu_check()
     mp_eth_data->checked = m_r_nominal;
   }
   if(m_r_prev_user_changed_event.check()) {
-    mp_eth_data->prev_user_result = m_r_prev_user;
+    mp_eth_data->checked_prev = m_r_prev_user;
   }
 
   if(m_r_standard_changed_event.check()) {
@@ -559,7 +669,7 @@ void hrm::calculation_errors_dialog_t::menu_check()
 
   if (mp_cur_menu == &m_main_screen) {
     sync_first_to_second(&mp_eth_data->checked, &m_r_nominal);
-    sync_first_to_second(&mp_eth_data->prev_user_result, &m_r_prev_user);
+    sync_first_to_second(&mp_eth_data->checked_prev, &m_r_prev_user);
     sync_first_to_second(&mp_eth_data->etalon, &m_r_standard);
 
     if (m_recalculation_period_timer.check()) {
@@ -572,7 +682,7 @@ void hrm::calculation_errors_dialog_t::menu_check()
         m_r_standard_item.set_master_menu(&m_main_screen);
         m_r_standard_item.show();
       } break;
-      case irskey_8: {
+      case irskey_6: {
         mp_cur_menu = &m_r_nominal_item;
         m_r_nominal_item.set_master_menu(&m_main_screen);
         m_r_nominal_item.show();
@@ -748,14 +858,6 @@ hrm::options_dialog_t::options_dialog_t(
 
   m_parent_menu(),
 
-  m_prepare_pause_value(mp_eth_data->prepare_pause),
-  m_prepare_pause_item(&m_prepare_pause_value, item_edited),
-  m_prepare_pause_event(),
-
-  m_thermostat_temperature_value(40),
-  m_thermostat_temperature_item(&m_thermostat_temperature_value, item_edited),
-  m_thermostat_temperature_event(),
-
   m_result_item(),
   m_calculation_errors_item(),
   m_network_options_item(),
@@ -766,22 +868,6 @@ hrm::options_dialog_t::options_dialog_t(
   m_parent_menu.set_disp_drv(ap_lcd_drv_service);
   m_parent_menu.set_key_event(ap_menu_kb_event);
   m_parent_menu.creep_stop();
-
-  m_prepare_pause_item.set_header("Пауза после термос.");
-  m_prepare_pause_item.set_str(mp_user_str, "Пауза", "с", 6, 0);
-  m_prepare_pause_item.set_max_value(100000);
-  m_prepare_pause_item.set_min_value(0.1);
-  m_prepare_pause_item.add_change_event(&m_prepare_pause_event);
-  m_prepare_pause_item.set_key_type(IMK_DIGITS);
-
-  m_thermostat_temperature_item.set_header("Темп. термостата");
-  m_thermostat_temperature_item.set_str(mp_user_str, "Темп.", "град.",
-    2, 0);
-  m_thermostat_temperature_item.set_max_value(99);
-  m_thermostat_temperature_item.set_min_value(1);
-  m_thermostat_temperature_item.add_change_event(
-    &m_thermostat_temperature_event);
-  m_thermostat_temperature_item.set_key_type(IMK_DIGITS);
 
   m_result_item.set_disp_drv(ap_lcd_drv_service);
   m_result_item.set_key_event(ap_menu_kb_event);
@@ -803,8 +889,6 @@ hrm::options_dialog_t::options_dialog_t(
   m_main_menu.set_cursor_symbol(0x01);
   m_main_menu.set_master_menu(&m_parent_menu);
   m_main_menu.set_header(irst("Настройки"));
-  m_main_menu.add(&m_prepare_pause_item);
-  m_main_menu.add(&m_thermostat_temperature_item);
   m_main_menu.add(&m_result_item);
   m_main_menu.add(&m_calculation_errors_item);
   m_main_menu.add(&m_network_options_item);
@@ -823,13 +907,9 @@ void hrm::options_dialog_t::draw()
 
 void hrm::options_dialog_t::menu_check()
 {
-  if(m_prepare_pause_event.check()) {
-    mp_eth_data->prepare_pause =
-      irs::round<double, irs_i32>(m_prepare_pause_value);
-  }
   if (mp_cur_menu == &m_main_menu) {
-    if (mp_eth_data->prepare_pause != m_prepare_pause_value) {
-      m_prepare_pause_value = mp_eth_data->prepare_pause;
+    if (/*mp_eth_data->prepare_pause != m_prepare_pause_value*/false) {
+      //m_prepare_pause_value = mp_eth_data->prepare_pause;
     }
   } else if (mp_cur_menu == &m_parent_menu) {
     set_command(command_show_experiment_options_dialog);
