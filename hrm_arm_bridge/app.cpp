@@ -2530,17 +2530,18 @@ void hrm::app_t::tick()
               //  ---------------      RESULTS         -------------------------
               irs::mlog() << endl;
               exp_t exp;
+              exp.target_sko = 
+                m_adaptive_sko_calc.get_target_sko() * 1.0e6;
               if (m_adaptive_sko_calc.used()) {
-                exp.target_sko = 
-                  m_adaptive_sko_calc.get_target_sko() * 1.0e6;
                 exp.target_balance_sko = 
                   m_adaptive_sko_calc.get_target_balance_sko() * 1.0e6;
                 exp.target_elab_sko = 
                   m_adaptive_sko_calc.get_target_elab_sko() * 1.0e6;
               } else {
-                exp.target_sko = 0.0;
-                exp.target_balance_sko = 0.0;
-                exp.target_elab_sko = 0.0;
+                exp.target_balance_sko = 
+                  m_adc_balance_param_data.cont_sko * 1.0e6;
+                exp.target_elab_sko =
+                  m_adc_elab_param_data.cont_sko * 1.0e6;
               }
               exp.exp_time = m_prev_exp_time;
               exp.temperature_ext = m_eth_data.th_ext_1;
@@ -4200,13 +4201,13 @@ void hrm::app_t::adaptive_sko_calc_t::reset(size_t a_len)
 {
   if (mp_eth_data.use_adc_adaptive_sko) {
     m_used = true;
-    m_started = true;
-    m_target_sko = 0.0;
-    m_sko_calc.clear();
-    m_sko_calc.resize(a_len);
   } else {
     m_used = false;
   }
+  m_started = true;
+  m_target_sko = 0.0;
+  m_sko_calc.clear();
+  m_sko_calc.resize(a_len);
 }
 
 void hrm::app_t::adaptive_sko_calc_t::stop()
@@ -4219,13 +4220,6 @@ void hrm::app_t::adaptive_sko_calc_t::add(adc_value_t a_sko)
   if (m_started) {
     m_sko_calc.add(a_sko);
     m_target_sko = m_sko_calc.average();
-    /*if (m_target_sko <= 0.0) {
-      m_target_sko = a_sko;
-    } else {
-      if (m_target_sko > a_sko) {
-        m_target_sko = a_sko;
-      }
-    }*/
   }
 }
 
