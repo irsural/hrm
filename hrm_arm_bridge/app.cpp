@@ -2091,13 +2091,17 @@ void hrm::app_t::tick()
           }
           
           irs::mlog() << irsm("------- Быстрое уточнение -------") << endl;
-          //irs::mlog() << irsm("Величина прыжка ЦАП = ") 
-            //<< m_fast_elab_dac_step << endl;
+
           //  Внесение ассиметрии для нормальной работы новой формулы
           irs::mlog() << defaultfloat << fixed << setprecision(0);
           switch (m_fast_elab_vector.size()) {
             case 0: {
-              m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_2;
+              //m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_2;
+              if (m_dac_code > m_balanced_dac_code) {
+                m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_2;
+              } else {
+                m_dac_code = m_balanced_dac_code - m_fast_elab_dac_step_2;
+              }
               irs::mlog() << irsm("Величина прыжка ЦАП = ") 
                 << m_fast_elab_dac_step_2 << endl;
               m_balance_action = ba_elab_neg;
@@ -2107,13 +2111,10 @@ void hrm::app_t::tick()
             }
             case 2: {
               if (m_dac_code > m_balanced_dac_code) {
-                //m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_3;
                 m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_2;
               } else {
-                //m_dac_code = m_balanced_dac_code - m_fast_elab_dac_step_3;
                 m_dac_code = m_balanced_dac_code - m_fast_elab_dac_step_2;
               }
-              //m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_3;
               irs::mlog() << irsm("Величина прыжка ЦАП = ") 
                 << m_fast_elab_dac_step_3 << endl;
               m_balance_action = ba_elab_pos;
@@ -2124,7 +2125,8 @@ void hrm::app_t::tick()
             default: {
               m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step;
               irs::mlog() << irsm("Величина прыжка ЦАП = ") 
-                << m_fast_elab_dac_step << endl;
+                << m_fast_elab_dac_step 
+                << irsm(" / default") << endl;
             }
           }
           if (m_adaptive_sko_calc.used()) {
@@ -2197,7 +2199,12 @@ void hrm::app_t::tick()
             //m_dac_code = m_balanced_dac_code - m_fast_elab_dac_step;
             switch (m_fast_elab_vector.size()) {
               case 1: {
-                m_dac_code = m_balanced_dac_code - m_fast_elab_dac_step_2;
+                //m_dac_code = m_balanced_dac_code - m_fast_elab_dac_step_2;
+                if (m_dac_code > m_balanced_dac_code) {
+                  m_dac_code = m_balanced_dac_code - m_fast_elab_dac_step_2;
+                } else {
+                  m_dac_code = m_balanced_dac_code + m_fast_elab_dac_step_2;
+                }
                 break;
               }
               case 3: {
