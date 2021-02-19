@@ -364,6 +364,7 @@ struct adc_result_data_t {
   double point_time;
   size_t current_point;
   adc_value_t unnormalized_value;
+  bool saturated;
 };
 
 struct adc_param_data_t {

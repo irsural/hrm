@@ -58,6 +58,14 @@ private:
     bs_set_coils,
     bs_coils_wait,
     bs_coils_relay_pause,
+    bs_prev_balance_prepare,
+    bs_prev_balance_prepare_adc_wait,
+    bs_prev_balance_dac_prepare,
+    bs_prev_balance_adc_start,
+    bs_prev_balance_adc_wait,
+    bs_prev_balance,
+    bs_prev_balance_dac_set,
+    bs_prev_balance_dac_wait,
     bs_set_pause,
     bs_pause,
     bs_adc_show,
@@ -384,6 +392,8 @@ private:
   balance_polarity_t m_elab_polarity;
   dac_value_t m_elab_step_multiplier;
   double m_elab_max_delta;
+  bool m_prev_balance_completed;
+  bool m_prepare_pause_completed;
   
   //  Параметры АЦП в режиме ожидания при измерении напряжения
   adc_param_data_t m_adc_free_vx_param_data;

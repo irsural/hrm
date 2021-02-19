@@ -981,6 +981,7 @@ hrm::ad7799_cread_t::ad7799_cread_t(irs::spi_t *ap_spi,
   mp_adc_exti->stop();
   m_result_data.avg = 0.0;
   m_result_data.sko = 0.0;
+  m_result_data.saturated = false;
 }
 
 void hrm::ad7799_cread_t::start_conversion()
@@ -1123,6 +1124,8 @@ void hrm::ad7799_cread_t::tick()
       m_param_data.cont_mode = m_user_param_data.cont_mode;
       m_param_data.cont_sko = m_user_param_data.cont_sko;
       show_param_data(m_show, &m_param_data);
+      //
+      m_result_data.saturated = false;
       //
       m_value_deque.clear();
       m_imp_filt.clear();
@@ -1307,6 +1310,9 @@ void hrm::ad7799_cread_t::tick()
           m_result_data.avg = normalize_value(m_fast_sko.average());
           m_result_data.unnormalized_value = m_fast_sko.average() - pow(2.0, 23);
           m_result_data.current_point = m_cont_index + 1;
+          if (abs(m_result_data.avg) > m_max_value) {
+            m_result_data.saturated = true;
+          }
          
           show_points(m_show_points, adc_value);
           show_point_symbol(m_show);
@@ -1707,6 +1713,7 @@ void hrm::ad7799_cread_t::result(adc_result_data_t* ap_result_data)
   ap_result_data->point_time = m_result_data.point_time;
   ap_result_data->current_point = m_result_data.current_point;
   ap_result_data->unnormalized_value = m_result_data.unnormalized_value;
+  ap_result_data->saturated = m_result_data.saturated;
 }
 
 void hrm::ad7799_cread_t::set_max_value(adc_value_t a_max_value) 

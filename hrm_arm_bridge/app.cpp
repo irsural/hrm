@@ -155,6 +155,8 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   m_elab_polarity(bp_neg),
   m_elab_step_multiplier(1.0),
   m_elab_max_delta(1.0),
+  m_prev_balance_completed(false),
+  m_prepare_pause_completed(false),
   m_new_adc_param_free_vx(false),
   m_new_adc_param_free_th(false),
   m_new_adc_param_manual(false),
@@ -1613,6 +1615,9 @@ void hrm::app_t::tick()
           m_remaining_time_calculator.
             set_balance_points_count(default_balance_points);
           
+          m_prev_balance_completed = false;
+          m_prepare_pause_completed = false;
+          
           m_balance_status = bs_set_prot;
           break;
         }
@@ -1666,6 +1671,120 @@ void hrm::app_t::tick()
           if (m_relay_pause_timer.check()) {
             //  Пауза перед измерениями
             irs::mlog() << irsm("Реле готовы") << endl;
+            if (m_exp_vector.size() < 1 && m_balance_polarity == bp_neg) {
+              if (m_adaptive_sko_calc.used()) {
+                m_balance_status = bs_prev_balance_prepare;
+              } else {
+                m_balance_status = bs_set_pause;
+              }
+            } else {
+              m_balance_status = bs_adc_prepare;
+            }
+          }
+          break;
+        }
+        case bs_prev_balance_prepare: {
+          //  Предварительное уравновешивание для вывода АЦП из насыщения
+          //  и измерения СКО
+          //  Добавлено 12.02.2021, software_rev 76
+          if (m_adc.status() == irs_st_ready) {
+            irs::mlog() << irsm("Предварительное уравновешивание") << endl;
+            m_adc.start_conversion();
+            m_balance_status = bs_prev_balance_prepare_adc_wait;
+          }
+          break;
+        }
+        case bs_prev_balance_prepare_adc_wait: {
+          if (m_adc.status() == irs_st_ready) {
+            adc_result_data_t adc_result_data;
+            m_adc.result(&adc_result_data);
+            adc_value_t adc_result = adc_result_data.avg;
+            irs::mlog() << irsm("Напряжение АЦП ");
+            irs::mlog() << adc_result;
+            irs::mlog() << irsm(" В") << endl;
+            if (adc_result_data.saturated) {
+              irs::mlog() << irsm("АЦП в насыщении. ");
+              irs::mlog() << irsm("Предварительное уравновешивание.") << endl;
+              m_balance_status = bs_prev_balance_dac_prepare;
+            } else {
+              irs::mlog() << irsm("АЦП не в насыщении. ");
+              irs::mlog() << irsm("Предварительное уравновешивание ");
+              irs::mlog() << irsm("не требуется.") << endl;
+              m_balance_status = bs_set_pause;
+            }
+          }
+          break;
+        }
+        case bs_prev_balance_dac_prepare: {
+          m_dac.hide();
+          m_dac_code = m_initial_dac_code;
+          m_dac_step = m_initial_dac_step;
+          m_current_iteration = 0;
+          m_iteration_count = default_balance_points - 1;
+          m_dac.on();
+          m_balance_status = bs_prev_balance_dac_set;
+          break;
+        }
+        case bs_prev_balance_dac_set: {
+          if (m_dac.ready()) {
+            m_dac.set_code(m_dac_code);
+            m_balance_status = bs_prev_balance_dac_wait;
+          }
+          break;
+        }
+        case bs_prev_balance_dac_wait: {
+          if (m_dac.ready()) {
+            m_balance_status = bs_prev_balance_adc_start;
+          }
+          break;
+        }
+        case bs_prev_balance_adc_start: {
+          if (m_adc.status() == irs_st_ready) {
+            m_adc.start_conversion();
+            m_balance_status = bs_prev_balance_adc_wait;
+          }
+          break;
+        }
+        case bs_prev_balance_adc_wait: {
+          if (m_adc.status() == irs_st_ready) {
+            m_balance_status = bs_prev_balance;
+          }
+          break;
+        }
+        case bs_prev_balance: {
+          adc_result_data_t adc_result_data;
+          m_adc.result(&adc_result_data);
+          adc_value_t adc_result = adc_result_data.avg;
+          irs::mlog() << defaultfloat << fixed;
+          irs::mlog() << setw(2) << (m_current_iteration + 1) << irsm(" : ");
+          irs::mlog() << setprecision(0);
+          irs::mlog() << setw(8) << m_dac_code << irsm(" : ");
+          irs::mlog() << setw(8) << m_dac_step << irsm(" : ");
+          irs::mlog() << setprecision(7);
+          irs::mlog() << setw(12) << adc_result << irsm(" : ");
+          adc_value_t rel_sko = abs(m_adc_result_data.sko * 1e6);
+          irs::mlog() << setprecision(3);
+          irs::mlog() << setw(8) << rel_sko << irsm(" ppm : ");
+          irs::mlog() << m_adc_result_data.current_point << endl;
+          
+          if ((m_current_iteration < m_iteration_count) && 
+              (m_adc_result_data.saturated)) {
+            m_current_iteration++;
+            ///output  
+            if (adc_result > 0) {
+              m_dac_code += m_dac_step;
+            } else {
+              m_dac_code -= m_dac_step;
+            }
+            m_dac_step = floor(m_dac_step * 0.5);
+            m_balance_status = bs_prev_balance_dac_set;
+          } else {
+            m_balanced_dac_code = m_dac.get_code();
+            m_prev_balance_completed = true;
+            irs::mlog() << irsm("Предварительное уравновешивание ");
+            irs::mlog() << irsm("завершено.") << endl;
+            irs::mlog() << setprecision(0);
+            irs::mlog() << irsm("Код ЦАП: ") << m_balanced_dac_code << endl;
             m_balance_status = bs_set_pause;
           }
           break;
@@ -1714,10 +1833,10 @@ void hrm::app_t::tick()
               m_adaptive_sko_calc.stop();
               adc_value_t target_sko = m_adaptive_sko_calc.get_target_sko();
               irs::mlog() << setprecision(3);
-              irs::mlog() << irsm("Target sko = ") << target_sko * 1.0e6;
+              irs::mlog() << irsm("Измеренное СКО = ") << target_sko * 1.0e6;
               irs::mlog() << irsm(" ppm") << endl;
               if (m_adaptive_sko_calc.used()) {
-                irs::mlog() << irsm("Adaptive sko used") << endl;
+                irs::mlog() << irsm("Используется измеренное СКО") << endl;
                 adc_value_t elab_sko = 
                   m_adaptive_sko_calc.get_target_elab_sko();
                 adc_value_t balance_sko = 
@@ -1730,10 +1849,10 @@ void hrm::app_t::tick()
                   m_adc_adaptive_balance_param_data.cont_sko = balance_sko;
                   m_adc_adaptive_elab_param_data.cont_sko = elab_sko;
                 }
-                irs::mlog() << irsm("Balance sko = ");
+                irs::mlog() << irsm("СКО уравновешивания = ");
                 irs::mlog() << m_adc_adaptive_balance_param_data.cont_sko * 1.0e6;
                 irs::mlog() << irsm(" ppm") << endl;
-                irs::mlog() << irsm("Elab sko = ");
+                irs::mlog() << irsm("СКО уточнения = ");
                 irs::mlog() << m_adc_adaptive_elab_param_data.cont_sko * 1.0e6;
                 irs::mlog() << irsm(" ppm") << endl;
                 irs::mlog() << endl;
@@ -1807,11 +1926,17 @@ void hrm::app_t::tick()
         }
         case bs_dac_prepare: {
           if (m_dac.ready()) {
-            m_dac_code = m_initial_dac_code;
-            m_dac.set_code(m_initial_dac_code);
-            m_dac_step = m_initial_dac_step;
-            m_current_iteration = 0;
-            m_iteration_count = default_balance_points;
+            if (m_prev_balance_completed == false) {
+              m_dac_code = m_initial_dac_code;
+              m_dac_step = m_initial_dac_step;
+              m_current_iteration = 0;
+              m_iteration_count = default_balance_points - 1;
+            } else {
+              irs::mlog() << 
+              irsm("Продолжение предварительного уравновешивания") << endl;
+              m_prev_balance_completed = false;
+            }
+            m_dac.set_code(m_dac_code);
             m_dac_step_amplitude = 0.0;
             m_dac.on();
             m_prev_elab_vector.clear();
@@ -4190,6 +4315,11 @@ hrm::app_t::adaptive_sko_calc_t::adaptive_sko_calc_t(eth_data_t& ap_eth_data,
   m_sko_calc(default_len, default_len)
 {
   mp_eth_data.use_adc_adaptive_sko = mp_ee_data.use_adc_adaptive_sko;
+  if (mp_eth_data.use_adc_adaptive_sko) {
+    m_used = true;
+  } else {
+    m_used = false;
+  }
   m_adaptive_sko_balance_multiplier = 
     mp_ee_data.adaptive_sko_balance_multiplier;
   m_adaptive_sko_elab_multiplier = 
@@ -4249,6 +4379,11 @@ void hrm::app_t::adaptive_sko_calc_t::sync_parameters()
 {
   if (mp_eth_data.use_adc_adaptive_sko != mp_ee_data.use_adc_adaptive_sko) {
     mp_ee_data.use_adc_adaptive_sko = mp_eth_data.use_adc_adaptive_sko;
+    if (mp_eth_data.use_adc_adaptive_sko) {
+      m_used = true;
+    } else {
+      m_used = false;
+    }
   }
   if (mp_eth_data.adaptive_sko_elab_multiplier 
       != mp_ee_data.adaptive_sko_elab_multiplier) {
@@ -4272,10 +4407,5 @@ void hrm::app_t::adaptive_sko_calc_t::sync_parameters()
       = mp_eth_data.adaptive_sko_balance_multiplier;
     mp_ee_data.adaptive_sko_balance_multiplier 
       = mp_eth_data.adaptive_sko_balance_multiplier;
-  }
-  if (!m_started) {
-    if (!mp_eth_data.use_adc_adaptive_sko) {
-      m_used = false;
-    }
   }
 }
