@@ -650,6 +650,7 @@ void hrm::app_t::tick()
     }
     if (m_adc.new_result()) {
       m_adc.result(&m_adc_result_data);
+      m_eth_data.test = m_adc_result_data.current_point;
       m_eth_data.adc_sko = abs(m_adc_result_data.sko * 1e6);
       //m_eth_data.adc_impf = m_adc_result_data.impf;
       //m_eth_data.adc_sko_impf = abs(m_adc_result_data.impf_sko * 1e6);
@@ -934,7 +935,7 @@ void hrm::app_t::tick()
     //  Rem time
     m_eth_data.exp_percentage = m_remaining_time_calculator.get_percentage();
     //
-    m_eth_data.test = m_current_iteration;
+    //m_eth_data.test = m_current_iteration;
   }
   if (m_blink_timer.check()) {
     if (m_blink) {

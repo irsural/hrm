@@ -1359,6 +1359,16 @@ void hrm::ad7799_cread_t::tick()
                 }
                 break;
               }
+              case cont_mode_inf: {
+                break;
+              }
+              default: {
+                m_need_stop = true;
+                if (m_show) {
+                  irs::mlog() << irsm("Stop DEFAULT cont index = ");
+                  irs::mlog() << m_cont_index << endl;
+                }
+              }
             }
             if (m_need_reconfigure) {
               m_need_stop = true;
@@ -1573,6 +1583,7 @@ void hrm::ad7799_cread_t::show_param_data(bool a_show,
     switch (ap_param_data->cont_mode) {
       case cont_mode_cnt: irs::mlog() << irsm("CNT"); break;
       case cont_mode_sko: irs::mlog() << irsm("SKO"); break;
+      case cont_mode_inf: irs::mlog() << irsm("INF"); break;
       default: irs::mlog() << irsm("None");
     }
     irs::mlog() << endl;
@@ -1750,6 +1761,7 @@ hrm::cont_mode_t hrm::convert_to_cont_mode(irs_u8 a_value)
   switch (a_value) {
     case 1: cont_mode = cont_mode_cnt; break;
     case 2: cont_mode = cont_mode_sko; break;
+    case 3: cont_mode = cont_mode_inf; break;
     default: cont_mode = cont_mode_none;
   }
   return cont_mode;
@@ -1761,6 +1773,7 @@ irs_u8 hrm::convert_from_cont_mode(hrm::cont_mode_t a_value)
   switch (a_value) {
     case cont_mode_cnt: cont_mode = 1; break;
     case cont_mode_sko: cont_mode = 2; break;
+    case cont_mode_inf: cont_mode = 3; break;
     default: cont_mode = 0;
   }
   return cont_mode;

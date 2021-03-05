@@ -350,7 +350,8 @@ irs_u8 convert_from_impf_type(impf_type_t a_value);
 enum cont_mode_t {
   cont_mode_none = 0,
   cont_mode_cnt = 1,
-  cont_mode_sko = 2
+  cont_mode_sko = 2,
+  cont_mode_inf = 3
 };
 
 cont_mode_t convert_to_cont_mode(irs_u8 a_value);
