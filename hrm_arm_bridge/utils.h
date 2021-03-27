@@ -411,8 +411,13 @@ public:
   //  Установка параметров
   void set_params(adc_param_data_t* ap_param_data);
   //  Частота преобразований АЦП
-  double get_reference_frequency();
+  double get_reference_frequency(bool a_actual = true);
+  //  Период дискретизации, Td = N / Fp + Ts, где N - размер окна, cnv_cnt, Fp -
+  //  частота преобразований АЦП, Ts - время установки фильтра АЦП
+  double get_td(bool a_actual = true);
+  bool window_is_full();
   void set_max_value(adc_value_t a_max_value);
+  bool in_infinity_mode(bool a_actual = true);
   void tick();
 private:
   enum status_t {
@@ -978,6 +983,63 @@ private:
   irs::bit_data_as_bool_t* mp_ee_treg_pid_reg_enabled;
   irs::bit_data_as_bool_t* mp_ee_treg_polarity_pin_bit_data;
 };
+
+struct show_dac_adc_data_t {
+  irs_u32 iteration;
+  irs_i32 dac_code;
+  irs_u32 dac_step;
+  double adc;
+  double sko;
+  irs_u32 cnt;
+};
+
+void show_dac_adc(show_dac_adc_data_t& a_data);
+
+struct show_pid_data_t {
+  irs_u32 iteration;
+  irs_i32 dac_code;
+  double dac;
+  double dac_avg;
+  double adc;
+  double adc_sko;
+  irs_u32 adc_cnt;
+  double dac_sko;
+  bool dac_sko_ready;
+};
+
+void show_pid(show_pid_data_t& a_data);
+
+dac_value_t calc_initial_dac_code(dac_value_t a_etalon, dac_value_t a_checked);
+
+enum pid_ready_condition_t {
+  prc_dac_sko = 1,
+  prc_adc_sko = 2,
+  prc_adc_value = 4,
+  prc_dac_adc_sko = 5,
+  prc_dac_adc_value = 8,
+  prc_dac_adc_sko_value = 9
+};
+
+irs_u8 pid_ready_condition_to_u8(pid_ready_condition_t a_condition);
+irs_u32 pid_ready_condition_to_u32(pid_ready_condition_t a_condition);
+pid_ready_condition_t u8_to_pid_ready_condition(irs_u8 a_condition);
+pid_ready_condition_t apply_pid_ready_condition(irs_u8 a_condition);
+
+struct pid_ready_data_t {
+  pid_ready_condition_t pid_ready_condition;
+  double target_accuracy;
+  double dac_sko;
+  double dac_target_sko;
+  double adc_value;
+  double adc_target_value_accuracy;
+  double adc_sko;
+  double adc_target_sko;
+  bool is_overtime;
+  bool dac_sko_ready;
+  bool prepare_pause_completed;
+};
+
+bool pid_ready(pid_ready_data_t* ap_pid_ready_data);
 
 }
 

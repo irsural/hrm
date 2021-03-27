@@ -58,6 +58,9 @@ private:
     bs_set_coils,
     bs_coils_wait,
     bs_coils_relay_pause,
+    bs_preset_dac_prepare,
+    bs_preset_dac_adc_start,
+    bs_preset_dac_adc_wait,
     bs_prev_balance_prepare,
     bs_prev_balance_prepare_adc_wait,
     bs_prev_balance_dac_prepare,
@@ -66,11 +69,13 @@ private:
     bs_prev_balance,
     bs_prev_balance_dac_set,
     bs_prev_balance_dac_wait,
+    bs_pid_prepare,
+    bs_pid_process_dac,
+    bs_pid_process_adc,
+    bs_pid_result_processing,
     bs_set_pause,
     bs_pause,
     bs_adc_show,
-    bs_meas_temperature,
-    bs_wait_temperature,
     bs_adc_prepare,
     bs_dac_prepare,
     bs_termostat_off_adc_start,
@@ -161,6 +166,48 @@ private:
     double avg;
     size_t num_of_adc_points;
   };
+  struct sensivity_data_t {
+    double dac_1;
+    double adc_1;
+    double dac_2;
+    double adc_2;
+    double sensivity;
+    bool empty;
+    bool ready;
+    void clear()
+    {
+      dac_1 = 0.0;
+      adc_1 = 0.0;
+      dac_2 = 0.0;
+      adc_2 = 0.0;
+      sensivity = 0.0;
+      ready = false;
+      empty = true;
+    };
+    void calc()
+    {
+      double div = adc_2 - adc_1;
+      if (div != 0.0 && (empty == false)) {
+        sensivity = abs((dac_2 - dac_1) / div);
+        irs::mlog() << irsm("Измеренная чувствительность ");
+        irs::mlog() << setprecision(8);
+        irs::mlog() << sensivity;
+        irs::mlog() << irsm(" шаг/В") << endl;
+        ready = true;
+      }
+    };
+    void add(double adc, double dac) {
+      if (empty) {
+        adc_1 = adc;
+        dac_1 = dac;
+        empty = false;
+      } else {
+        adc_2 = adc;
+        dac_2 = dac;
+        ready = true;
+      }
+    };
+  };
   struct exp_t {
     double result_old;
     double result_new;
@@ -181,11 +228,20 @@ private:
     double target_sko;
     double target_balance_sko;
     double target_elab_sko;
+    double target_sko_adc_neg;
+    double target_sko_adc_pos;
+    double target_sko_dac_neg;
+    double target_sko_dac_pos;
+    irs_u32 neg_n;
+    irs_u32 pos_n;
   };
   struct elab_result_t {
     balance_polarity_t polarity;
     double start_code;
     double code;
+    double target_adc_sko;
+    double dac_sko;
+    irs_u32 num_op_iterations;
   };
   enum elab_mode_t {
     em_linear = 0,
@@ -354,6 +410,7 @@ private:
   double m_balanced_sko;
   //irs_u32 m_adc_experiment_gain;
   //irs_u32 m_adc_experiment_filter;
+  const double m_default_sensivity;
 
   manual_status_t m_manual_status;
 
@@ -376,7 +433,6 @@ private:
   adc_value_t m_voltage;
   adc_value_t m_temperature;
 
-  bool m_meas_temperature;
   adc_value_t m_max_unsaturated_voltage;
   dac_value_t m_max_unsaturated_dac_code;
   bool m_auto_elab_step;
@@ -398,9 +454,10 @@ private:
   //  Параметры АЦП в режиме ожидания при измерении напряжения
   adc_param_data_t m_adc_free_vx_param_data;
   bool m_new_adc_param_free_vx;
-  //  Параметры АЦП в режиме ожидания при измерении температуры
-  adc_param_data_t m_adc_free_th_param_data;
-  bool m_new_adc_param_free_th;
+  //  Параметры АЦП в режиме ПИД-регулятора
+  adc_param_data_t m_adc_pid_param_data;
+  bool m_new_adc_param_pid;
+  bool m_new_reg_param_pid;
   //  Параметры АЦП в ручном режиме
   adc_param_data_t m_adc_manual_param_data;
   bool m_new_adc_param_manual;
@@ -429,16 +486,24 @@ private:
   double m_elab_pid_kp;
   double m_elab_pid_ki;
   double m_elab_pid_kd;
+  double m_elab_pid_td;
   irs::isodr_data_t m_elab_iso;
   double m_elab_iso_k;
   double m_elab_iso_t;
   const counter_t m_min_after_pause;
   double m_elab_pid_fade_t;
+  size_t m_elab_pid_avg_cnt;
   irs::fade_data_t m_elab_pid_fade;
   irs::fast_sko_t<double, double> m_elab_pid_sko;
   double m_elab_pid_target_sko;
   double m_elab_pid_target_sko_norm;
   double m_elab_pid_ref;
+  const irs_u32 m_elab_pid_max_iteration;
+  sensivity_data_t m_elab_pid_sensivity_data;
+  counter_t m_pid_limit_time;
+  irs::timer_t m_pid_limit_timer;
+  pid_ready_condition_t m_pid_ready_condition;
+  double m_pid_adc_target_sko;
   adc_value_t m_adc_max_value_prot;
   adc_value_t m_adc_max_value_no_prot;
   double m_bac_old_coefficient;
@@ -491,7 +556,8 @@ private:
       && (m_relay_hv_dac_amp.status() == irs_st_ready);
   }
   void print_voltage(adc_value_t a_value);
-  void update_elab_pid_koefs();
+  void update_elab_pid_koefs(double a_td, double a_adc, 
+    double a_dac, double a_sens);
   dac_value_t norm(dac_value_t a_in);
   dac_value_t denorm(dac_value_t a_in);
   
@@ -501,7 +567,8 @@ private:
   void adc_params_translate_actual_to_eth();
   //  Проверка изменения параметров в Ethernet и сохраниение в структуры и EEPRO
   bool adc_params_recieve_and_save_free_vx(); // Канал напряжения в режиме free
-  bool adc_params_recieve_and_save_free_th(); // Канал температуры в режиме free
+  bool adc_params_recieve_and_save_pid();     // Напряжение в режиме ПИД-регулятора
+  bool reg_params_recieve_and_save_pid();     // Параметры ПИД-регулятора
   bool adc_params_recieve_and_save_manual();  // Напряжение в ручном режиме 
   bool adc_params_recieve_and_save_balance(); // Напряжение при уравновешивании
   bool adc_params_recieve_and_save_elab();    // Напряжение при уточнении
@@ -511,6 +578,7 @@ private:
   void show_experiment_parameters();
   void show_last_result();
   elab_mode_t convert_u8_to_elab_mode(irs_u8 a_mode);
+  void show_pid_params();
 };
 
 } //  hrm
