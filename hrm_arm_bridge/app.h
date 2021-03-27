@@ -578,6 +578,7 @@ private:
   adc_value_t adc_vx_to_th(adc_value_t a_voltage);
   //  Вывод текущих параметров эксперимента
   void show_experiment_parameters();
+  void show_experiment_parameters_pid();
   void show_last_result();
   elab_mode_t convert_u8_to_elab_mode(irs_u8 a_mode);
   void show_pid_params();
