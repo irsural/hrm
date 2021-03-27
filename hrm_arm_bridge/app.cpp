@@ -168,6 +168,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
 //
   //m_termostat(&mp_cfg->aux1),
   m_elab_pid_on(false),
+  m_elab_pid_sko_meas_time(0.0),
   m_elab_pid_kp(0.0),
   m_elab_pid_ki(0.0),
   m_elab_pid_kd(0.0),
@@ -394,6 +395,8 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   adc_params_load_from_eeprom();
   m_adc.set_params(&m_adc_free_vx_param_data);
   //  Параметры уточнения
+  m_eth_data.elab_pid_sko_meas_time = m_eeprom_data.elab_pid_sko_meas_time;
+  m_elab_pid_sko_meas_time = m_eeprom_data.elab_pid_sko_meas_time;
   m_eth_data.elab_pid_kp = m_eeprom_data.elab_pid_kp;
   m_elab_pid_kp = m_eeprom_data.elab_pid_kp;
   m_eth_data.elab_pid_ki = m_eeprom_data.elab_pid_ki;
@@ -538,7 +541,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   m_relay_hv_neg.set_after_pause(m_min_after_pause);
   m_relay_hv_dac_amp.set_after_pause(m_min_after_pause);
 
-  m_eth_data.termostat_off_pause = m_eeprom_data.termostat_off_pause;
+  m_eth_data.elab_pid_sko_meas_time = m_eeprom_data.elab_pid_sko_meas_time;
   //m_termostat.set_after_pause(m_min_after_pause);
 
   //  ЖКИ и клавиатура
@@ -900,9 +903,6 @@ void hrm::app_t::tick()
     sync_first_to_second(&m_eth_data.dhcp_on, &m_eeprom_data.dhcp_on);
     
     //m_eth_data.termostat_is_off = m_termostat.is_off();
-    if (m_eth_data.termostat_off_pause != m_eeprom_data.termostat_off_pause) {
-      m_eeprom_data.termostat_off_pause = m_eth_data.termostat_off_pause;
-    }
     
     m_treg_sync_parameters.sync();
     m_treg_dac_sync_parameters.sync();
@@ -1857,6 +1857,7 @@ void hrm::app_t::tick()
           m_current_iteration = 0;
           m_dac_code = m_initial_dac_code;
           m_elab_pid_sko.clear();
+          m_elab_pid_sko_meas_time = m_eth_data.elab_pid_sko_meas_time;
           m_elab_pid_kp = m_eth_data.elab_pid_kp;
           m_elab_pid_ki = m_eth_data.elab_pid_ki;
           m_elab_pid_kd = m_eth_data.elab_pid_kd;
@@ -3834,6 +3835,12 @@ bool hrm::app_t::adc_params_recieve_and_save_pid()
 bool hrm::app_t::reg_params_recieve_and_save_pid()
 {
   bool new_data = false;
+  if (m_eth_data.elab_pid_sko_meas_time 
+      != m_eeprom_data.elab_pid_sko_meas_time) {
+    new_data = true;
+    m_elab_pid_sko_meas_time = m_eth_data.elab_pid_sko_meas_time;
+    m_eeprom_data.elab_pid_sko_meas_time = m_eth_data.elab_pid_sko_meas_time;
+  }
   if (m_eth_data.elab_pid_kp != m_elab_pid_kp) {
     new_data = true;
     m_elab_pid_kp = m_eth_data.elab_pid_kp;

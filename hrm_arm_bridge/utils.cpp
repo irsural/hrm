@@ -1330,10 +1330,12 @@ void hrm::ad7799_cread_t::tick()
           }
         } else {
           if (m_adc_filter_ready) {
-            if (m_value_deque.size() >= m_param_data.cnv_cnt) {
-              m_value_deque.pop_front();
+            if (m_param_data.impf_type != impf_none) {
+              if (m_value_deque.size() >= m_param_data.cnv_cnt) {
+                m_value_deque.pop_front();
+              }
+              m_value_deque.push_back(adc_non_normalized_value);
             }
-            m_value_deque.push_back(adc_non_normalized_value);
             
             if (m_index >= (m_param_data.cnv_cnt - 1)) {
               m_need_prefilling = false;

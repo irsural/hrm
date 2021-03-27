@@ -164,7 +164,7 @@ struct eth_data_t {
   irs::conn_data_t<dac_value_t> elab_step_multiplier;
   irs::conn_data_t<double> elab_max_delta;
   irs::conn_data_t<double> external_temperature;
-  irs::conn_data_t<double> termostat_off_pause;
+  irs::conn_data_t<double> elab_pid_sko_meas_time;
   irs::conn_data_t<double> elab_pid_kp;
   irs::conn_data_t<double> elab_pid_ki;
   irs::conn_data_t<double> elab_pid_kd;
@@ -487,7 +487,7 @@ struct eth_data_t {
     index = elab_step_multiplier.connect(ap_data, index);
     index = elab_max_delta.connect(ap_data, index);
     index = external_temperature.connect(ap_data, index);
-    index = termostat_off_pause.connect(ap_data, index);
+    index = elab_pid_sko_meas_time.connect(ap_data, index);
     index = elab_pid_kp.connect(ap_data, index);
     index = elab_pid_ki.connect(ap_data, index);
     index = elab_pid_kd.connect(ap_data, index);
@@ -739,7 +739,7 @@ struct eeprom_data_t {
   irs::conn_data_t<irs_u8> gateway_2;     //  1 byte
   irs::conn_data_t<irs_u8> gateway_3;     //  1 byte  //  4
   irs::bit_data_t dhcp_on;                //  1 bit   //  4 16
-  irs::conn_data_t<double> termostat_off_pause;       //  8
+  irs::conn_data_t<double> elab_pid_sko_meas_time;       //  8
   irs::conn_data_t<double> elab_pid_kp;               //  8
   irs::conn_data_t<double> elab_pid_ki;               //  8
   irs::conn_data_t<double> elab_pid_kd;               //  8
@@ -934,7 +934,7 @@ struct eeprom_data_t {
     index = gateway_3.connect(ap_data, index);
     index = dhcp_on.connect(ap_data, index, 0);
     index+=4;
-    index = termostat_off_pause.connect(ap_data, index);
+    index = elab_pid_sko_meas_time.connect(ap_data, index);
     index = elab_pid_kp.connect(ap_data, index);
     index = elab_pid_ki.connect(ap_data, index);
     index = elab_pid_kd.connect(ap_data, index);
@@ -1122,7 +1122,7 @@ struct eeprom_data_t {
 
     dhcp_on = HRM_DHCP_ON;
     
-    termostat_off_pause = 3.1459;
+    elab_pid_sko_meas_time = 3.1459;
     elab_pid_kp = 1.0;
     elab_pid_ki = 0.0;
     elab_pid_kd = 0.0;
