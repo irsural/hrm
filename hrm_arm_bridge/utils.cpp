@@ -1023,14 +1023,14 @@ double hrm::ad7799_cread_t::calc_frequency(counter_t a_prev_cnt,
 
 double hrm::ad7799_cread_t::get_reference_frequency(bool a_actual)
 {
-  adc_param_data_t* ap_param_data;
+  adc_param_data_t* p_param_data;
   if (a_actual) {
-    ap_param_data = &m_param_data;
+    p_param_data = &m_param_data;
   } else {
-    ap_param_data = &m_user_param_data;
+    p_param_data = &m_user_param_data;
   }
   double freq = 0.0;
-  switch (ap_param_data->filter) {
+  switch (p_param_data->filter) {
     case  1: freq = 470.0; break;
     case  2: freq = 242.0; break;
     case  3: freq = 123.0; break;
@@ -1517,19 +1517,26 @@ void hrm::ad7799_cread_t::set_params(adc_param_data_t* ap_param_data)
   m_need_reconfigure = true;
 }
 
-void hrm::ad7799_cread_t::get_params(adc_param_data_t* ap_param_data)
+void hrm::ad7799_cread_t::get_params(adc_param_data_t* ap_param_data, 
+  bool a_actual)
 {
-  ap_param_data->gain = m_param_data.gain;
-  ap_param_data->filter = m_param_data.filter;
-  ap_param_data->channel = m_param_data.channel;
-  ap_param_data->cnv_cnt = m_param_data.cnv_cnt;
-  ap_param_data->additional_gain = m_param_data.additional_gain;
-  ap_param_data->ref = m_param_data.ref;
-  ap_param_data->cont_cnv_cnt = m_param_data.cont_cnv_cnt;
-  ap_param_data->impf_iterations_cnt = m_param_data.impf_iterations_cnt;
-  ap_param_data->impf_type = m_param_data.impf_type;
-  ap_param_data->cont_mode = m_param_data.cont_mode;
-  ap_param_data->cont_sko = m_param_data.cont_sko;
+  adc_param_data_t* p_param_data;
+  if (a_actual) {
+    p_param_data = &m_param_data;
+  } else {
+    p_param_data = &m_user_param_data;
+  }
+  ap_param_data->gain = p_param_data->gain;
+  ap_param_data->filter = p_param_data->filter;
+  ap_param_data->channel = p_param_data->channel;
+  ap_param_data->cnv_cnt = p_param_data->cnv_cnt;
+  ap_param_data->additional_gain = p_param_data->additional_gain;
+  ap_param_data->ref = p_param_data->ref;
+  ap_param_data->cont_cnv_cnt = p_param_data->cont_cnv_cnt;
+  ap_param_data->impf_iterations_cnt = p_param_data->impf_iterations_cnt;
+  ap_param_data->impf_type = p_param_data->impf_type;
+  ap_param_data->cont_mode = p_param_data->cont_mode;
+  ap_param_data->cont_sko = p_param_data->cont_sko;
 }
 
 hrm::adc_value_t hrm::ad7799_cread_t::calc_impf(

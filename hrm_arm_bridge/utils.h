@@ -394,7 +394,7 @@ public:
   inline irs_status_t status() { return m_return_status; }
   inline void continious_pause() { m_need_reconfigure = true; }
   //  Чтение параметров
-  void get_params(adc_param_data_t* ap_param_data);
+  void get_params(adc_param_data_t* ap_param_data, bool a_actual = true);
   //  Чтение результатов
 //  inline adc_value_t max_value() { return m_param_data.ref
 //     / (2.0 * m_param_data.additional_gain 

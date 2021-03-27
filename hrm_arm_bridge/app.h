@@ -60,6 +60,7 @@ private:
     bs_coils_relay_pause,
     bs_preset_dac_prepare,
     bs_preset_dac_adc_start,
+    bs_preset_additional_pause_wait,
     bs_preset_dac_adc_wait,
     bs_prev_balance_prepare,
     bs_prev_balance_prepare_adc_wait,

@@ -1671,17 +1671,42 @@ void hrm::app_t::tick()
             m_adc.set_params(&sko_meas_adc_param_data);
 //            double t_sko = sko_meas_adc_param_data.cnv_cnt / 
 //              m_adc.get_reference_frequency(false);
-            double t_sko = 30.0;
+            m_elab_pid_sko_meas_time = m_eth_data.elab_pid_sko_meas_time;
+            double fd = m_adc.get_reference_frequency(false);
             sko_meas_adc_param_data.cnv_cnt 
-              = static_cast<size_t>(t_sko 
-              * m_adc.get_reference_frequency(false));
+              = static_cast<size_t>(m_elab_pid_sko_meas_time * fd);
             m_adc.set_params(&sko_meas_adc_param_data);
+            m_adc.get_params(&sko_meas_adc_param_data, false);
+            //---
+            size_t actual_cnv_cnt = sko_meas_adc_param_data.cnv_cnt;
+            double actual_sko_meas_time = actual_cnv_cnt / fd;
+            double sko_meas_time_reminder = m_elab_pid_sko_meas_time 
+              - actual_sko_meas_time;
+            
             irs::mlog() << irsm("Параметры АЦП sko_meas_adc_param_data");
             irs::mlog() << endl;
             m_adc.show_param_data(true, &sko_meas_adc_param_data);
             irs::mlog() << irsm("Время измерения СКО ");
-            irs::mlog() << defaultfloat << fixed << t_sko << irsm(" с");
-            irs::mlog() << endl;
+            irs::mlog() << defaultfloat << fixed << m_elab_pid_sko_meas_time;
+            irs::mlog() << irsm(" с") << endl;
+            
+            if (sko_meas_time_reminder <= 0.0) {
+              irs::mlog() << irsm("Дополнительной паузы не требуется") << endl;
+              m_adc.start_conversion();
+              m_balance_status = bs_preset_dac_adc_wait;
+            } else {
+              m_relay_pause_timer.set(irs::make_cnt_s(sko_meas_time_reminder));
+              m_relay_pause_timer.start();
+              irs::mlog() << irsm("Из них пауза ");
+              irs::mlog() << defaultfloat << fixed << sko_meas_time_reminder;
+              irs::mlog() << irsm(" с") << endl;
+              m_balance_status = bs_preset_additional_pause_wait;
+            }
+          }
+          break;
+        }
+        case bs_preset_additional_pause_wait: {
+          if (m_relay_pause_timer.check()) {
             m_adc.start_conversion();
             m_balance_status = bs_preset_dac_adc_wait;
           }
@@ -1703,6 +1728,9 @@ void hrm::app_t::tick()
             irs::mlog() << irsm("Измеренное СКО ");
             irs::mlog() << (m_pid_adc_target_sko * 1.0e6);
             irs::mlog() << irsm(" ppm") << endl;
+            irs::mlog() << irsm("N = ");
+            irs::mlog() << (adc_result_data.current_point);
+            irs::mlog() << endl;
             m_balance_status = bs_pid_prepare;
           }
           break;
@@ -1857,7 +1885,6 @@ void hrm::app_t::tick()
           m_current_iteration = 0;
           m_dac_code = m_initial_dac_code;
           m_elab_pid_sko.clear();
-          m_elab_pid_sko_meas_time = m_eth_data.elab_pid_sko_meas_time;
           m_elab_pid_kp = m_eth_data.elab_pid_kp;
           m_elab_pid_ki = m_eth_data.elab_pid_ki;
           m_elab_pid_kd = m_eth_data.elab_pid_kd;
