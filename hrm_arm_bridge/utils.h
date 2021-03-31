@@ -365,6 +365,7 @@ struct adc_result_data_t {
   double point_time;
   size_t current_point;
   adc_value_t unnormalized_value;
+  adc_value_t unfiltered_value;
   bool saturated;
 };
 
@@ -546,16 +547,17 @@ private:
     adc_value_t gain
       = static_cast<adc_value_t>(1 << m_param_data.gain) 
       * m_param_data.additional_gain;
-    return -(static_cast<adc_value_t>(a_in_value - (1 << 23))
+    return (static_cast<adc_value_t>(a_in_value - (1 << 23))
       / static_cast<adc_value_t>(1 << 23)) * (m_param_data.ref / gain);
   }
   inline adc_value_t normalize_value(adc_value_t a_in_value)
   {
-    adc_value_t gain
-      = static_cast<adc_value_t>(1 << m_param_data.gain) 
-      * m_param_data.additional_gain;
-    adc_value_t half_scale = pow(2.0, 23);
-    return ((a_in_value - half_scale)*m_param_data.ref) / (half_scale * gain);
+//    adc_value_t gain
+//      = static_cast<adc_value_t>(1 << m_param_data.gain) 
+//      * m_param_data.additional_gain;
+//    adc_value_t half_scale = pow(2.0, 23);
+//    return ((a_in_value - half_scale)*m_param_data.ref) / (half_scale * gain);
+    return ((a_in_value - 8388608.0)/2048000.0);
   }
   inline adc_value_t unnormalize_value(adc_value_t a_in_value)
   {

@@ -1308,6 +1308,8 @@ void hrm::ad7799_cread_t::tick()
           static_cast<adc_value_t>(adc_raw_value);
         adc_value_t adc_value = convert_value(adc_raw_value);
         m_result_data.raw = adc_raw_value;
+        //m_result_data.unfiltered_value = adc_value;
+        m_result_data.unfiltered_value = normalize_value(adc_raw_value);
         
         if (m_param_data.cont_mode == cont_mode_none) {
           m_result_data.avg = adc_value;
@@ -1811,6 +1813,7 @@ void hrm::ad7799_cread_t::result(adc_result_data_t* ap_result_data)
   ap_result_data->point_time = m_result_data.point_time;
   ap_result_data->current_point = m_result_data.current_point;
   ap_result_data->unnormalized_value = m_result_data.unnormalized_value;
+  ap_result_data->unfiltered_value = m_result_data.unfiltered_value;
   ap_result_data->saturated = m_result_data.saturated;
 }
 

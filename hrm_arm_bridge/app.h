@@ -506,6 +506,8 @@ private:
   irs::timer_t m_pid_limit_timer;
   pid_ready_condition_t m_pid_ready_condition;
   double m_pid_adc_target_sko;
+  double m_actual_sko_meas_time;
+  size_t m_actual_cnv_cnt;
   adc_value_t m_adc_max_value_prot;
   adc_value_t m_adc_max_value_no_prot;
   double m_bac_old_coefficient;

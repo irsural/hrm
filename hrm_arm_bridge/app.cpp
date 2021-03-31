@@ -188,6 +188,8 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   m_pid_limit_timer(m_pid_limit_time),
   m_pid_ready_condition(prc_dac_sko),
   m_pid_adc_target_sko(0.0),
+  m_actual_sko_meas_time(0.0),
+  m_actual_cnv_cnt(0),
   m_adc_max_value_prot(0.4),
   m_adc_max_value_no_prot(1.0),
   m_bac_old_coefficient(0.0),
@@ -1268,7 +1270,7 @@ void hrm::app_t::tick()
               m_adc.start_conversion();
               double iso_out = isodr(&m_elab_iso, m_voltage);
               m_eth_data.elab_iso_out = iso_out;
-              double dac = pid_reg(&m_elab_pid, (0.0 - iso_out));
+              double dac = pid_reg(&m_elab_pid, iso_out);
               //double dac = pid_reg(&m_elab_pid, -(0.0 - m_voltage));
               m_dac.set_normalize_code(dac);
               double dac_out = fade(&m_elab_pid_fade, dac);
@@ -1658,30 +1660,29 @@ void hrm::app_t::tick()
             }
             m_dac.set_after_pause(m_dac_elab_pause);
             m_dac.set_code(m_initial_dac_code);
+            m_adc.stop_continious();
             m_balance_status = bs_preset_dac_adc_start;
           }
           break;
         }
         case bs_preset_dac_adc_start: {
+          //  Измерение целевого СКО АЦП
           if (m_dac.ready() && m_adc.status() == irs_st_ready) {
-            
             adc_param_data_t sko_meas_adc_param_data;
             sko_meas_adc_param_data.copy(&m_adc_pid_param_data);
             sko_meas_adc_param_data.cont_mode = cont_mode_cnt;
             m_adc.set_params(&sko_meas_adc_param_data);
-//            double t_sko = sko_meas_adc_param_data.cnv_cnt / 
-//              m_adc.get_reference_frequency(false);
+            
             m_elab_pid_sko_meas_time = m_eth_data.elab_pid_sko_meas_time;
             double fd = m_adc.get_reference_frequency(false);
-            sko_meas_adc_param_data.cnv_cnt 
-              = static_cast<size_t>(m_elab_pid_sko_meas_time * fd);
+            size_t sko_cnt = static_cast<size_t>(m_elab_pid_sko_meas_time*fd);
+            sko_meas_adc_param_data.cnv_cnt = sko_cnt;
             m_adc.set_params(&sko_meas_adc_param_data);
             m_adc.get_params(&sko_meas_adc_param_data, false);
-            //---
-            size_t actual_cnv_cnt = sko_meas_adc_param_data.cnv_cnt;
-            double actual_sko_meas_time = actual_cnv_cnt / fd;
+            m_actual_cnv_cnt = sko_meas_adc_param_data.cnv_cnt;
+            m_actual_sko_meas_time = m_actual_cnv_cnt / fd;
             double sko_meas_time_reminder = m_elab_pid_sko_meas_time 
-              - actual_sko_meas_time;
+              - m_actual_sko_meas_time;
             
             irs::mlog() << irsm("Параметры АЦП sko_meas_adc_param_data");
             irs::mlog() << endl;
@@ -1870,21 +1871,31 @@ void hrm::app_t::tick()
           }
           m_pid_limit_timer.start();
 
-          m_adc.set_params(&m_adc_pid_param_data);
-          irs::mlog() << irsm("Параметры АЦП m_adc_pid_param_data") << endl;
+          //m_adc.set_params(&m_adc_pid_param_data);
+          adc_param_data_t sko_meas_adc_param_data;
+          sko_meas_adc_param_data.copy(&m_adc_pid_param_data);
+          sko_meas_adc_param_data.cnv_cnt = m_actual_cnv_cnt;
+          m_adc.set_params(&sko_meas_adc_param_data);
+          irs::mlog() << irsm("Параметры АЦП sko_meas_adc_param_data") << endl;
           
-          //if (m_adc_pid_param_data.cont_mode == cont_mode_inf) {
+          m_elab_pid_sko.clear();
+          m_elab_pid_sko.resize(m_actual_cnv_cnt);
+          m_elab_pid_sko.resize_average(m_actual_cnv_cnt);
           if (m_adc.in_infinity_mode(false)) {
             m_dac.set_after_pause(irs::make_cnt_s(m_adc.get_td(false)));
           } else {
             m_dac.set_after_pause(m_dac_after_pause);
           }
+          irs::mlog() << irsm("Время измерения СКО ЦАП ");
+          irs::mlog() << defaultfloat << fixed << m_actual_sko_meas_time;
+          irs::mlog() << irsm(" с, ") << m_actual_cnv_cnt;
+          irs::mlog() << irsm(" точек") << endl;
           
           m_adc.start_conversion();
           
           m_current_iteration = 0;
           m_dac_code = m_initial_dac_code;
-          m_elab_pid_sko.clear();
+
           m_elab_pid_kp = m_eth_data.elab_pid_kp;
           m_elab_pid_ki = m_eth_data.elab_pid_ki;
           m_elab_pid_kd = m_eth_data.elab_pid_kd;
@@ -1902,7 +1913,7 @@ void hrm::app_t::tick()
               = apply_pid_ready_condition(m_eth_data.elab_pid_ready_condition);
           
           show_pid_params();
-          m_adc.show_param_data(true, &m_adc_pid_param_data);
+          m_adc.show_param_data(true, &sko_meas_adc_param_data);
           irs::mlog() << irsm("--------------------------------------") << endl;
           irs::mlog() << irsm("Начато уравновешивание") << endl;
           
@@ -1915,7 +1926,7 @@ void hrm::app_t::tick()
               if (m_prepare_current_time > 0) {
                 m_prepare_pause_timer.start();
                 m_prepare_current_time--;
-                m_eth_data.prepare_pause = m_prepare_current_time;
+                //m_eth_data.prepare_pause = m_prepare_current_time;
               } else {
                 m_prepare_pause_completed = true;
                 irs::mlog() << irsm("Предварительная пауза завершена") << endl;
@@ -1946,9 +1957,10 @@ void hrm::app_t::tick()
               m_adc.show_param_data(true, &m_adc_pid_param_data);
             }
             
-            double iso_out = isodr(&m_elab_iso, m_voltage);
+            double adc_out = adc_result_data.unfiltered_value;
+            double iso_out = isodr(&m_elab_iso, adc_out);
             m_eth_data.elab_iso_out = iso_out;
-            m_dac_code = pid_reg(&m_elab_pid, (0.0 - iso_out));
+            m_dac_code = pid_reg(&m_elab_pid, iso_out);
             double dac_out = fade(&m_elab_pid_fade, m_dac_code);
             
             m_eth_data.elab_pid_fade_out = dac_out;
@@ -1989,7 +2001,7 @@ void hrm::app_t::tick()
             pid_ready_data.prepare_pause_completed
               = m_prepare_pause_completed;
             
-            if (pid_ready(&pid_ready_data) && m_prepare_pause_completed) {
+            if (pid_ready(&pid_ready_data)) {
               m_balanced_dac_code = m_elab_pid_sko.average();
               m_balance_status = bs_pid_result_processing;
             } else {
@@ -2074,11 +2086,11 @@ void hrm::app_t::tick()
                 irs::mlog() << endl;
               }
               //m_adaptive_sko_calc.add();
-              m_eth_data.prepare_pause = m_prepare_current_time;
+              //m_eth_data.prepare_pause = m_prepare_current_time;
             } else {
               m_prepare_pause_completed = true;
               irs::mlog() << endl;
-              m_eth_data.prepare_pause = m_prepare_pause;
+              //m_eth_data.prepare_pause = m_prepare_pause;
               m_balance_action = ba_balance_neg;
               m_remaining_time_calculator.change_balance_action(
                 m_balance_action);
@@ -3124,6 +3136,51 @@ void hrm::app_t::tick()
               m_eth_data.ratio = m_result;
               break;
             }
+            case em_pid: {
+              if (m_elab_iteration_count >= 2) {
+                irs::mlog() << irsm("Результаты уточнения") << endl;
+                for (size_t i = 0; i < m_elab_result_vector.size(); i++) {
+                  irs::mlog() << setw(2) << i + 1;
+                  irs::mlog() << irsm(" <");
+                  irs::mlog() << setw(1) << m_elab_result_vector[i].polarity;
+                  irs::mlog() << irsm("> ");
+                  irs::mlog() << setw(7) << m_elab_result_vector[i].start_code;
+                  irs::mlog() << irsm(" ");
+                  irs::mlog() << setw(8) << m_elab_result_vector[i].code;
+                  irs::mlog() << endl;
+                }
+              }
+              m_checked_code /= pow(2., 19);
+              m_etalon_code /= pow(2., 19);
+              
+              m_result = (2. - m_checked_code + m_etalon_code);
+              m_result /= (2. + m_checked_code - m_etalon_code);
+              irs::mlog() << irsm("Старый результат ") << setw(14) <<
+                setprecision(7) << m_result << endl << endl;
+              
+              exp_t exp;
+              exp.exp_time = m_prev_exp_time;
+              exp.result_old = m_result;
+              exp.ch_code = m_checked_code;
+              exp.et_code = m_etalon_code;
+              exp.et_balanced_code = m_etalon_balanced_code;
+              exp.ch_balanced_code = m_checked_balanced_code;
+              exp.temperature_ext = m_eth_data.th_ext_1;
+              exp.temperature_dac = m_eth_data.th_dac;
+              exp.temperature_adc = m_eth_data.th_box_adc;
+              exp.target_sko = m_pid_adc_target_sko * 1.0e6;
+              exp.target_sko_adc_neg 
+                = m_elab_result_vector[0].target_adc_sko * 1.0e6;
+              exp.target_sko_adc_pos 
+                = m_elab_result_vector[1].target_adc_sko * 1.0e6;
+              exp.target_sko_dac_neg = m_elab_result_vector[0].dac_sko;
+              exp.target_sko_dac_pos = m_elab_result_vector[1].dac_sko;
+              exp.neg_n = m_elab_result_vector[0].num_op_iterations;
+              exp.pos_n = m_elab_result_vector[1].num_op_iterations;
+              
+              m_exp_vector.push_back(exp);
+              break;
+            }
             default: {
               if (m_elab_iteration_count >= 2) {
                 irs::mlog() << irsm("Результаты уточнения") << endl;
@@ -3156,24 +3213,13 @@ void hrm::app_t::tick()
               exp.temperature_ext = m_eth_data.th_ext_1;
               exp.temperature_dac = m_eth_data.th_dac;
               exp.temperature_adc = m_eth_data.th_box_adc;
-              //exp.temperature_ldo = m_eth_data.th_box_ldo;
               exp.target_sko = m_pid_adc_target_sko * 1.0e6;
               exp.target_sko_adc_neg 
                 = m_elab_result_vector[0].target_adc_sko * 1.0e6;
               exp.target_sko_adc_pos 
                 = m_elab_result_vector[1].target_adc_sko * 1.0e6;
-              exp.target_sko_dac_neg = m_elab_result_vector[0].dac_sko;
-              exp.target_sko_dac_pos = m_elab_result_vector[1].dac_sko;
-              exp.neg_n = m_elab_result_vector[0].num_op_iterations;
-              exp.pos_n = m_elab_result_vector[1].num_op_iterations;
-              
-              //exp.n0 = 0.0;
-              //exp.result_new = 0.0;
               
               m_fast_elab_vector.clear();
-              
-              m_eth_data.result = exp.result_old * m_eth_data.etalon;
-              m_eth_data.ratio = m_result;
               
               m_exp_vector.push_back(exp);
             }
@@ -3510,7 +3556,7 @@ void hrm::app_t::update_elab_pid_koefs(double a_td, double a_adc,
     m_elab_pid_fade.t = 0.0;
   }
   
-  pid_reg_sync(&m_elab_pid, (0.0 - a_adc), a_dac);
+  pid_reg_sync(&m_elab_pid, a_adc, a_dac);
 }
 
 
