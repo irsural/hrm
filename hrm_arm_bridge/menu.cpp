@@ -97,7 +97,7 @@ hrm::screensaver_t::screensaver_t(
 {
   m_str_1_item.set_parametr_string("  www.irsural.ru");
   m_str_2_item.set_parametr_string("       Ó401Ì");
-  m_str_3_item.set_parametr_string(" Õıø CAB2");
+  m_str_3_item.set_parametr_string("        ");//Õıø CAB2");
   m_str_4_item.set_parametr_string("     ÎÎÎ \"ĞİÑ\"");
   
   m_version = 1.0 + static_cast<float>(mp_eth_data->version_info) / 1000.0;

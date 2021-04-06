@@ -444,7 +444,7 @@ private:
   };
   enum {
     min_cnv_cnt = 3,
-    max_cnv_cnt = 1000
+    max_cnv_cnt = 1250
   };
   enum  {
     instruction_cread = 0x5C,

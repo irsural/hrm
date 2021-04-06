@@ -502,6 +502,8 @@ private:
   double m_elab_pid_ref;
   const irs_u32 m_elab_pid_max_iteration;
   sensivity_data_t m_elab_pid_sensivity_data;
+  bool m_pid_min_time_passed;
+  counter_t m_pid_min_time;
   counter_t m_pid_limit_time;
   irs::timer_t m_pid_limit_timer;
   pid_ready_condition_t m_pid_ready_condition;

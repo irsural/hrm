@@ -122,7 +122,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   m_no_prot(false),
   m_wild_relays(false),
   m_balanced_sko(0.),
-  m_default_sensivity(5472.8),
+  m_default_sensivity(5472.8*10.0),
   //m_adc_experiment_gain(m_min_adc_gain),
   //m_adc_experiment_filter(m_slow_adc_filter),
   m_manual_status(ms_prepare),
@@ -184,7 +184,9 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   m_elab_pid_target_sko_norm(0.0),
   m_elab_pid_ref(0.0),
   m_elab_pid_max_iteration(100),
-  m_pid_limit_time(irs::make_cnt_s(300)),
+  m_pid_min_time_passed(false),
+  m_pid_min_time(irs::make_cnt_s(120)),
+  m_pid_limit_time(irs::make_cnt_s(600)),
   m_pid_limit_timer(m_pid_limit_time),
   m_pid_ready_condition(prc_dac_sko),
   m_pid_adc_target_sko(0.0),
@@ -1869,6 +1871,8 @@ void hrm::app_t::tick()
             m_prepare_pause_timer.start();
             m_prepare_current_time = m_prepare_pause;
           }
+          m_pid_min_time_passed = false;
+          m_pid_limit_timer.set(m_pid_min_time);
           m_pid_limit_timer.start();
 
           //m_adc.set_params(&m_adc_pid_param_data);
@@ -1931,6 +1935,20 @@ void hrm::app_t::tick()
                 m_prepare_pause_completed = true;
                 irs::mlog() << irsm("ѕредварительна€ пауза завершена") << endl;
               }
+            }
+          }
+          bool is_overtime = false;
+          if (m_pid_min_time_passed) {
+            if (m_pid_limit_timer.check()) {
+              is_overtime = true;
+            }
+          } else {
+            if (m_pid_limit_timer.check()) {
+              m_pid_min_time_passed = true;
+              m_pid_limit_timer.set(m_pid_limit_time);
+              m_pid_limit_timer.start();
+              irs::mlog() << irsm("ћинимальное врем€ работы регул€тора прошло");
+              irs::mlog() << endl;
             }
           }
           bool adc_value_ready = false;
@@ -1996,10 +2014,10 @@ void hrm::app_t::tick()
             pid_ready_data.adc_target_value_accuracy = m_elab_pid_ref;
             pid_ready_data.adc_sko = adc_result_data.sko;
             pid_ready_data.adc_target_sko = m_pid_adc_target_sko;
-            pid_ready_data.is_overtime = m_pid_limit_timer.check();
+            pid_ready_data.is_overtime = is_overtime;//m_pid_limit_timer.check();
             pid_ready_data.dac_sko_ready = m_elab_pid_sko.is_full();
             pid_ready_data.prepare_pause_completed
-              = m_prepare_pause_completed;
+              = (m_prepare_pause_completed & m_pid_min_time_passed);
             
             if (pid_ready(&pid_ready_data)) {
               m_balanced_dac_code = m_elab_pid_sko.average();
