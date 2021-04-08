@@ -333,6 +333,7 @@ struct eth_data_t {
   irs::conn_data_t<irs_u32> version_info;             //  4
   //  Show options
   irs::conn_data_t<irs_u32> show_options;             //  4
+  //
   irs::bit_data_as_bool_t show_old_result;
   irs::bit_data_as_bool_t show_new_result;
   irs::bit_data_as_bool_t show_old_unc_result;
@@ -341,6 +342,7 @@ struct eth_data_t {
   irs::bit_data_as_bool_t show_th_dac;
   irs::bit_data_as_bool_t show_th_adc;
   irs::bit_data_as_bool_t show_th_ldo;
+  //
   irs::bit_data_as_bool_t show_exp_time;
   irs::bit_data_as_bool_t show_intersections;
   irs::bit_data_as_bool_t show_target_sko;
@@ -349,6 +351,8 @@ struct eth_data_t {
   irs::bit_data_as_bool_t show_pid_target_adc_sko;
   irs::bit_data_as_bool_t show_pid_dac_sko;
   irs::bit_data_as_bool_t show_pid_n;
+  //
+  irs::bit_data_as_bool_t show_codes;
   //  Adaptive sko coefficients
   irs::conn_data_t<double> adaptive_sko_balance_multiplier;  //  8
   irs::conn_data_t<double> adaptive_sko_elab_multiplier;     //  8
@@ -676,6 +680,7 @@ struct eth_data_t {
     show_pid_target_adc_sko.connect(ap_data, index + 1, 5);
     show_pid_dac_sko.connect(ap_data, index + 1, 6);
     show_pid_n.connect(ap_data, index + 1, 7);
+    show_codes.connect(ap_data, index + 2, 0);
     index = show_options.connect(ap_data, index);
     //  Adaptive sko coefficients
     index = adaptive_sko_balance_multiplier.connect(ap_data, index);
@@ -850,6 +855,7 @@ struct eeprom_data_t {
   irs::bit_data_as_bool_t treg_dac_polarity_pin_bit_data;
   //  Show options
   irs::conn_data_t<irs_u32> show_options;             //  4
+  //
   irs::bit_data_as_bool_t show_old_result;
   irs::bit_data_as_bool_t show_new_result;
   irs::bit_data_as_bool_t show_old_unc_result;
@@ -858,6 +864,7 @@ struct eeprom_data_t {
   irs::bit_data_as_bool_t show_th_dac;
   irs::bit_data_as_bool_t show_th_adc;
   irs::bit_data_as_bool_t show_th_ldo;
+  //
   irs::bit_data_as_bool_t show_exp_time;
   irs::bit_data_as_bool_t show_intersections;
   irs::bit_data_as_bool_t show_target_sko;
@@ -866,6 +873,8 @@ struct eeprom_data_t {
   irs::bit_data_as_bool_t show_pid_target_adc_sko;
   irs::bit_data_as_bool_t show_pid_dac_sko;
   irs::bit_data_as_bool_t show_pid_n;
+  //
+  irs::bit_data_as_bool_t show_codes;
   //  Adaptive sko coefficients
   irs::conn_data_t<double> adaptive_sko_balance_multiplier;  //  8
   irs::conn_data_t<double> adaptive_sko_elab_multiplier;     //  8
@@ -1061,6 +1070,7 @@ struct eeprom_data_t {
     show_pid_target_adc_sko.connect(ap_data, index + 1, 5);
     show_pid_dac_sko.connect(ap_data, index + 1, 6);
     show_pid_n.connect(ap_data, index + 1, 7);
+    show_codes.connect(ap_data, index + 2, 0);
     index = show_options.connect(ap_data, index);
     //  Adaptive sko coefficients
     index = adaptive_sko_balance_multiplier.connect(ap_data, index);
@@ -1234,6 +1244,7 @@ struct eeprom_data_t {
     show_pid_target_adc_sko = 0;
     show_pid_dac_sko = 0;
     show_pid_n = 0;
+    show_codes = 0;
     //
     adaptive_sko_balance_multiplier = 10.0;
     adaptive_sko_elab_multiplier = 2.0;

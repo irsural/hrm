@@ -3168,12 +3168,26 @@ void hrm::app_t::tick()
                   irs::mlog() << endl;
                 }
               }
+              double ch = m_checked_code;
+              double et = m_etalon_code;
+              double FS = pow(2.0, 20) - 1.0;
+              double res = (FS - ch + et) / (FS + ch - et);
+              
+              irs::mlog() << irsm("Старый результат (FS)  ") << setw(14) <<
+                setprecision(7) << res << endl << endl;
+              
               m_checked_code /= pow(2., 19);
               m_etalon_code /= pow(2., 19);
               
               m_result = (2. - m_checked_code + m_etalon_code);
               m_result /= (2. + m_checked_code - m_etalon_code);
               irs::mlog() << irsm("Старый результат ") << setw(14) <<
+                setprecision(7) << m_result << endl << endl;
+              
+              double A = (m_bac_old_coefficient) / pow(2.0, 19);
+              m_result = (2.0 - m_checked_code + m_etalon_code - A);
+              m_result /= (2.0 + m_checked_code - m_etalon_code + A);
+              irs::mlog() << irsm("Старый результат (кор.) ") << setw(14) <<
                 setprecision(7) << m_result << endl << endl;
               
               exp_t exp;
@@ -4568,8 +4582,12 @@ void hrm::app_t::show_last_result()
     irs::mlog() << irsm("dSKO+   ");
   }
   if (m_eth_data.show_pid_n) {
-    irs::mlog() << irsm("N-   ");
-    irs::mlog() << irsm("N+");
+    irs::mlog() << irsm("N-      ");
+    irs::mlog() << irsm("N+      ");
+  }
+  if (m_eth_data.show_codes) {
+    irs::mlog() << irsm("D-   ");
+    irs::mlog() << irsm("D+");
   }
   irs::mlog() << endl;
   
@@ -4628,6 +4646,10 @@ void hrm::app_t::show_last_result()
     if (m_eth_data.show_pid_n) {
       irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].neg_n;
       irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].pos_n;
+    }
+    if (m_eth_data.show_codes) {
+      irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].ch_code;
+      irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].et_code;
     }
     irs::mlog() << endl;
   }
