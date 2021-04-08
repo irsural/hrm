@@ -2935,6 +2935,9 @@ void hrm::app_t::tick()
               exp.temperature_adc = m_eth_data.th_box_adc;
               //exp.temperature_ldo = m_eth_data.th_box_ldo;
               //  ---------------  OLD FORMULA RESULT  -------------------------
+              exp.ch_code = m_checked_code;
+              exp.et_code = m_etalon_code;
+              
               m_checked_code /= pow(2., 19);
               m_etalon_code /= pow(2., 19);
               //  m_bac_old_coefficient - смещение в попугаях
@@ -2956,8 +2959,8 @@ void hrm::app_t::tick()
               //irs::mlog() << exp.result_old_uncorrect << endl << endl;
               
               exp.result_old = m_result;
-              exp.ch_code = m_checked_code;
-              exp.et_code = m_etalon_code;
+              //exp.ch_code = m_checked_code;
+              //exp.et_code = m_etalon_code;
               exp.et_balanced_code = m_etalon_balanced_code;
               exp.ch_balanced_code = m_checked_balanced_code;
               //  --------------------------------------------------------------
@@ -3121,6 +3124,10 @@ void hrm::app_t::tick()
               break;
             }
             case em_none: {
+              exp_t exp;
+              exp.ch_code = m_checked_code;
+              exp.et_code = m_etalon_code;
+              
               m_checked_code /= pow(2., 19);
               m_etalon_code /= pow(2., 19);
               m_result = (2. - m_checked_code + m_etalon_code);
@@ -3128,11 +3135,11 @@ void hrm::app_t::tick()
               irs::mlog() << irsm("Старый результат ") << setw(14) <<
                 setprecision(14) << m_result << endl << endl;
               
-              exp_t exp;
+              //exp_t exp;
               exp.exp_time = m_prev_exp_time;
               exp.result_old = m_result;
-              exp.ch_code = m_checked_code;
-              exp.et_code = m_etalon_code;
+              //exp.ch_code = m_checked_code;
+              //exp.et_code = m_etalon_code;
               exp.temperature_ext = m_eth_data.th_ext_1;
               exp.temperature_dac = m_eth_data.th_dac;
               exp.temperature_adc = m_eth_data.th_box_adc;
@@ -3176,6 +3183,10 @@ void hrm::app_t::tick()
               irs::mlog() << irsm("Старый результат (FS)  ") << setw(14) <<
                 setprecision(7) << res << endl << endl;
               
+              exp_t exp;
+              exp.ch_code = m_checked_code;
+              exp.et_code = m_etalon_code;
+              
               m_checked_code /= pow(2., 19);
               m_etalon_code /= pow(2., 19);
               
@@ -3190,11 +3201,11 @@ void hrm::app_t::tick()
               irs::mlog() << irsm("Старый результат (кор.) ") << setw(14) <<
                 setprecision(7) << m_result << endl << endl;
               
-              exp_t exp;
+              //exp_t exp;
               exp.exp_time = m_prev_exp_time;
               exp.result_old = m_result;
-              exp.ch_code = m_checked_code;
-              exp.et_code = m_etalon_code;
+              //exp.ch_code = m_checked_code;
+              //exp.et_code = m_etalon_code;
               exp.et_balanced_code = m_etalon_balanced_code;
               exp.ch_balanced_code = m_checked_balanced_code;
               exp.temperature_ext = m_eth_data.th_ext_1;
@@ -3227,6 +3238,10 @@ void hrm::app_t::tick()
                   irs::mlog() << endl;
                 }
               }
+              exp_t exp;
+              exp.ch_code = m_checked_code;
+              exp.et_code = m_etalon_code;
+              
               m_checked_code /= pow(2., 19);
               m_etalon_code /= pow(2., 19);
               
@@ -3235,11 +3250,11 @@ void hrm::app_t::tick()
               irs::mlog() << irsm("Старый результат ") << setw(14) <<
                 setprecision(7) << m_result << endl << endl;
               
-              exp_t exp;
+              //exp_t exp;
               exp.exp_time = m_prev_exp_time;
               exp.result_old = m_result;
-              exp.ch_code = m_checked_code;
-              exp.et_code = m_etalon_code;
+              //exp.ch_code = m_checked_code;
+              //exp.et_code = m_etalon_code;
               exp.et_balanced_code = m_etalon_balanced_code;
               exp.ch_balanced_code = m_checked_balanced_code;
               exp.temperature_ext = m_eth_data.th_ext_1;
