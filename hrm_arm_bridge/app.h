@@ -483,7 +483,10 @@ private:
   
   //termostat_t m_termostat;
   irs::pid_data_t m_elab_pid;
+  eth_pid_data_t m_eth_pid_data;
   bool m_elab_pid_on;
+  irs_u16 m_elab_pid_min_time;
+  irs_u16 m_elab_pid_max_time;
   double m_elab_pid_sko_meas_time;
   double m_elab_pid_kp;
   double m_elab_pid_ki;

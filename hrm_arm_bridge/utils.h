@@ -8,6 +8,7 @@
 #include <timer.h>
 #include <irserror.h>
 #include <mxdata.h>
+#include <irslimits.h>
 #include <irsadc.h>
 #include <irsdsp.h>
 #include <irsalg.h>
@@ -384,6 +385,112 @@ struct adc_param_data_t {
   void copy(adc_param_data_t* ap_data);
 };
 
+//------------------------------------------------------------------------------
+
+template<class in_t, class out_t, class calc_t>
+class slow_sko_t {
+  size_t m_max_size;
+  size_t m_size;
+  out_t m_average;
+  calc_t m_average_sum;
+  calc_t m_sq_sum;
+  calc_t m_prev;
+  calc_t m_prev_sq;
+  slow_sko_t();
+public:
+  slow_sko_t(irs_u32 a_count);
+  ~slow_sko_t() {};
+  void clear();
+  void add(in_t a_val);
+  out_t sko()const;
+  out_t average()const;
+  void resize(size_t a_count);
+  size_t size();
+  bool is_full();
+};
+
+template<class in_t, class out_t, class calc_t>
+slow_sko_t<in_t, out_t, calc_t>::slow_sko_t(size_t a_size):
+  m_max_size((a_size >= 1)?a_size:1),
+  m_size(0),
+  m_average(0),
+  m_average_sum(0),
+  m_sq_sum(0),
+  m_prev(0),
+  m_prev_sq(0)
+{
+}
+
+template<class in_t, class out_t, class calc_t>
+void slow_sko_t<in_t, out_t, calc_t>::clear()
+{
+  m_size = 0;
+  m_average = 0;
+  m_average_sum = 0;
+  m_sq_sum = 0;
+  m_prev = 0;
+  m_prev_sq = 0;
+}
+
+template<class in_t, class out_t, class calc_t>
+void slow_sko_t<in_t, out_t, calc_t>::add(in_t a_val)
+{
+  calc_t val = static_cast<calc_t>(a_val);
+  
+  if (m_size >= m_max_size) {
+    m_average_sum -= m_prev;
+    m_sq_sum -= m_prev_sq;
+  } else {
+    m_size++;
+  }
+  
+  m_prev = val;
+  m_average_sum += val;
+  m_average = static_cast<out_t>(m_average_sum) / static_cast<out_t>(m_size);
+  
+  calc_t sq = (val - static_cast<calc_t>(m_average));
+  sq *= sq;
+  m_prev_sq = sq;
+  m_sq_sum += sq;
+}
+
+template<class in_t, class out_t, class calc_t>
+out_t slow_sko_t<in_t, out_t, calc_t>::sko() const
+{
+  out_t sko = 0;
+  if (m_size > 0) {
+    sko = sqrt(static_cast<out_t>(m_sq_sum) / static_cast<out_t>(m_size));
+  }
+  return sko;
+}
+
+template<class in_t, class out_t, class calc_t>
+out_t slow_sko_t<in_t, out_t, calc_t>::average() const
+{
+  return m_average;
+}
+
+template<class in_t, class out_t, class calc_t>
+void slow_sko_t<in_t, out_t, calc_t>::resize(size_t a_size)
+{
+  clear();
+  m_max_size = ((a_size >= 1)?a_size:1);
+}
+
+template<class in_t, class out_t, class calc_t>
+size_t slow_sko_t<in_t, out_t, calc_t>::size()
+{
+  return m_size;
+}
+
+template<class in_t, class out_t, class calc_t>
+bool slow_sko_t<in_t, out_t, calc_t>::is_full()
+{
+  return (m_size >= m_max_size);
+}
+
+//------------------------------------------------------------------------------
+
 class ad7799_cread_t
 {
 public:
@@ -444,7 +551,7 @@ private:
   };
   enum {
     min_cnv_cnt = 3,
-    max_cnv_cnt = 1250
+    max_cnv_cnt = 1024
   };
   enum  {
     instruction_cread = 0x5C,
@@ -494,39 +601,18 @@ private:
   status_t m_status;
   bool m_need_stop;
   irs_status_t m_return_status;
-  //size_t m_cnv_cnt;
-  //size_t m_user_cnv_cnt;
   size_t m_index;
   size_t m_cont_index;
   deque<adc_value_t> m_value_deque;
   irs::fast_sko_t<adc_value_t, adc_value_t> m_fast_sko;
   irs::fast_sko_t<adc_value_t, adc_value_t> m_impf_sko;
-  //irs::fast_sko_t<adc_value_t, adc_value_t> m_impf_alternate_sko;
   irs_u8 mp_spi_buf[spi_buf_size];
-  //irs_u8 m_gain;
-  //irs_u8 m_channel;
-  //irs_u8 m_filter;
-  //irs_u8 m_user_gain;
-  //irs_u8 m_user_channel;
-  //irs_u8 m_user_filter;
   counter_t m_pause_interval;
   counter_t m_cs_interval;
   counter_t m_reset_interval;
   irs::timer_t m_timer;
   bool m_show;
-  //adc_value_t m_additional_gain;
-  //adc_value_t m_ref;
-  //adc_value_t m_avg;
-  //adc_value_t m_sko;
-  //adc_value_t m_impf;
-  //bool m_use_impf;
   bool m_test_impf;
-  //size_t m_impf_iterations_cnt;
-  //bool m_continious_mode;
-  //bool m_new_avg;
-  //bool m_new_sko;
-  //bool m_new_impf;
-  //bool m_new_impf_sko;
   bool m_need_prefilling;
   counter_t m_time_counter_prev;
   counter_t m_time_counter;
@@ -1007,6 +1093,26 @@ struct show_pid_data_t {
   irs_u32 adc_cnt;
   double dac_sko;
   bool dac_sko_ready;
+};
+
+struct eth_pid_data_t {
+  bool new_data;
+  double fade_out;
+  double int_value;
+  double dac_avg;
+  double dac_sko;
+  double iso_out;
+  double pid_time;
+  eth_pid_data_t()
+  {
+    new_data = false;
+    fade_out = 0.0;
+    int_value = 0.0;
+    dac_avg = 0.0;
+    dac_sko = 0.0;
+    iso_out = 0.0;
+    pid_time = 0.0;
+  };
 };
 
 void show_pid(show_pid_data_t& a_data);

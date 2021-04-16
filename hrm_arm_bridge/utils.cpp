@@ -1391,6 +1391,7 @@ void hrm::ad7799_cread_t::tick()
             m_result_data.avg = normalize_value(m_fast_sko.average());
             m_result_data.unnormalized_value = m_fast_sko.average() - pow(2.0, 23);
             m_result_data.current_point = m_cont_index + 1;
+                        
             if (abs(m_result_data.avg) > m_max_value) {
               m_result_data.saturated = true;
             }

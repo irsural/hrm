@@ -155,7 +155,9 @@ struct eth_data_t {
   irs::conn_data_t<irs_u32> adc_experiment_filter;
   irs::conn_data_t<adc_value_t> old_adc_additional_gain;
   irs::conn_data_t<adc_value_t> old_adc_ref;
-  irs::conn_data_t<dac_value_t> dac_voltage_pos;
+  irs::conn_data_t<irs_u16> elab_pid_min_time;
+  irs::conn_data_t<irs_u16> elab_pid_max_time;
+  irs::conn_data_t<irs_u32> elab_pid_reserve;
   irs::conn_data_t<dac_value_t> dac_voltage_neg;
   irs::conn_data_t<irs_i32> elab_step;
   irs::conn_data_t<irs_i32> min_elab_cnt;
@@ -482,7 +484,9 @@ struct eth_data_t {
 
     index = old_adc_additional_gain.connect(ap_data, index);
     index = old_adc_ref.connect(ap_data, index);
-    index = dac_voltage_pos.connect(ap_data, index);
+    index = elab_pid_min_time.connect(ap_data, index);
+    index = elab_pid_max_time.connect(ap_data, index);
+    index = elab_pid_reserve.connect(ap_data, index);
     index = dac_voltage_neg.connect(ap_data, index);
     index = elab_step.connect(ap_data, index);
     index = min_elab_cnt.connect(ap_data, index);
@@ -709,7 +713,9 @@ struct eeprom_data_t {
   irs::conn_data_t<irs_u32> adc_experiment_filter;    //  4
   irs::conn_data_t<adc_value_t> adc_additional_gain;  //  8 20
   irs::conn_data_t<adc_value_t> adc_ref;              //  8
-  irs::conn_data_t<dac_value_t> dac_voltage_pos;      //  8
+  irs::conn_data_t<irs_u16> elab_pid_min_time;        //  2
+  irs::conn_data_t<irs_u16> elab_pid_max_time;        //  2
+  irs::conn_data_t<irs_u32> elab_pid_reserve;         //  4
   irs::conn_data_t<dac_value_t> dac_voltage_neg;      //  8
   irs::conn_data_t<irs_u32> options;                  //  4 28  112
   irs::bit_data_t no_prot;
@@ -907,7 +913,9 @@ struct eeprom_data_t {
     index = adc_experiment_filter.connect(ap_data, index);
     index = adc_additional_gain.connect(ap_data, index);
     index = adc_ref.connect(ap_data, index);
-    index = dac_voltage_pos.connect(ap_data, index);
+    index = elab_pid_min_time.connect(ap_data, index);
+    index = elab_pid_max_time.connect(ap_data, index);
+    index = elab_pid_reserve.connect(ap_data, index);
     index = dac_voltage_neg.connect(ap_data, index);
     no_prot.connect(ap_data, index, 0);
     optimize_balance.connect(ap_data, index, 1);
@@ -1098,7 +1106,9 @@ struct eeprom_data_t {
     adc_experiment_filter = 15;
     adc_additional_gain = 1.0;
     adc_ref = 4.096;
-    dac_voltage_pos = 12.288;
+    elab_pid_min_time = 120;
+    elab_pid_max_time = 300;
+    elab_pid_reserve = 888;
     dac_voltage_neg = -12.288;
     no_prot = 0;
     optimize_balance = 0;
