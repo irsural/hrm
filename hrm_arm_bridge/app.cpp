@@ -122,7 +122,8 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   m_no_prot(false),
   m_wild_relays(false),
   m_balanced_sko(0.),
-  m_default_sensivity(5472.8*100.0),
+  m_default_sensivity(5472.8*1.0),
+  m_imm_coef(1.0),
   //m_adc_experiment_gain(m_min_adc_gain),
   //m_adc_experiment_filter(m_slow_adc_filter),
   m_manual_status(ms_prepare),
@@ -453,8 +454,8 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   //m_adc.set_skip_cnt(m_eeprom_data.adc_average_skip_cnt);
   //m_eth_data.adc_average_skip_cnt = m_eeprom_data.adc_average_skip_cnt;
 
-  m_dac.set_voltage_neg(m_eeprom_data.dac_voltage_neg);
-  m_eth_data.dac_voltage_neg = m_dac.voltage_neg();
+  m_imm_coef = m_eeprom_data.imm_coef;
+  m_eth_data.imm_coef = m_imm_coef;
 
   //m_no_prot = false;//
   m_no_prot = m_eeprom_data.no_prot;
@@ -594,7 +595,10 @@ void hrm::app_t::tick()
   m_eeprom.tick();
   m_raw_dac.tick();
   m_dac.tick();
-  m_adc.tick();
+  
+  for (size_t i = 0; i < 10; i++) {
+    m_adc.tick();
+  }
 
   m_relay_bridge_pos.tick();
   m_relay_bridge_neg.tick();
@@ -797,8 +801,11 @@ void hrm::app_t::tick()
     if (m_eth_data.elab_pid_min_time != m_eeprom_data.elab_pid_min_time) {
       m_eeprom_data.elab_pid_min_time = m_eth_data.elab_pid_min_time;
     }
-    if (m_eth_data.dac_voltage_neg != m_eeprom_data.dac_voltage_neg) {
-      m_eeprom_data.dac_voltage_neg = m_eth_data.dac_voltage_neg;
+    if (m_eth_data.elab_pid_max_time != m_eeprom_data.elab_pid_max_time) {
+      m_eeprom_data.elab_pid_max_time = m_eth_data.elab_pid_max_time;
+    }
+    if (m_eth_data.imm_coef != m_eeprom_data.imm_coef) {
+      m_eeprom_data.imm_coef = m_eth_data.imm_coef;
     }
     if (m_eth_data.no_prot != m_eeprom_data.no_prot) {
       m_eeprom_data.no_prot = m_eth_data.no_prot;
@@ -1080,6 +1087,7 @@ void hrm::app_t::tick()
           m_relay_hv_dac_amp.set_after_pause(m_min_after_pause);
           m_dac.set_after_pause(m_min_after_pause);
           //m_termostat.set_after_pause(m_min_after_pause);
+          m_imm_coef = m_eth_data.imm_coef;
           m_manual_status = ms_adc_setup;
           break;
         }
@@ -1087,7 +1095,7 @@ void hrm::app_t::tick()
           if (m_adc.status() == irs_st_ready) {
             m_adc.set_params(&m_adc_manual_param_data);
             update_elab_pid_koefs(m_adc.get_td(), m_voltage, m_dac.get_code(), 
-              m_default_sensivity);
+              m_default_sensivity * m_imm_coef);
             m_manual_status = ms_check_user_changes;
           }
           break;
@@ -1237,8 +1245,9 @@ void hrm::app_t::tick()
           m_elab_iso_t = m_eth_data.elab_iso_t;
           m_elab_pid_fade_t = m_eth_data.elab_pid_fade_t;
           m_elab_pid_td = m_adc.get_td();
+          m_imm_coef = m_eth_data.imm_coef;
           update_elab_pid_koefs(m_elab_pid_td, m_voltage, m_dac.get_code(), 
-            m_default_sensivity);
+            m_default_sensivity * m_imm_coef);
           irs::mlog() << irsm("PID ON") << endl;
           m_manual_status = ms_pid_process;
           break;
@@ -1267,14 +1276,16 @@ void hrm::app_t::tick()
               m_new_adc_param_manual = false;
               m_adc.set_params(&m_adc_manual_param_data);
               m_elab_pid_td = m_adc.get_td();
+              m_imm_coef = m_eth_data.imm_coef;
               update_elab_pid_koefs(m_elab_pid_td, m_voltage, m_dac.get_code(), 
-                m_default_sensivity);
+                m_default_sensivity * m_imm_coef);
             }
             if (m_new_reg_param_pid) {
               m_new_reg_param_pid = false;
               m_elab_pid_td = m_adc.get_td(false);
+              m_imm_coef = m_eth_data.imm_coef;
               update_elab_pid_koefs(m_elab_pid_td, m_voltage, m_dac.get_code(), 
-                m_default_sensivity);
+                m_default_sensivity * m_imm_coef);
             }
             if (m_eth_data.elab_pid_reset == 1) {
               m_eth_data.elab_pid_reset = 0;
@@ -1309,8 +1320,9 @@ void hrm::app_t::tick()
           if (m_dac.ready()) {
             m_dac.set_code(0);
             m_elab_pid_td = m_adc.get_td();
+            m_imm_coef = m_eth_data.imm_coef;
             update_elab_pid_koefs(m_elab_pid_td, m_voltage, m_dac.get_code(), 
-              m_default_sensivity);
+              m_default_sensivity * m_imm_coef);
             m_elab_pid.int_val = 0.0;
             m_elab_pid.pp_e = 0.0;
             m_elab_pid.prev_e = 0.0;
@@ -1937,8 +1949,13 @@ void hrm::app_t::tick()
           if (!m_adc.in_infinity_mode(false)) {
             m_elab_pid_td += CNT_TO_DBLTIME(m_dac_after_pause);
           }
+          m_imm_coef = m_eth_data.imm_coef;
           update_elab_pid_koefs(m_elab_pid_td, m_voltage, m_initial_dac_code, 
-            /*m_elab_pid_sensivity_data.sensivity*/m_default_sensivity);
+            m_default_sensivity * m_imm_coef);
+          irs::mlog() << irsm("Заданная чувствительность ");
+          irs::mlog() << m_default_sensivity * m_imm_coef;
+          irs::mlog() << irsm(" шаг/В") << endl;
+          
           m_pid_ready_condition 
               = apply_pid_ready_condition(m_eth_data.elab_pid_ready_condition);
           
@@ -1996,8 +2013,9 @@ void hrm::app_t::tick()
               m_new_adc_param_pid = false;
               m_adc.set_params(&m_adc_pid_param_data);
               m_elab_pid_td = m_adc.get_td(false);
+              m_imm_coef = m_eth_data.imm_coef;
               update_elab_pid_koefs(m_elab_pid_td, m_voltage, m_dac_code, 
-              /*m_elab_pid_sensivity_data.sensivity*/m_default_sensivity);
+                m_default_sensivity * m_imm_coef);
               show_pid_params();
               m_adc.show_param_data(true, &m_adc_pid_param_data);
             }
@@ -4566,11 +4584,15 @@ void hrm::app_t::show_experiment_parameters_pid()
   irs::mlog() << setw(18) << left << irsm("bac_old_coefficient ");
   irs::mlog() << setw(7) << left << m_bac_old_coefficient;
   
-  irs::mlog() << setprecision(5);
+  irs::mlog() << defaultfloat;
   
   irs::mlog() << setw(32) << left << irsm("elab_pid_ref ");
   irs::mlog() << setw(7) << left;
   irs::mlog() << m_elab_pid_ref;
+  
+  irs::mlog() << setw(32) << left << irsm("imm_coef ");
+  irs::mlog() << setw(7) << left;
+  irs::mlog() << m_imm_coef;
     
   irs::mlog() << endl;
 }

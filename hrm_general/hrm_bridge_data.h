@@ -158,7 +158,7 @@ struct eth_data_t {
   irs::conn_data_t<irs_u16> elab_pid_min_time;
   irs::conn_data_t<irs_u16> elab_pid_max_time;
   irs::conn_data_t<irs_u32> elab_pid_reserve;
-  irs::conn_data_t<dac_value_t> dac_voltage_neg;
+  irs::conn_data_t<dac_value_t> imm_coef;
   irs::conn_data_t<irs_i32> elab_step;
   irs::conn_data_t<irs_i32> min_elab_cnt;
   irs::conn_data_t<irs_i32> max_elab_cnt;
@@ -487,7 +487,7 @@ struct eth_data_t {
     index = elab_pid_min_time.connect(ap_data, index);
     index = elab_pid_max_time.connect(ap_data, index);
     index = elab_pid_reserve.connect(ap_data, index);
-    index = dac_voltage_neg.connect(ap_data, index);
+    index = imm_coef.connect(ap_data, index);
     index = elab_step.connect(ap_data, index);
     index = min_elab_cnt.connect(ap_data, index);
     index = max_elab_cnt.connect(ap_data, index);
@@ -716,7 +716,7 @@ struct eeprom_data_t {
   irs::conn_data_t<irs_u16> elab_pid_min_time;        //  2
   irs::conn_data_t<irs_u16> elab_pid_max_time;        //  2
   irs::conn_data_t<irs_u32> elab_pid_reserve;         //  4
-  irs::conn_data_t<dac_value_t> dac_voltage_neg;      //  8
+  irs::conn_data_t<dac_value_t> imm_coef;      //  8
   irs::conn_data_t<irs_u32> options;                  //  4 28  112
   irs::bit_data_t no_prot;
   irs::bit_data_t optimize_balance;
@@ -916,7 +916,7 @@ struct eeprom_data_t {
     index = elab_pid_min_time.connect(ap_data, index);
     index = elab_pid_max_time.connect(ap_data, index);
     index = elab_pid_reserve.connect(ap_data, index);
-    index = dac_voltage_neg.connect(ap_data, index);
+    index = imm_coef.connect(ap_data, index);
     no_prot.connect(ap_data, index, 0);
     optimize_balance.connect(ap_data, index, 1);
     wild_relays.connect(ap_data, index, 2);
@@ -1109,7 +1109,7 @@ struct eeprom_data_t {
     elab_pid_min_time = 120;
     elab_pid_max_time = 300;
     elab_pid_reserve = 888;
-    dac_voltage_neg = -12.288;
+    imm_coef = 1.0;
     no_prot = 0;
     optimize_balance = 0;
     wild_relays = 0;

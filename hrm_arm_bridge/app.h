@@ -412,6 +412,7 @@ private:
   //irs_u32 m_adc_experiment_gain;
   //irs_u32 m_adc_experiment_filter;
   const double m_default_sensivity;
+  double m_imm_coef;
 
   manual_status_t m_manual_status;
 
