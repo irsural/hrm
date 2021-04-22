@@ -124,6 +124,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   m_balanced_sko(0.),
   m_default_sensivity(5472.8*1.0),
   m_imm_coef(1.0),
+  m_pid_sensivity(m_default_sensivity),
   //m_adc_experiment_gain(m_min_adc_gain),
   //m_adc_experiment_filter(m_slow_adc_filter),
   m_manual_status(ms_prepare),
@@ -185,6 +186,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   m_elab_pid_target_sko_norm(0.0),
   m_elab_pid_ref(0.0),
   m_elab_pid_max_iteration(100),
+  m_pid_meas_sensivity(false),
   m_pid_min_time_passed(false),
   m_pid_min_time(irs::make_cnt_s(120)),
   m_pid_limit_time(irs::make_cnt_s(600)),
@@ -498,6 +500,8 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   m_eth_data.elab_mode = m_eeprom_data.elab_mode;
   
   m_eth_data.show_pid_process = m_eeprom_data.show_pid_process;
+  
+  m_eth_data.meas_sensivity = m_eeprom_data.meas_sensivity;
 
   m_adc_max_value_prot = m_eeprom_data.adc_max_value_prot;
   m_eth_data.adc_max_value_prot = m_eeprom_data.adc_max_value_prot;
@@ -849,6 +853,9 @@ void hrm::app_t::tick()
     }
     if (m_eth_data.show_pid_process != m_eeprom_data.show_pid_process) {
       m_eeprom_data.show_pid_process = m_eth_data.show_pid_process;
+    }
+    if (m_eth_data.meas_sensivity != m_eeprom_data.meas_sensivity) {
+      m_eeprom_data.meas_sensivity = m_eth_data.meas_sensivity;
     }
     if (m_eth_data.elab_pid_ready_condition 
         != m_eeprom_data.elab_pid_ready_condition) {
@@ -1703,6 +1710,7 @@ void hrm::app_t::tick()
             m_elab_pid_sko_meas_time = m_eth_data.elab_pid_sko_meas_time;
             m_elab_pid_min_time = m_eth_data.elab_pid_min_time;
             m_elab_pid_max_time = m_eth_data.elab_pid_max_time;
+            m_pid_meas_sensivity = m_eth_data.meas_sensivity;
             
             double fd = m_adc.get_reference_frequency(false);
             size_t sko_cnt = static_cast<size_t>(m_elab_pid_sko_meas_time*fd);
@@ -1762,6 +1770,51 @@ void hrm::app_t::tick()
             irs::mlog() << irsm("N = ");
             irs::mlog() << (adc_result_data.current_point);
             irs::mlog() << endl;
+            
+            if (m_pid_meas_sensivity) {
+              if (m_elab_pid_sensivity_data.empty) {
+                m_elab_pid_sensivity_data.add(m_voltage, m_initial_dac_code);
+                if (m_voltage > 0) {
+                  m_initial_dac_code += m_default_sensivity / 5;
+                } else {
+                  m_initial_dac_code -= m_default_sensivity / 5;
+                }
+                m_dac.set_code(m_initial_dac_code);
+                m_balance_status = bs_preset_dac_meas_sensivity;
+              } else {
+                m_balance_status = bs_pid_prepare;
+              }
+            } else {
+              m_pid_sensivity = m_default_sensivity * m_imm_coef;
+              m_balance_status = bs_pid_prepare;
+            }
+          }
+          break;
+        }
+        case bs_preset_dac_meas_sensivity: {
+          if (m_dac.ready()) {
+            m_adc.start_conversion();
+            m_balance_status = bs_preset_dac_calc_sensivity;
+          }
+          break;
+        }
+        case bs_preset_dac_calc_sensivity: {
+          if (m_adc.status() == irs_st_ready) {
+            adc_result_data_t adc_result_data;
+            m_adc.result(&adc_result_data);
+            m_voltage = adc_result_data.avg;
+            
+            irs::mlog() << defaultfloat << fixed << setprecision(0);
+            irs::mlog() << irsm("Код ЦАП = ");
+            irs::mlog() << m_initial_dac_code << endl;
+            irs::mlog() << setprecision(7);
+            irs::mlog() << irsm("Напряжение АЦП ");
+            irs::mlog() << m_voltage;
+            irs::mlog() << irsm(" В") << endl;
+            
+            m_elab_pid_sensivity_data.add(m_voltage, m_initial_dac_code);
+            m_elab_pid_sensivity_data.calc();
+            m_pid_sensivity = m_elab_pid_sensivity_data.sensivity;
             m_balance_status = bs_pid_prepare;
           }
           break;
@@ -1949,11 +2002,10 @@ void hrm::app_t::tick()
           if (!m_adc.in_infinity_mode(false)) {
             m_elab_pid_td += CNT_TO_DBLTIME(m_dac_after_pause);
           }
-          m_imm_coef = m_eth_data.imm_coef;
           update_elab_pid_koefs(m_elab_pid_td, m_voltage, m_initial_dac_code, 
-            m_default_sensivity * m_imm_coef);
+            m_pid_sensivity);
           irs::mlog() << irsm("Заданная чувствительность ");
-          irs::mlog() << m_default_sensivity * m_imm_coef;
+          irs::mlog() << m_pid_sensivity;
           irs::mlog() << irsm(" шаг/В") << endl;
           
           m_pid_ready_condition 
@@ -2013,9 +2065,8 @@ void hrm::app_t::tick()
               m_new_adc_param_pid = false;
               m_adc.set_params(&m_adc_pid_param_data);
               m_elab_pid_td = m_adc.get_td(false);
-              m_imm_coef = m_eth_data.imm_coef;
               update_elab_pid_koefs(m_elab_pid_td, m_voltage, m_dac_code, 
-                m_default_sensivity * m_imm_coef);
+                m_pid_sensivity);
               show_pid_params();
               m_adc.show_param_data(true, &m_adc_pid_param_data);
             }
@@ -2176,6 +2227,9 @@ void hrm::app_t::tick()
                   &m_adc_elab_param_data);
                 if (balance_sko > m_adc_balance_param_data.cont_sko) {
                   m_adc_adaptive_balance_param_data.cont_sko = balance_sko;
+                  m_adc_adaptive_elab_param_data.cont_sko = elab_sko;
+                }
+                if (elab_sko > m_adc_elab_param_data.cont_sko) {
                   m_adc_adaptive_elab_param_data.cont_sko = elab_sko;
                 }
                 irs::mlog() << irsm("СКО уравновешивания = ");
@@ -3010,6 +3064,13 @@ void hrm::app_t::tick()
               //exp.et_code = m_etalon_code;
               exp.et_balanced_code = m_etalon_balanced_code;
               exp.ch_balanced_code = m_checked_balanced_code;
+              
+              exp.target_sko_adc_neg = 0;
+              exp.target_sko_adc_pos = 0;
+              exp.target_sko_dac_neg = 0;
+              exp.target_sko_dac_pos = 0;
+              exp.neg_n = 0;
+              exp.pos_n = 0;
               //  --------------------------------------------------------------
               
 //              //  ---------------  NEW FORMULA RESULT  -------------------------
@@ -4590,9 +4651,10 @@ void hrm::app_t::show_experiment_parameters_pid()
   irs::mlog() << setw(7) << left;
   irs::mlog() << m_elab_pid_ref;
   
-  irs::mlog() << setw(32) << left << irsm("imm_coef ");
+  irs::mlog() << fixed << setprecision(2);
+  irs::mlog() << setw(32) << left << irsm("pid_sensivity ");
   irs::mlog() << setw(7) << left;
-  irs::mlog() << m_imm_coef;
+  irs::mlog() << m_pid_sensivity;
     
   irs::mlog() << endl;
 }

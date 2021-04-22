@@ -62,6 +62,8 @@ private:
     bs_preset_dac_adc_start,
     bs_preset_additional_pause_wait,
     bs_preset_dac_adc_wait,
+    bs_preset_dac_meas_sensivity,
+    bs_preset_dac_calc_sensivity,
     bs_prev_balance_prepare,
     bs_prev_balance_prepare_adc_wait,
     bs_prev_balance_dac_prepare,
@@ -413,6 +415,7 @@ private:
   //irs_u32 m_adc_experiment_filter;
   const double m_default_sensivity;
   double m_imm_coef;
+  double m_pid_sensivity;
 
   manual_status_t m_manual_status;
 
@@ -506,6 +509,7 @@ private:
   double m_elab_pid_ref;
   const irs_u32 m_elab_pid_max_iteration;
   sensivity_data_t m_elab_pid_sensivity_data;
+  bool m_pid_meas_sensivity;
   bool m_pid_min_time_passed;
   counter_t m_pid_min_time;
   counter_t m_pid_limit_time;
