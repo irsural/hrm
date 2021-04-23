@@ -75,6 +75,10 @@ private:
     bs_pid_prepare,
     bs_pid_process_dac,
     bs_pid_process_adc,
+    bs_pid_elab_dac_1,
+    bs_pid_elab_adc_1,
+    bs_pid_elab_dac_2,
+    bs_pid_elab_adc_2,
     bs_pid_result_processing,
     bs_set_pause,
     bs_pause,
@@ -211,6 +215,25 @@ private:
       }
     };
   };
+  struct elab_data_t {
+    double dac_1;
+    double adc_1;
+    double dac_2;
+    double adc_2;
+    double calc_zero()
+    {
+      double div = dac_2 - dac_1;
+      double result = 0.0;
+      if (div != 0.0) {
+        double k = (adc_2 - adc_1) / div;
+        double b = adc_2 - k * dac_2;
+        if (k != 0.0) {
+          result = -b / k;
+        }
+      }
+      return result;
+    }
+  };
   struct exp_t {
     double result_old;
     //double result_new;
@@ -250,7 +273,8 @@ private:
     em_linear = 0,
     em_pid = 1,
     em_fast_2points = 2,
-    em_none = 3
+    em_none = 3,
+    em_pid_linear = 4
   };
   enum {
     default_balance_points = 20,
@@ -509,6 +533,7 @@ private:
   double m_elab_pid_ref;
   const irs_u32 m_elab_pid_max_iteration;
   sensivity_data_t m_elab_pid_sensivity_data;
+  elab_data_t m_pid_elab_data;
   bool m_pid_meas_sensivity;
   bool m_pid_min_time_passed;
   counter_t m_pid_min_time;
@@ -591,6 +616,7 @@ private:
   //  Вывод текущих параметров эксперимента
   void show_experiment_parameters();
   void show_experiment_parameters_pid();
+  void show_experiment_parameters_pid_linear();
   void show_last_result();
   elab_mode_t convert_u8_to_elab_mode(irs_u8 a_mode);
   void show_pid_params();
