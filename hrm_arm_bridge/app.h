@@ -264,6 +264,7 @@ private:
   struct elab_result_t {
     balance_polarity_t polarity;
     double start_code;
+    double start_elab_code;
     double code;
     double target_adc_sko;
     double dac_sko;
@@ -411,6 +412,7 @@ private:
   dac_value_t m_balanced_dac_code;
   dac_value_t m_initial_dac_code;
   dac_value_t m_initial_dac_step;
+  dac_value_t m_start_elab_code;
   balance_polarity_t m_balance_polarity;
   double m_checked;
   double m_etalon;

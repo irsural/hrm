@@ -98,6 +98,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   m_balanced_dac_code(0.0),
   m_initial_dac_code(0.0),
   m_initial_dac_step(pow(2.0, 18)),//m_dac.max_code()),
+  m_start_elab_code(0.0),
   m_balance_polarity(bp_neg),
   m_checked(1.),
   m_etalon(1.),
@@ -122,7 +123,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   m_no_prot(false),
   m_wild_relays(false),
   m_balanced_sko(0.),
-  m_default_sensivity(5472.8*1.0),
+  m_default_sensivity(5472.8),
   m_imm_coef(1.0),
   m_pid_sensivity(m_default_sensivity),
   //m_adc_experiment_gain(m_min_adc_gain),
@@ -2120,12 +2121,14 @@ void hrm::app_t::tick()
             if (pid_ready(&pid_ready_data)) {
               m_adc.stop_continious();
               m_balanced_dac_code = m_elab_pid_sko.average();
+              m_start_elab_code = dac_code;
               if (m_elab_mode == em_pid_linear) {
                 irs::mlog() << 
                   irsm("----------------- Уточнение ПИД -----------------");
                 irs::mlog() << endl;
-                m_dac_step = m_pid_sensivity / 100.0;
+                m_dac_step = m_elab_step;//m_pid_sensivity / 1000.0;
                 m_dac.set_after_pause(m_dac_elab_pause);
+                m_dac.set_code(m_dac_code);
                 m_balance_status = bs_pid_elab_dac_1;
               } else {
                 m_balance_status = bs_pid_result_processing;
@@ -2147,7 +2150,7 @@ void hrm::app_t::tick()
           break;
         }
         case bs_pid_elab_dac_1: {
-          if (m_adc.status() == irs_st_ready) {
+          if (m_adc.status() == irs_st_ready && m_dac.ready()) {
             m_adc_adaptive_elab_param_data.copy(&m_adc_elab_param_data);
             m_adc_adaptive_elab_param_data.cont_sko 
               = m_pid_adc_target_sko * m_eth_data.adaptive_sko_elab_multiplier;
@@ -2167,7 +2170,7 @@ void hrm::app_t::tick()
           if (m_adc.status() == irs_st_ready) {
             adc_result_data_t adc_result_data;
             m_adc.result(&adc_result_data);
-            m_voltage = adc_result_data.avg;
+            m_voltage = adc_result_data.unfiltered_value;//adc_result_data.avg;
             m_pid_elab_data.dac_1 = m_dac_code;
             m_pid_elab_data.adc_1 = m_voltage;
             
@@ -2197,7 +2200,7 @@ void hrm::app_t::tick()
           if (m_adc.status() == irs_st_ready) {
             adc_result_data_t adc_result_data;
             m_adc.result(&adc_result_data);
-            m_voltage = adc_result_data.avg;
+            m_voltage = adc_result_data.unfiltered_value;//adc_result_data.avg;
             m_pid_elab_data.dac_2 = m_dac_code;
             m_pid_elab_data.adc_2 = m_voltage;
             
@@ -2219,6 +2222,7 @@ void hrm::app_t::tick()
           elab_result_t elab_result;
           elab_result.polarity = m_balance_polarity;
           elab_result.start_code = m_initial_dac_code;
+          elab_result.start_elab_code = m_start_elab_code;
           elab_result.code = m_balanced_dac_code;
           elab_result.target_adc_sko = m_pid_adc_target_sko;
           elab_result.dac_sko = m_elab_pid_sko;
@@ -3421,6 +3425,9 @@ void hrm::app_t::tick()
                   irs::mlog() << setw(1) << m_elab_result_vector[i].polarity;
                   irs::mlog() << irsm("> ");
                   irs::mlog() << setw(7) << m_elab_result_vector[i].start_code;
+                  irs::mlog() << irsm(" ");
+                  irs::mlog() << setw(7);
+                  irs::mlog() << m_elab_result_vector[i].start_elab_code;
                   irs::mlog() << irsm(" ");
                   irs::mlog() << setw(8) << m_elab_result_vector[i].code;
                   irs::mlog() << endl;
@@ -5375,10 +5382,6 @@ hrm::app_t::adaptive_sko_calc_t::adaptive_sko_calc_t(eth_data_t& ap_eth_data,
     mp_ee_data.adaptive_sko_balance_multiplier;
   mp_eth_data.adaptive_sko_elab_multiplier = 
     mp_ee_data.adaptive_sko_elab_multiplier;
-  irs::mlog() << irsm("m_adaptive_sko_elab_multiplier = ");
-  irs::mlog() << m_adaptive_sko_elab_multiplier << endl;
-  irs::mlog() << irsm("eth.adaptive_sko_elab_multiplier = ");
-  irs::mlog() << mp_eth_data.adaptive_sko_elab_multiplier << endl;
 }
 
 void hrm::app_t::adaptive_sko_calc_t::reset(size_t a_len)
