@@ -83,7 +83,7 @@ struct eth_data_t {
   irs::conn_data_t<double> etalon;          //  8 byte
   irs::conn_data_t<double> checked;         //  8 byte
   irs::conn_data_t<double> result;          //  8 byte
-  irs::conn_data_t<double> result_error;    //  8 byte
+  irs::conn_data_t<double> elab_mode_limit; //  8 byte
   irs::conn_data_t<double> ratio;           //  8 byte
   irs::conn_data_t<double> checked_prev;    //  8 byte
   //  manual
@@ -146,6 +146,7 @@ struct eth_data_t {
   irs::bit_data_t use_adc_adaptive_sko;
   irs::bit_data_t show_pid_process;
   irs::bit_data_t meas_sensivity;
+  irs::bit_data_t elab_mode_auto_select;
   irs::conn_data_t<irs_u8> balance_action;
   irs::conn_data_t<irs_u8> reserve_1;
   irs::conn_data_t<irs_u16> reserve_2;
@@ -402,7 +403,7 @@ struct eth_data_t {
     index = etalon.connect(ap_data, index);
     index = checked.connect(ap_data, index);
     index = result.connect(ap_data, index);
-    index = result_error.connect(ap_data, index);
+    index = elab_mode_limit.connect(ap_data, index);
     index = ratio.connect(ap_data, index);
     index = checked_prev.connect(ap_data, index);
 
@@ -470,7 +471,8 @@ struct eth_data_t {
     show_last_result.connect(ap_data,       index + 3, 0);
     use_adc_adaptive_sko.connect(ap_data,   index + 3, 1);
     show_pid_process.connect(ap_data,       index + 3, 2);
-    meas_sensivity.connect(ap_data,       index + 3, 3);
+    meas_sensivity.connect(ap_data,         index + 3, 3);
+    elab_mode_auto_select.connect(ap_data,  index + 3, 4);
     index = options.connect(ap_data,        index);
     
     index= balance_action.connect(ap_data, index);
@@ -732,6 +734,7 @@ struct eeprom_data_t {
   irs::bit_data_t use_adc_adaptive_sko;
   irs::bit_data_t show_pid_process;
   irs::bit_data_t meas_sensivity;
+  irs::bit_data_t elab_mode_auto_select;
   irs::conn_data_t<irs_i32> elab_step;                //  4
   irs::conn_data_t<irs_i32> min_elab_cnt;             //  4
   irs::conn_data_t<irs_i32> max_elab_cnt;             //  4
@@ -887,6 +890,8 @@ struct eeprom_data_t {
   //  Adaptive sko coefficients
   irs::conn_data_t<double> adaptive_sko_balance_multiplier;  //  8
   irs::conn_data_t<double> adaptive_sko_elab_multiplier;     //  8
+  //
+  irs::conn_data_t<double> elab_mode_limit;                  //  8
   
   eeprom_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
@@ -932,6 +937,7 @@ struct eeprom_data_t {
     use_adc_adaptive_sko.connect(ap_data, index + 2, 0);
     show_pid_process.connect(ap_data, index + 2, 1);
     meas_sensivity.connect(ap_data, index + 2, 2);
+    elab_mode_auto_select.connect(ap_data, index + 2, 3);
     index = options.connect(ap_data, index);
     index = elab_step.connect(ap_data, index);
     index = min_elab_cnt.connect(ap_data, index);
@@ -1087,6 +1093,8 @@ struct eeprom_data_t {
     //  Adaptive sko coefficients
     index = adaptive_sko_balance_multiplier.connect(ap_data, index);
     index = adaptive_sko_elab_multiplier.connect(ap_data, index);
+    //
+    index = elab_mode_limit.connect(ap_data, index);
     irs::mlog() << irsm("EEPROM size = ") << index << endl;
     return index;
   }
@@ -1262,6 +1270,7 @@ struct eeprom_data_t {
     //
     adaptive_sko_balance_multiplier = 10.0;
     adaptive_sko_elab_multiplier = 2.0;
+    elab_mode_limit = 5.0e9;
   }
 };
 

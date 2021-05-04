@@ -522,6 +522,9 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   m_bac_new_int_multiplier = m_eeprom_data.bac_new_int_multiplier;
   m_eth_data.bac_new_int_multiplier = m_eeprom_data.bac_new_int_multiplier;
   
+  m_eth_data.elab_mode_limit = m_eeprom_data.elab_mode_limit;
+  m_eth_data.elab_mode_auto_select = m_eeprom_data.elab_mode_auto_select;
+  
   m_adc_fade_data.x1 = 0.0;
   m_adc_fade_data.y1 = 0.0;
   m_adc_fade_data.t = m_eeprom_data.adc_filter_constant;
@@ -902,6 +905,15 @@ void hrm::app_t::tick()
       m_eeprom_data.wild_relays = m_eth_data.wild_relays;
       m_wild_relays = m_eth_data.wild_relays;
     }
+    if (m_eth_data.elab_mode_limit != 
+      m_eeprom_data.elab_mode_limit) {
+      m_eeprom_data.elab_mode_limit = m_eth_data.elab_mode_limit;
+    }
+    if (m_eth_data.elab_mode_auto_select != 
+      m_eeprom_data.elab_mode_auto_select) {
+      m_eeprom_data.elab_mode_auto_select = m_eth_data.elab_mode_auto_select;
+    }
+    
     
     switch (m_balance_action) {
       case ba_prepare: m_eth_data.balance_action = 1; break;
@@ -1584,7 +1596,18 @@ void hrm::app_t::tick()
           
           m_device_condition_controller.set_idle(true);
             
-          m_elab_mode = convert_u8_to_elab_mode(m_eth_data.elab_mode);
+          if (m_eth_data.elab_mode_auto_select) {
+            irs::mlog() << irsm("Автовыбор режима уточнения") << endl;
+            if (m_etalon > m_eth_data.elab_mode_limit ||
+              m_checked > m_eth_data.elab_mode_limit) {
+              m_elab_mode = em_pid;    
+            } else {
+              m_elab_mode = em_fast_2points;
+            }
+          } else {
+            irs::mlog() << irsm("Заданный режим уточнения") << endl;
+            m_elab_mode = convert_u8_to_elab_mode(m_eth_data.elab_mode);
+          }
           irs::mlog() << irsm("Уточнение: ") << m_elab_mode;
           switch (m_elab_mode) {
             case em_linear: {
