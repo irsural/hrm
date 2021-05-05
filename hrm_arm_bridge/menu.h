@@ -59,7 +59,7 @@ protected:
   enum { lcd_width = 20 };
   enum { item_edited = 1 };
   enum { item_read_only = 0 };
-  enum { r_width = 13 };
+  enum { r_width = 12 };
   enum { r_precision = 8,
           r_precision_D = 12};
   const double r_min;
@@ -165,15 +165,15 @@ private:
   mxfact_event_t m_prepare_pause_event;
   
   double m_r_checked_prev;
-  irs_menu_double_item_t m_r_checked_prev_item;
+  irs_menu_spin_item_t m_r_checked_prev_item;
   mxfact_event_t m_r_checked_prev_event;
   
   double m_r_standard;
-  irs_menu_double_item_t m_r_standard_item;
+  irs_menu_spin_item_t m_r_standard_item;
   mxfact_event_t m_r_standard_changed_event;
 
   double m_r_checked;
-  irs_menu_double_item_t m_r_checked_item;
+  irs_menu_spin_item_t m_r_checked_item;
   mxfact_event_t m_r_checked_changed_event;
 
   static const irs_u8 m_user_str_len = 30;

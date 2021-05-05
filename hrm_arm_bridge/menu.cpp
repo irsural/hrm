@@ -8,7 +8,7 @@
 
 // class form_t
 hrm::form_t::form_t():
-  r_min(0.1),
+  r_min(95000.0),
   r_max(9999999999999.9),
   m_menu_timer(irs::make_cnt_ms(40)),
   mp_parent_form_maker(NULL),
@@ -176,31 +176,30 @@ hrm::experiment_options_dialog_t::experiment_options_dialog_t(
   m_prepare_pause_item.set_cursor_symbol(0x01);
   
   m_r_checked_prev_item.set_header("Ïðåä. ïîâåðÿåìàÿ");
-  m_r_checked_prev_item.set_str(mp_user_str, "Rïï", "Îì", r_width, r_precision,
-    irs::num_mode_general);
+  m_r_checked_prev_item.set_str(/*mp_user_str,*/ "Rïï", r_width, "Îì", r_precision);
+    //irs::num_mode_general);
   m_r_checked_prev_item.set_max_value(r_max);
   m_r_checked_prev_item.set_min_value(r_min);
   m_r_checked_prev_item.add_change_event(&m_r_checked_prev_event);
-  m_r_checked_prev_item.set_key_type(IMK_DIGITS);
+  //m_r_checked_prev_item.set_key_type(IMK_DIGITS);
   m_r_checked_prev_item.set_disp_drv(ap_lcd_drv_service);
   m_r_checked_prev_item.set_key_event(ap_menu_kb_event);
+  m_r_checked_prev_item.set_personal_key_event(ap_menu_kb_event);
   m_r_checked_prev_item.set_cursor_symbol(0x01);
   
   m_r_standard_item.set_header("Ââîä ýòàëîíà");
-  m_r_standard_item.set_str(mp_user_str, "Rýí", "Îì", r_width, r_precision,
-    irs::num_mode_general);
+  m_r_standard_item.set_str("Rýí", r_width, "Îì", r_precision);
   m_r_standard_item.set_max_value(r_max);
   m_r_standard_item.set_min_value(r_min);
   m_r_standard_item.add_change_event(&m_r_standard_changed_event);
-  m_r_standard_item.set_key_type(IMK_DIGITS);
+  m_r_standard_item.set_personal_key_event(ap_menu_kb_event);
   
   m_r_checked_item.set_header("Ââîä ïîâåðÿåìîé");
-  m_r_checked_item.set_str(mp_user_str, "Rïí", "Îì", r_width, r_precision,
-    irs::num_mode_general);
+  m_r_checked_item.set_str("Rïí", r_width, "Îì", r_precision);
   m_r_checked_item.set_max_value(r_max);
   m_r_checked_item.set_min_value(r_min);
   m_r_checked_item.add_change_event(&m_r_checked_changed_event);
-  m_r_checked_item.set_key_type(IMK_DIGITS);
+  m_r_checked_item.set_personal_key_event(ap_menu_kb_event);
 
   m_main_screen.set_disp_drv(ap_lcd_drv_service);
   m_main_screen.set_key_event(ap_menu_kb_event);
@@ -273,6 +272,7 @@ void hrm::experiment_options_dialog_t::menu_check()
         mp_cur_menu = &m_r_checked_prev_item;
         m_r_checked_prev_item.set_master_menu(&m_main_screen);
         m_r_checked_prev_item.show();
+        m_r_checked_prev_item.get_parametr_string(mp_user_str, m_user_str_len);
       } break;
       case irskey_enter: {
         mp_eth_data->mode = md_balance;
