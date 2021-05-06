@@ -166,22 +166,20 @@ hrm::experiment_options_dialog_t::experiment_options_dialog_t(
   m_hint_item.set_parametr_string("€-Пуск");
 
   m_prepare_pause_item.set_header("Предварит. пауза");
-  m_prepare_pause_item.set_str(mp_user_str, "Пауза", "с", 6, 0);
+  m_prepare_pause_item.set_str("Пауза", 6, "с", 0);
   m_prepare_pause_item.set_max_value(100000);
   m_prepare_pause_item.set_min_value(1);
   m_prepare_pause_item.add_change_event(&m_prepare_pause_event);
-  m_prepare_pause_item.set_key_type(IMK_DIGITS);
   m_prepare_pause_item.set_disp_drv(ap_lcd_drv_service);
   m_prepare_pause_item.set_key_event(ap_menu_kb_event);
+  m_prepare_pause_item.set_personal_key_event(ap_menu_kb_event);
   m_prepare_pause_item.set_cursor_symbol(0x01);
   
   m_r_checked_prev_item.set_header("Пред. поверяемая");
-  m_r_checked_prev_item.set_str(/*mp_user_str,*/ "Rпп", r_width, "Ом", r_precision);
-    //irs::num_mode_general);
+  m_r_checked_prev_item.set_str("Rпп", r_width, "Ом", r_precision);
   m_r_checked_prev_item.set_max_value(r_max);
   m_r_checked_prev_item.set_min_value(r_min);
   m_r_checked_prev_item.add_change_event(&m_r_checked_prev_event);
-  //m_r_checked_prev_item.set_key_type(IMK_DIGITS);
   m_r_checked_prev_item.set_disp_drv(ap_lcd_drv_service);
   m_r_checked_prev_item.set_key_event(ap_menu_kb_event);
   m_r_checked_prev_item.set_personal_key_event(ap_menu_kb_event);
@@ -267,6 +265,8 @@ void hrm::experiment_options_dialog_t::menu_check()
         mp_cur_menu = &m_prepare_pause_item;
         m_prepare_pause_item.set_master_menu(&m_main_screen);
         m_prepare_pause_item.show();
+        m_prepare_pause_item.get_parametr_string(mp_user_str, m_user_str_len);
+        //  Без этого не показывается текущее значение, фишка spin_edit
       } break;
       case irskey_9: {
         mp_cur_menu = &m_r_checked_prev_item;

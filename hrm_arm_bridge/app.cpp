@@ -1978,7 +1978,11 @@ void hrm::app_t::tick()
           if (m_balance_polarity == bp_neg && !m_prepare_pause_completed) {
             m_prepare_pause_timer.start();
             m_prepare_current_time = m_prepare_pause;
+            m_balance_action = ba_prepare_pause;
+          } else {
+            m_balance_action = ba_balance_pos;
           }
+          m_remaining_time_calculator.change_balance_action(m_balance_action);
           
           m_pid_min_time_passed = false;
           m_pid_limit_timer.set(irs::make_cnt_s(m_elab_pid_min_time));
@@ -2055,6 +2059,9 @@ void hrm::app_t::tick()
               } else {
                 m_prepare_pause_completed = true;
                 irs::mlog() << irsm("ÏÏ ÎÊ") << endl;
+                m_balance_action = ba_balance_neg;
+                m_remaining_time_calculator.change_balance_action(
+                  m_balance_action);
               }
             }
           }
@@ -2070,6 +2077,15 @@ void hrm::app_t::tick()
               m_pid_limit_timer.start();
               irs::mlog() << irsm("Tmin OK");
               irs::mlog() << endl;
+//              if (m_elab_mode == em_pid) {
+//                if (m_balance_polarity == bp_neg) {
+//                  m_balance_action = ba_elab_neg;
+//                } else {
+//                  m_balance_action = ba_elab_pos;
+//                }
+//                m_remaining_time_calculator.change_balance_action(
+//                  m_balance_action);
+//              }
             }
           }
           bool adc_value_ready = false;
@@ -2136,7 +2152,7 @@ void hrm::app_t::tick()
             pid_ready_data.adc_target_value_accuracy = m_elab_pid_ref;
             pid_ready_data.adc_sko = adc_result_data.sko;
             pid_ready_data.adc_target_sko = m_pid_adc_target_sko;
-            pid_ready_data.is_overtime = is_overtime;//m_pid_limit_timer.check();
+            pid_ready_data.is_overtime = is_overtime;
             pid_ready_data.dac_sko_ready = m_elab_pid_sko.is_full();
             pid_ready_data.prepare_pause_completed
               = (m_prepare_pause_completed & m_pid_min_time_passed);
@@ -2149,9 +2165,18 @@ void hrm::app_t::tick()
                 irs::mlog() << 
                   irsm("----------------- Óòî÷íåíèå ÏÈÄ -----------------");
                 irs::mlog() << endl;
-                m_dac_step = m_elab_step;//m_pid_sensivity / 1000.0;
+                m_dac_step = m_elab_step;
                 m_dac.set_after_pause(m_dac_elab_pause);
                 m_dac.set_code(m_dac_code);
+                
+                if (m_balance_polarity == bp_neg) {
+                  m_balance_action = ba_elab_neg;
+                } else {
+                  m_balance_action = ba_elab_pos;
+                }
+                m_remaining_time_calculator.change_balance_action(
+                  m_balance_action);
+                
                 m_balance_status = bs_pid_elab_dac_1;
               } else {
                 m_balance_status = bs_pid_result_processing;
@@ -3436,6 +3461,9 @@ void hrm::app_t::tick()
               exp.neg_n = m_elab_result_vector[0].num_op_iterations;
               exp.pos_n = m_elab_result_vector[1].num_op_iterations;
               
+              exp.target_balance_sko = 0;
+              exp.target_elab_sko = 0;
+              
               m_exp_vector.push_back(exp);
               break;
             }
@@ -3485,6 +3513,9 @@ void hrm::app_t::tick()
               exp.target_sko_dac_pos = m_elab_result_vector[1].dac_sko;
               exp.neg_n = m_elab_result_vector[0].num_op_iterations;
               exp.pos_n = m_elab_result_vector[1].num_op_iterations;
+              
+              exp.target_balance_sko = 0;
+              exp.target_elab_sko = 0;
               
               m_exp_vector.push_back(exp);
               break;

@@ -236,20 +236,13 @@ private:
   };
   struct exp_t {
     double result_old;
-    //double result_new;
-    //double result_old_uncorrect;
-    //double result_new_uncorrect;
     double et_code;
     double ch_code;
     double et_balanced_code;
     double ch_balanced_code;
-    //double n0;
-    //double num;
-    //double den;
     double temperature_ext;
     double temperature_dac;
     double temperature_adc;
-    //double temperature_ldo;
     irs_u32 exp_time;
     double target_sko;
     double target_balance_sko;

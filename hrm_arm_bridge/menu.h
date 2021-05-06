@@ -161,7 +161,7 @@ private:
   irs_menu_string_item_t m_hint_item;
 
   double m_prepare_pause_value;
-  irs_menu_double_item_t m_prepare_pause_item;
+  irs_menu_spin_item_t m_prepare_pause_item;
   mxfact_event_t m_prepare_pause_event;
   
   double m_r_checked_prev;
