@@ -97,7 +97,8 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   m_dac_step(0.0),
   m_balanced_dac_code(0.0),
   m_initial_dac_code(0.0),
-  m_initial_dac_step(pow(2.0, 18)),//m_dac.max_code()),
+  m_default_initial_dac_step(pow(2.0, 18)),
+  m_initial_dac_step(m_default_initial_dac_step),
   m_start_elab_code(0.0),
   m_balance_polarity(bp_neg),
   m_checked(1.),
@@ -1593,6 +1594,9 @@ void hrm::app_t::tick()
           m_elab_max_delta = m_eth_data.elab_max_delta;
           
           m_balanced_dac_code = 0.0;
+          m_initial_dac_code = calc_initial_dac_code(m_etalon, m_checked);
+          m_initial_dac_step = irs::bound<dac_value_t>(m_initial_dac_step,
+            0, (m_dac.max_code() - abs(m_initial_dac_code)));
           
           m_device_condition_controller.set_idle(true);
             
@@ -2414,6 +2418,12 @@ void hrm::app_t::tick()
         case bs_dac_prepare: {
           if (m_dac.ready()) {
             if (m_prev_balance_completed == false) {
+              if (m_balance_polarity == bp_pos) {
+                size_t index = m_elab_result_vector.size() - 1;
+                m_initial_dac_code = -round(m_elab_result_vector[index].code);
+                m_initial_dac_step = irs::bound<dac_value_t>(m_initial_dac_step,
+                  0, (m_dac.max_code() - abs(m_initial_dac_code)));
+              }
               m_dac_code = m_initial_dac_code;
               m_dac_step = m_initial_dac_step;
               m_current_iteration = 0;

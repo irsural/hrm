@@ -404,6 +404,7 @@ private:
   dac_value_t m_dac_step;
   dac_value_t m_balanced_dac_code;
   dac_value_t m_initial_dac_code;
+  const dac_value_t m_default_initial_dac_step;
   dac_value_t m_initial_dac_step;
   dac_value_t m_start_elab_code;
   balance_polarity_t m_balance_polarity;
