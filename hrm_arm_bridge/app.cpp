@@ -2294,7 +2294,7 @@ void hrm::app_t::tick()
           m_elab_result_vector.push_back(elab_result);
           m_pos_current_elab++;
           
-          irs::mlog() << setprecision(3);
+          irs::mlog() << defaultfloat << fixed << setprecision(3);
           irs::mlog() << irsm("---------------------------------") << endl;
           irs::mlog() << irsm("Измеренный код = ");
           irs::mlog() << elab_result.code << endl;
@@ -2302,6 +2302,7 @@ void hrm::app_t::tick()
           irs::mlog() << irsm("Корректирующий коэффициент = ");
           irs::mlog() << m_dac_hv_correction << endl;
           irs::mlog() << irsm("Скорректированный код = ");
+          irs::mlog() << defaultfloat << fixed << setprecision(3);
           irs::mlog() << elab_result.code * m_dac_hv_correction << endl;
           irs::mlog() << irsm("N = ") << m_current_iteration << endl;
           
@@ -2672,12 +2673,14 @@ void hrm::app_t::tick()
           break;
         }
         case bs_none_elab_prepare: {
+          irs::mlog() << defaultfloat << fixed << setprecision(3);
           irs::mlog() << irsm("------- Без уточнения -------") << endl;
           irs::mlog() << irsm("Измеренный код ЦАП = ") 
             << m_balanced_dac_code << endl;
           irs::mlog() << fixed << defaultfloat << setprecision(8);
           irs::mlog() << irsm("Корректирующий коэффициент = ");
           irs::mlog() << m_dac_hv_correction << endl;
+          irs::mlog() << defaultfloat << fixed << setprecision(3);
           irs::mlog() << irsm("Скорректированный код = ");
           irs::mlog() << m_balanced_dac_code * m_dac_hv_correction << endl;
           
@@ -2883,14 +2886,15 @@ void hrm::app_t::tick()
           m_elab_result_vector.push_back(elab_result);
           m_pos_current_elab++;
           
-          irs::mlog() << setprecision(3);
+          irs::mlog() << defaultfloat << fixed << setprecision(3);
           irs::mlog() << irsm("---------------------------------") << endl;
           irs::mlog() << irsm("Измеренный код (старый вариант) = ");
           irs::mlog() << elab_result.code << endl;
-          irs::mlog() << defaultfloat;
+          irs::mlog() << defaultfloat << fixed << setprecision(8);
           irs::mlog() << irsm("Корректирующий коэффициент = ");
           irs::mlog() << m_dac_hv_correction << endl;
           irs::mlog() << irsm("Скорректированный код = ");
+          irs::mlog() << defaultfloat << fixed << setprecision(3);
           irs::mlog() << elab_result.code * m_dac_hv_correction << endl;
           
           if (m_balance_polarity == bp_neg) {
@@ -3098,12 +3102,14 @@ void hrm::app_t::tick()
           }
           m_balanced_dac_code = floor(elab_result.code + 0.5);
 
+          irs::mlog() << defaultfloat << fixed << setprecision(3);
           irs::mlog() << irsm("---------------------------------") << endl;
           irs::mlog() << irsm("Измеренный код = ");
           irs::mlog() << elab_result.code << endl;
-          irs::mlog() << defaultfloat;
+          irs::mlog() << defaultfloat << fixed << setprecision(8);
           irs::mlog() << irsm("Корректирующий коэффициент = ");
           irs::mlog() << m_dac_hv_correction << endl;
+          irs::mlog() << defaultfloat << fixed << setprecision(3);
           irs::mlog() << irsm("Скорректированный код = ");
           irs::mlog() << elab_result.code * m_dac_hv_correction << endl;
           irs::mlog() << irsm("Изменённый шаг = ") << m_elab_step << endl;
