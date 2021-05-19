@@ -546,6 +546,8 @@ private:
   irs_i32 m_bac_new_int_coefficient;
   irs_i32 m_bac_new_int_multiplier;
   //
+  double m_dac_hv_correction;
+  //
   device_condition_controller_t m_device_condition_controller;
   //
   const double m_treg_operating_duty_time_interval_s;

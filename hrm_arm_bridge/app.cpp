@@ -203,6 +203,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   m_bac_new_coefficient(1.0),
   m_bac_new_int_coefficient(1),
   m_bac_new_int_multiplier(1000.0),
+  m_dac_hv_correction(1.0),
   m_device_condition_controller(
     &mp_cfg->fan_ac_on,
     &mp_cfg->fan_dc_ls,
@@ -525,6 +526,9 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   
   m_eth_data.elab_mode_limit = m_eeprom_data.elab_mode_limit;
   m_eth_data.elab_mode_auto_select = m_eeprom_data.elab_mode_auto_select;
+  
+  m_eth_data.dac_hv_correction = m_eeprom_data.dac_hv_correction;
+  m_dac_hv_correction = m_eeprom_data.dac_hv_correction;
   
   m_adc_fade_data.x1 = 0.0;
   m_adc_fade_data.y1 = 0.0;
@@ -901,6 +905,9 @@ void hrm::app_t::tick()
       m_eeprom_data.bac_new_int_multiplier) {
       m_eeprom_data.bac_new_int_multiplier = m_eth_data.bac_new_int_multiplier;
       m_bac_new_int_multiplier = m_eth_data.bac_new_int_multiplier;
+    }
+    if (m_eth_data.dac_hv_correction != m_eeprom_data.dac_hv_correction) {
+      m_eeprom_data.dac_hv_correction = m_eth_data.dac_hv_correction;
     }
     if (m_eth_data.wild_relays != m_eeprom_data.wild_relays) {
       m_eeprom_data.wild_relays = m_eth_data.wild_relays;
@@ -1597,6 +1604,10 @@ void hrm::app_t::tick()
           m_initial_dac_code = calc_initial_dac_code(m_etalon, m_checked);
           m_initial_dac_step = irs::bound<dac_value_t>(m_initial_dac_step,
             0, (m_dac.max_code() - abs(m_initial_dac_code)));
+          m_dac_hv_correction = m_eth_data.dac_hv_correction;
+          irs::mlog() << irsm("Корректирующий коэффициент ЦАП = ");
+          irs::mlog() << fixed << defaultfloat << setprecision(8);
+          irs::mlog() << m_dac_hv_correction << endl;
           
           m_device_condition_controller.set_idle(true);
             
@@ -2287,14 +2298,19 @@ void hrm::app_t::tick()
           irs::mlog() << irsm("---------------------------------") << endl;
           irs::mlog() << irsm("Измеренный код = ");
           irs::mlog() << elab_result.code << endl;
+          irs::mlog() << fixed << defaultfloat << setprecision(8);
+          irs::mlog() << irsm("Корректирующий коэффициент = ");
+          irs::mlog() << m_dac_hv_correction << endl;
+          irs::mlog() << irsm("Скорректированный код = ");
+          irs::mlog() << elab_result.code * m_dac_hv_correction << endl;
           irs::mlog() << irsm("N = ") << m_current_iteration << endl;
           
           if (m_balance_polarity == bp_neg) {
-            m_checked_code = elab_result.code;
-            m_checked_balanced_code = elab_result.start_code;
-          } else {
-            m_etalon_code = elab_result.code;
+            m_etalon_code = elab_result.code * m_dac_hv_correction;
             m_etalon_balanced_code = elab_result.start_code;
+          } else {
+            m_checked_code = elab_result.code * m_dac_hv_correction;
+            m_checked_balanced_code = elab_result.start_code;
           }
           if (!m_no_prot) {
             m_relay_prot = 1;
@@ -2659,6 +2675,12 @@ void hrm::app_t::tick()
           irs::mlog() << irsm("------- Без уточнения -------") << endl;
           irs::mlog() << irsm("Измеренный код ЦАП = ") 
             << m_balanced_dac_code << endl;
+          irs::mlog() << fixed << defaultfloat << setprecision(8);
+          irs::mlog() << irsm("Корректирующий коэффициент = ");
+          irs::mlog() << m_dac_hv_correction << endl;
+          irs::mlog() << irsm("Скорректированный код = ");
+          irs::mlog() << m_balanced_dac_code * m_dac_hv_correction << endl;
+          
             
           elab_result_t elab_result;
           elab_result.polarity = m_balance_polarity;
@@ -2669,10 +2691,10 @@ void hrm::app_t::tick()
           m_pos_current_elab++;
           
           if (m_balance_polarity == bp_neg) {
-            m_etalon_code = elab_result.code;
+            m_etalon_code = elab_result.code * m_dac_hv_correction;
             m_etalon_balanced_code = m_balanced_dac_code;
           } else {
-            m_checked_code = elab_result.code;
+            m_checked_code = elab_result.code * m_dac_hv_correction;
             m_checked_balanced_code = m_balanced_dac_code;
           }
           if (!m_no_prot) {
@@ -2865,12 +2887,17 @@ void hrm::app_t::tick()
           irs::mlog() << irsm("---------------------------------") << endl;
           irs::mlog() << irsm("Измеренный код (старый вариант) = ");
           irs::mlog() << elab_result.code << endl;
+          irs::mlog() << defaultfloat;
+          irs::mlog() << irsm("Корректирующий коэффициент = ");
+          irs::mlog() << m_dac_hv_correction << endl;
+          irs::mlog() << irsm("Скорректированный код = ");
+          irs::mlog() << elab_result.code * m_dac_hv_correction << endl;
           
           if (m_balance_polarity == bp_neg) {
-            m_etalon_code = elab_result.code;
+            m_etalon_code = elab_result.code * m_dac_hv_correction;
             m_etalon_balanced_code = m_balanced_dac_code;
           } else {
-            m_checked_code = elab_result.code;
+            m_checked_code = elab_result.code * m_dac_hv_correction;
             m_checked_balanced_code = m_balanced_dac_code;
           }
           if (!m_no_prot) {
@@ -2892,10 +2919,12 @@ void hrm::app_t::tick()
             elab_point.avg = m_voltage;
             m_elab_vector.push_back(elab_point);
             if (m_balance_polarity == bp_neg) {
-              m_etalon_code = static_cast<double>(m_balanced_dac_code);
+              m_etalon_code = static_cast<double>(m_balanced_dac_code)
+                * m_dac_hv_correction;
             } else {
-              m_checked_code = static_cast<double>(m_balanced_dac_code);
-            }
+              m_checked_code = static_cast<double>(m_balanced_dac_code)
+                * m_dac_hv_correction;
+            }        
             m_balance_status = bs_coils_off;
           } else {
             if (m_auto_elab_step) {
@@ -3072,6 +3101,11 @@ void hrm::app_t::tick()
           irs::mlog() << irsm("---------------------------------") << endl;
           irs::mlog() << irsm("Измеренный код = ");
           irs::mlog() << elab_result.code << endl;
+          irs::mlog() << defaultfloat;
+          irs::mlog() << irsm("Корректирующий коэффициент = ");
+          irs::mlog() << m_dac_hv_correction << endl;
+          irs::mlog() << irsm("Скорректированный код = ");
+          irs::mlog() << elab_result.code * m_dac_hv_correction << endl;
           irs::mlog() << irsm("Изменённый шаг = ") << m_elab_step << endl;
 
           if (elab_delta_code < m_elab_max_delta && m_current_elab > 0) {
@@ -3083,10 +3117,10 @@ void hrm::app_t::tick()
           if (m_ok_elab_cnt >= m_min_elab_cnt
               || m_current_elab >= m_max_elab_cnt) {
             if (m_balance_polarity == bp_neg) {
-              m_etalon_code = elab_result.code;
+              m_etalon_code = elab_result.code * m_dac_hv_correction;
               m_etalon_balanced_code = m_balanced_dac_code;
             } else {
-              m_checked_code = elab_result.code;
+              m_checked_code = elab_result.code * m_dac_hv_correction;
               m_checked_balanced_code = m_balanced_dac_code;
             }
             if (!m_no_prot) {
@@ -4690,10 +4724,14 @@ void hrm::app_t::show_experiment_parameters()
   irs::mlog() << setw(18) << left << irsm("bac_old_coefficient ");
   irs::mlog() << setw(7) << left << m_bac_old_coefficient;
   
-  irs::mlog() << endl;
-  
-  irs::mlog() << setw(18) << left << irsm("bac_new_coefficient ");
+  irs::mlog() << setw(28) << left << irsm("bac_new_coefficient ");
   irs::mlog() << setw(7) << left << m_bac_new_coefficient;
+  
+  irs::mlog() << fixed;
+  irs::mlog() << defaultfloat << setprecision(8);
+  irs::mlog() << setw(28) << left << irsm("dac_hv_correction ");
+  irs::mlog() << setw(8) << left;
+  irs::mlog() << m_dac_hv_correction;
   
   irs::mlog() << endl;
 }
@@ -4839,21 +4877,38 @@ void hrm::app_t::show_experiment_parameters_pid()
   
   irs::mlog() << endl;
   
+  irs::mlog() << defaultfloat;
   irs::mlog() << setprecision(3);
   irs::mlog() << setw(18) << left << irsm("bac_old_coefficient ");
   irs::mlog() << setw(7) << left << m_bac_old_coefficient;
   
   irs::mlog() << defaultfloat;
   
-  irs::mlog() << setw(32) << left << irsm("elab_pid_ref ");
+  irs::mlog() << setw(30) << left << irsm("elab_pid_ref ");
   irs::mlog() << setw(7) << left;
   irs::mlog() << m_elab_pid_ref;
   
   irs::mlog() << fixed << setprecision(2);
-  irs::mlog() << setw(32) << left << irsm("pid_sensivity ");
-  irs::mlog() << setw(7) << left;
+  irs::mlog() << setw(29) << left << irsm("pid_sensivity ");
+  irs::mlog() << setw(10) << left;
   irs::mlog() << m_pid_sensivity;
+  
+  irs::mlog() << fixed;
+  irs::mlog() << defaultfloat << setprecision(8);
+  irs::mlog() << setw(28) << left << irsm("dac_hv_correction ");
+  irs::mlog() << setw(8) << left;
+  irs::mlog() << m_dac_hv_correction;
     
+  irs::mlog() << endl;
+  
+  irs::mlog() << defaultfloat;
+  
+  irs::mlog() << setw(18) << left << irsm("meas_sensivity ");
+  irs::mlog() << setw(7) << left << m_pid_meas_sensivity;
+  
+  irs::mlog() << setw(18) << left << irsm("imm_coef ");
+  irs::mlog() << setw(7) << left << m_imm_coef;
+  
   irs::mlog() << endl;
 }
 
@@ -5022,7 +5077,7 @@ void hrm::app_t::show_experiment_parameters_pid_linear()
   irs::mlog() << setw(18) << left << irsm("adc_max_value_no_prot ");
   irs::mlog() << setw(7) << left << m_adc_max_value_no_prot;
   
-  irs::mlog() << setw(32) << left << irsm("pid_ready_condition ");
+  irs::mlog() << setw(27) << left << irsm("pid_ready_condition ");
   irs::mlog() << setw(7) << left;
   irs::mlog() << pid_ready_condition_to_u32(m_pid_ready_condition);
   
@@ -5032,20 +5087,27 @@ void hrm::app_t::show_experiment_parameters_pid_linear()
   
   irs::mlog() << endl;
   
+  irs::mlog() << defaultfloat;
   irs::mlog() << setprecision(3);
   irs::mlog() << setw(18) << left << irsm("bac_old_coefficient ");
   irs::mlog() << setw(7) << left << m_bac_old_coefficient;
   
   irs::mlog() << defaultfloat;
   
-  irs::mlog() << setw(32) << left << irsm("elab_pid_ref ");
+  irs::mlog() << setw(30) << left << irsm("elab_pid_ref ");
   irs::mlog() << setw(7) << left;
   irs::mlog() << m_elab_pid_ref;
   
   irs::mlog() << fixed << setprecision(2);
-  irs::mlog() << setw(32) << left << irsm("pid_sensivity ");
-  irs::mlog() << setw(7) << left;
+  irs::mlog() << setw(29) << left << irsm("pid_sensivity ");
+  irs::mlog() << setw(10) << left;
   irs::mlog() << m_pid_sensivity;
+  
+  irs::mlog() << fixed;
+  irs::mlog() << defaultfloat << setprecision(8);
+  irs::mlog() << setw(28) << left << irsm("dac_hv_correction ");
+  irs::mlog() << setw(8) << left;
+  irs::mlog() << m_dac_hv_correction;
     
   irs::mlog() << endl;
   

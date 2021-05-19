@@ -362,6 +362,7 @@ struct eth_data_t {
   irs::conn_data_t<double> adaptive_sko_elab_multiplier;     //  8
   irs::conn_data_t<irs_u32> test;     //  4
   //------------------------------------------
+  irs::conn_data_t<double> dac_hv_correction;                 //  8
 
   eth_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
@@ -694,6 +695,7 @@ struct eth_data_t {
     index = adaptive_sko_balance_multiplier.connect(ap_data, index);
     index = adaptive_sko_elab_multiplier.connect(ap_data, index);
     index = test.connect(ap_data, index);
+    index = dac_hv_correction.connect(ap_data, index);
     
     return index;
   }
@@ -892,6 +894,8 @@ struct eeprom_data_t {
   irs::conn_data_t<double> adaptive_sko_elab_multiplier;     //  8
   //
   irs::conn_data_t<double> elab_mode_limit;                  //  8
+  //
+  irs::conn_data_t<double> dac_hv_correction;                //  8
   
   eeprom_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
@@ -1095,6 +1099,7 @@ struct eeprom_data_t {
     index = adaptive_sko_elab_multiplier.connect(ap_data, index);
     //
     index = elab_mode_limit.connect(ap_data, index);
+    index = dac_hv_correction.connect(ap_data, index);
     irs::mlog() << irsm("EEPROM size = ") << index << endl;
     return index;
   }
@@ -1271,6 +1276,7 @@ struct eeprom_data_t {
     adaptive_sko_balance_multiplier = 10.0;
     adaptive_sko_elab_multiplier = 2.0;
     elab_mode_limit = 5.0e9;
+    dac_hv_correction = 1.0;
   }
 };
 
