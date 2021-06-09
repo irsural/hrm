@@ -5108,12 +5108,6 @@ void hrm::app_t::show_experiment_parameters_pid_linear()
   irs::mlog() << setw(29) << left << irsm("pid_sensivity ");
   irs::mlog() << setw(10) << left;
   irs::mlog() << m_pid_sensivity;
-  
-  irs::mlog() << fixed;
-  irs::mlog() << defaultfloat << setprecision(8);
-  irs::mlog() << setw(28) << left << irsm("dac_hv_correction ");
-  irs::mlog() << setw(8) << left;
-  irs::mlog() << m_dac_hv_correction;
     
   irs::mlog() << endl;
   
@@ -5124,6 +5118,12 @@ void hrm::app_t::show_experiment_parameters_pid_linear()
   
   irs::mlog() << setw(18) << left << irsm("imm_coef ");
   irs::mlog() << setw(7) << left << m_imm_coef;
+  
+  irs::mlog() << fixed;
+  irs::mlog() << defaultfloat << setprecision(8);
+  irs::mlog() << setw(28) << left << irsm("dac_hv_correction ");
+  irs::mlog() << setw(8) << left;
+  irs::mlog() << m_dac_hv_correction;
   
   irs::mlog() << endl;
 }

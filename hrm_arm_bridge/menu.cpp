@@ -113,7 +113,7 @@ hrm::screensaver_t::screensaver_t(
   m_main_screen.add(&m_str_2_item, 0, 1, IMM_FULL);
   m_main_screen.add(&m_str_3_item, 0, 2, IMM_FULL);
   m_main_screen.add(&m_str_4_item, 0, 3, IMM_FULL);
-  m_main_screen.add(&m_version_item, 10, 2, IMM_WITHOUT_SUFFIX);
+  m_main_screen.add(&m_version_item, 4, 2, IMM_WITHOUT_SUFFIX);
 
   m_timeout.start();
 }

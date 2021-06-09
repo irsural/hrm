@@ -59,7 +59,7 @@ protected:
   enum { lcd_width = 20 };
   enum { item_edited = 1 };
   enum { item_read_only = 0 };
-  enum { r_width = 12 };
+  enum { r_width = 13 };
   enum { r_precision = 8,
           r_precision_D = 12};
   const double r_min;
