@@ -1813,7 +1813,14 @@ void hrm::app_t::tick()
             irs::mlog() << (adc_result_data.current_point);
             irs::mlog() << endl;
             
-            if (m_pid_meas_sensivity) {
+            bool use_default_sensivity = false;
+            if (adc_result_data.saturated) {
+              use_default_sensivity = true;
+              irs::mlog() << irsm("АЦП в насыщении, используется ");
+              irs::mlog() << irsm("чувствительность по умолчанию") << endl;
+            }
+            
+            if (m_pid_meas_sensivity && !use_default_sensivity) {
               if (m_elab_pid_sensivity_data.empty) {
                 m_elab_pid_sensivity_data.add(m_voltage, m_initial_dac_code);
                 if (m_voltage > 0) {
