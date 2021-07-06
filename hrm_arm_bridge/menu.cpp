@@ -186,7 +186,7 @@ hrm::experiment_options_dialog_t::experiment_options_dialog_t(
   m_r_checked_prev_item.set_cursor_symbol(0x01);
   
   m_r_standard_item.set_header("Ââîä ıòàëîíà");
-  m_r_standard_item.set_str("Rıí", r_width, "Îì", r_precision);
+  m_r_standard_item.set_str("Rıä", r_width, "Îì", r_precision);
   m_r_standard_item.set_max_value(r_max);
   m_r_standard_item.set_min_value(r_min);
   m_r_standard_item.add_change_event(&m_r_standard_changed_event);
@@ -439,7 +439,7 @@ hrm::experiment_result_t::experiment_result_t(
   m_ratio_item.set_min_value(-11.0);
   m_ratio_item.set_key_type(IMK_DIGITS);
   
-  m_r_standard_item.set_str(mp_r_standard_str, "Rıí", "Îì",
+  m_r_standard_item.set_str(mp_r_standard_str, "Rıä", "Îì",
     r_width, r_precision, irs::num_mode_general);
   m_r_standard_item.set_max_value(r_max);
   m_r_standard_item.set_min_value(r_min);
@@ -624,7 +624,7 @@ hrm::calculation_errors_dialog_t::calculation_errors_dialog_t(
   m_r_standard_item.set_key_event(ap_menu_kb_event);
   m_r_standard_item.set_cursor_symbol(0x01);
   m_r_standard_item.set_header("Ââîä ıòàëîíà");
-  m_r_standard_item.set_str(mp_user_str, "Rıí", "Îì",
+  m_r_standard_item.set_str(mp_user_str, "Rıä", "Îì",
     r_width, r_precision, irs::num_mode_general);
   m_r_standard_item.set_max_value(r_max);
   m_r_standard_item.set_min_value(r_min);
