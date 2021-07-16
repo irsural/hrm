@@ -524,6 +524,7 @@ private:
   size_t m_elab_pid_avg_cnt;
   irs::fade_data_t m_elab_pid_fade;
   irs::fast_sko_t<double, double> m_elab_pid_sko;
+  //static_sko_t<irs_i32, adc_value_t, irs_i64, 1024> m_elab_pid_sko;
   double m_elab_pid_target_sko;
   double m_elab_pid_target_sko_norm;
   double m_elab_pid_ref;

@@ -367,6 +367,8 @@ struct adc_result_data_t {
   size_t current_point;
   adc_value_t unnormalized_value;
   adc_value_t unfiltered_value;
+  adc_value_t alternative_avg;
+  adc_value_t alternative_sko;
   bool saturated;
 };
 
@@ -387,19 +389,21 @@ struct adc_param_data_t {
 
 //------------------------------------------------------------------------------
 
-template<class in_t, class out_t, class calc_t>
-class slow_sko_t {
-  size_t m_max_size;
+template<class in_t, class out_t, class calc_t, size_t max_size>
+class static_sko_t {
+  in_t mp_points[max_size];
+  in_t mp_sqs[max_size];
   size_t m_size;
-  out_t m_average;
+  size_t m_index;
+  calc_t m_average;
+  out_t m_average_out;
   calc_t m_average_sum;
   calc_t m_sq_sum;
-  calc_t m_prev;
-  calc_t m_prev_sq;
-  slow_sko_t();
+  bool m_is_full;
+  static_sko_t();
 public:
-  slow_sko_t(irs_u32 a_count);
-  ~slow_sko_t() {};
+  static_sko_t(size_t a_size);
+  ~static_sko_t() {};
   void clear();
   void add(in_t a_val);
   out_t sko()const;
@@ -409,84 +413,109 @@ public:
   bool is_full();
 };
 
-template<class in_t, class out_t, class calc_t>
-slow_sko_t<in_t, out_t, calc_t>::slow_sko_t(size_t a_size):
-  m_max_size((a_size >= 1)?a_size:1),
-  m_size(0),
+template<class in_t, class out_t, class calc_t, size_t max_size>
+static_sko_t<in_t, out_t, calc_t, max_size>::static_sko_t(size_t a_size):
+  m_size(a_size),
+  m_index(0),
   m_average(0),
+  m_average_out(0),
   m_average_sum(0),
   m_sq_sum(0),
-  m_prev(0),
-  m_prev_sq(0)
+  m_is_full(false)
 {
+  fill(mp_points, mp_points + max_size, 0);
+  fill(mp_sqs, mp_points + max_size, 0);
 }
 
-template<class in_t, class out_t, class calc_t>
-void slow_sko_t<in_t, out_t, calc_t>::clear()
+template<class in_t, class out_t, class calc_t, size_t max_size>
+void static_sko_t<in_t, out_t, calc_t, max_size>::clear()
 {
   m_size = 0;
+  m_index = 0;
   m_average = 0;
+  m_average_out = 0;
   m_average_sum = 0;
   m_sq_sum = 0;
-  m_prev = 0;
-  m_prev_sq = 0;
+  m_is_full = false;
+  fill(mp_points, mp_points + max_size, 0);
+  fill(mp_sqs, mp_points + max_size, 0);
 }
 
-template<class in_t, class out_t, class calc_t>
-void slow_sko_t<in_t, out_t, calc_t>::add(in_t a_val)
+template<class in_t, class out_t, class calc_t, size_t max_size>
+void static_sko_t<in_t, out_t, calc_t, max_size>::add(in_t a_val)
 {
-  calc_t val = static_cast<calc_t>(a_val);
+  calc_t in = static_cast<calc_t>(a_val);
+  calc_t out = static_cast<calc_t>(mp_points[m_index]);
+  calc_t div = m_size;
+  size_t sqs_index = m_index;
+  calc_t sq_out = static_cast<calc_t>(mp_sqs[sqs_index]);
+  sq_out *= sq_out;
+  mp_points[m_index] = a_val;
   
-  if (m_size >= m_max_size) {
-    m_average_sum -= m_prev;
-    m_sq_sum -= m_prev_sq;
+  m_index++;
+  
+  if (m_is_full) {
+    m_average_sum -= out;
+    m_sq_sum -= sq_out;
   } else {
-    m_size++;
+    div = m_index;
   }
   
-  m_prev = val;
-  m_average_sum += val;
-  m_average = static_cast<out_t>(m_average_sum) / static_cast<out_t>(m_size);
+  if (m_index >= m_size) {
+    m_is_full = true;
+    m_index = 0;
+  }
   
-  calc_t sq = (val - static_cast<calc_t>(m_average));
+  m_average_sum += in;
+  m_average = m_average_sum / div;
+  m_average_out = static_cast<out_t>(m_average_sum) 
+    / static_cast<out_t>(div);
+  
+  calc_t sq = static_cast<calc_t>(in - m_average);
+  mp_sqs[sqs_index] = static_cast<in_t>(sq);
   sq *= sq;
-  m_prev_sq = sq;
   m_sq_sum += sq;
 }
 
-template<class in_t, class out_t, class calc_t>
-out_t slow_sko_t<in_t, out_t, calc_t>::sko() const
+template<class in_t, class out_t, class calc_t, size_t max_size>
+out_t static_sko_t<in_t, out_t, calc_t, max_size>::sko() const
 {
   out_t sko = 0;
-  if (m_size > 0) {
-    sko = sqrt(static_cast<out_t>(m_sq_sum) / static_cast<out_t>(m_size));
+  out_t div = m_index;
+  if (div == 0) {
+    div = 1;
   }
+  if (m_is_full) {
+    div = m_size;
+  }
+  sko = sqrt(static_cast<out_t>(m_sq_sum) / div);
   return sko;
 }
 
-template<class in_t, class out_t, class calc_t>
-out_t slow_sko_t<in_t, out_t, calc_t>::average() const
+template<class in_t, class out_t, class calc_t, size_t max_size>
+out_t static_sko_t<in_t, out_t, calc_t, max_size>::average() const
 {
-  return m_average;
+  return m_average_out;
 }
 
-template<class in_t, class out_t, class calc_t>
-void slow_sko_t<in_t, out_t, calc_t>::resize(size_t a_size)
+template<class in_t, class out_t, class calc_t, size_t max_size>
+void static_sko_t<in_t, out_t, calc_t, max_size>::resize(size_t a_size)
 {
   clear();
-  m_max_size = ((a_size >= 1)?a_size:1);
+  m_size = ((a_size >= 1) ? a_size : 1);
+  m_size = ((a_size <= max_size) ? a_size : max_size);
 }
 
-template<class in_t, class out_t, class calc_t>
-size_t slow_sko_t<in_t, out_t, calc_t>::size()
+template<class in_t, class out_t, class calc_t, size_t max_size>
+size_t static_sko_t<in_t, out_t, calc_t, max_size>::size()
 {
   return m_size;
 }
 
-template<class in_t, class out_t, class calc_t>
-bool slow_sko_t<in_t, out_t, calc_t>::is_full()
+template<class in_t, class out_t, class calc_t, size_t max_size>
+bool static_sko_t<in_t, out_t, calc_t, max_size>::is_full()
 {
-  return (m_size >= m_max_size);
+  return m_is_full;
 }
 
 //------------------------------------------------------------------------------
@@ -606,6 +635,7 @@ private:
   deque<adc_value_t> m_value_deque;
   irs::fast_sko_t<adc_value_t, adc_value_t> m_fast_sko;
   irs::fast_sko_t<adc_value_t, adc_value_t> m_impf_sko;
+  //static_sko_t<irs_i32, adc_value_t, irs_i64, max_cnv_cnt> m_static_sko;
   irs_u8 mp_spi_buf[spi_buf_size];
   counter_t m_pause_interval;
   counter_t m_cs_interval;

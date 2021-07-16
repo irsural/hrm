@@ -702,6 +702,8 @@ void hrm::app_t::tick()
       m_adc.result(&m_adc_result_data);
       m_eth_data.test = m_adc_result_data.current_point;
       m_eth_data.adc_sko = abs(m_adc_result_data.sko * 1e6);
+      m_eth_data.alternate_avg = m_adc_result_data.alternative_avg;
+      m_eth_data.alternate_sko = abs(m_adc_result_data.alternative_sko * 1e6);
       //m_eth_data.adc_min = m_adc_result_data.min;
       //m_eth_data.adc_max = m_adc_result_data.max;
       m_eth_data.adc_raw = m_adc_result_data.raw;
@@ -2028,7 +2030,7 @@ void hrm::app_t::tick()
           
           m_elab_pid_sko.clear();
           m_elab_pid_sko.resize(m_actual_cnv_cnt);
-          m_elab_pid_sko.resize_average(m_actual_cnv_cnt);
+          //m_elab_pid_sko.resize_average(m_actual_cnv_cnt);
           if (m_adc.in_infinity_mode(false)) {
             m_dac.set_after_pause(irs::make_cnt_s(m_adc.get_td(false)));
           } else {

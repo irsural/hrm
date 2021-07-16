@@ -959,6 +959,7 @@ hrm::ad7799_cread_t::ad7799_cread_t(irs::spi_t *ap_spi,
   m_value_deque(),
   m_fast_sko(min_cnv_cnt, min_cnv_cnt),
   m_impf_sko(min_cnv_cnt, min_cnv_cnt),
+  //m_static_sko(min_cnv_cnt),
   m_pause_interval(0),
   m_cs_interval(irs::make_cnt_us(1)),
   m_reset_interval(irs::make_cnt_us(500)),
@@ -1190,6 +1191,8 @@ void hrm::ad7799_cread_t::tick()
       m_fast_sko.clear();
       m_fast_sko.resize(m_param_data.cnv_cnt);
       m_fast_sko.resize_average(m_param_data.cnv_cnt);
+      //m_static_sko.clear();
+      //m_static_sko.resize(m_param_data.cnv_cnt);
       m_need_prefilling = true;
       m_need_reconfigure = false;
       m_adc_filter_ready = false;
@@ -1351,6 +1354,7 @@ void hrm::ad7799_cread_t::tick()
             switch (m_param_data.impf_type) {
               case impf_none: {
                 m_fast_sko.add(adc_non_normalized_value);
+                //m_static_sko.add(adc_raw_value);
                 break;
               }
               case impf_mp: {
@@ -1370,6 +1374,7 @@ void hrm::ad7799_cread_t::tick()
                     }*/
                   }
                   m_fast_sko.add(impf);
+                  //m_static_sko.add(impf);
                   m_test_impf = false;
                 } else {
                   m_fast_sko.add(adc_non_normalized_value);
@@ -1380,8 +1385,10 @@ void hrm::ad7799_cread_t::tick()
                 m_imp_filt.add(adc_non_normalized_value);
                 if (!m_need_prefilling) {
                   m_fast_sko.add(m_imp_filt.get());
+                  //m_static_sko.add(m_imp_filt.get());
                 } else {
                   m_fast_sko.add(adc_non_normalized_value);
+                  //m_static_sko.add(adc_non_normalized_value);
                 }
                 break;
               }
@@ -1389,8 +1396,13 @@ void hrm::ad7799_cread_t::tick()
             
             m_result_data.sko = m_fast_sko / pow(2.0, 24);//max_non_normolized_value();
             m_result_data.avg = normalize_value(m_fast_sko.average());
+            //m_result_data.avg = normalize_value(m_static_sko.average());
+            //m_result_data.sko = m_static_sko.sko() / pow(2.0, 24);
+            
             m_result_data.unnormalized_value = m_fast_sko.average() - pow(2.0, 23);
             m_result_data.current_point = m_cont_index + 1;
+            //m_result_data.alternative_avg = normalize_value(m_static_sko.average());
+            //m_result_data.alternative_sko = m_static_sko.sko() / pow(2.0, 24);
                         
             if (abs(m_result_data.avg) > m_max_value) {
               m_result_data.saturated = true;
@@ -1816,6 +1828,8 @@ void hrm::ad7799_cread_t::result(adc_result_data_t* ap_result_data)
   ap_result_data->unnormalized_value = m_result_data.unnormalized_value;
   ap_result_data->unfiltered_value = m_result_data.unfiltered_value;
   ap_result_data->saturated = m_result_data.saturated;
+  ap_result_data->alternative_avg = m_result_data.alternative_avg;
+  ap_result_data->alternative_sko = m_result_data.alternative_sko;
 }
 
 void hrm::ad7799_cread_t::set_max_value(adc_value_t a_max_value) 

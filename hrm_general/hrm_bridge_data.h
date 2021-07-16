@@ -363,6 +363,8 @@ struct eth_data_t {
   irs::conn_data_t<irs_u32> test;     //  4
   //------------------------------------------
   irs::conn_data_t<double> dac_hv_correction;                 //  8
+  irs::conn_data_t<double> alternate_avg;                     //  8
+  irs::conn_data_t<double> alternate_sko;                     //  8
 
   eth_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
@@ -696,6 +698,9 @@ struct eth_data_t {
     index = adaptive_sko_elab_multiplier.connect(ap_data, index);
     index = test.connect(ap_data, index);
     index = dac_hv_correction.connect(ap_data, index);
+    //
+    index = alternate_avg.connect(ap_data, index);
+    index = alternate_sko.connect(ap_data, index);
     
     return index;
   }
