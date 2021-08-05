@@ -8,7 +8,7 @@
 
 // class form_t
 hrm::form_t::form_t():
-  r_min(0.1),
+  r_min(95000.0),
   r_max(9999999999999.9),
   m_menu_timer(irs::make_cnt_ms(40)),
   mp_parent_form_maker(NULL),
@@ -97,7 +97,7 @@ hrm::screensaver_t::screensaver_t(
 {
   m_str_1_item.set_parametr_string("  www.irsural.ru");
   m_str_2_item.set_parametr_string("       У401М");
-  m_str_3_item.set_parametr_string(" Хэш CAB2");
+  m_str_3_item.set_parametr_string("        ");//Хэш CAB2");
   m_str_4_item.set_parametr_string("     ООО \"РЭС\"");
   
   m_version = 1.0 + static_cast<float>(mp_eth_data->version_info) / 1000.0;
@@ -113,7 +113,7 @@ hrm::screensaver_t::screensaver_t(
   m_main_screen.add(&m_str_2_item, 0, 1, IMM_FULL);
   m_main_screen.add(&m_str_3_item, 0, 2, IMM_FULL);
   m_main_screen.add(&m_str_4_item, 0, 3, IMM_FULL);
-  m_main_screen.add(&m_version_item, 10, 2, IMM_WITHOUT_SUFFIX);
+  m_main_screen.add(&m_version_item, 4, 2, IMM_WITHOUT_SUFFIX);
 
   m_timeout.start();
 }
@@ -166,41 +166,38 @@ hrm::experiment_options_dialog_t::experiment_options_dialog_t(
   m_hint_item.set_parametr_string("€-Пуск");
 
   m_prepare_pause_item.set_header("Предварит. пауза");
-  m_prepare_pause_item.set_str(mp_user_str, "Пауза", "с", 6, 0);
+  m_prepare_pause_item.set_str("Пауза", 6, "с", 0);
   m_prepare_pause_item.set_max_value(100000);
   m_prepare_pause_item.set_min_value(1);
   m_prepare_pause_item.add_change_event(&m_prepare_pause_event);
-  m_prepare_pause_item.set_key_type(IMK_DIGITS);
   m_prepare_pause_item.set_disp_drv(ap_lcd_drv_service);
   m_prepare_pause_item.set_key_event(ap_menu_kb_event);
+  m_prepare_pause_item.set_personal_key_event(ap_menu_kb_event);
   m_prepare_pause_item.set_cursor_symbol(0x01);
   
   m_r_checked_prev_item.set_header("Пред. поверяемая");
-  m_r_checked_prev_item.set_str(mp_user_str, "Rпп", "Ом", r_width, r_precision,
-    irs::num_mode_general);
+  m_r_checked_prev_item.set_str("Rпп", r_width, "Ом", r_precision);
   m_r_checked_prev_item.set_max_value(r_max);
   m_r_checked_prev_item.set_min_value(r_min);
   m_r_checked_prev_item.add_change_event(&m_r_checked_prev_event);
-  m_r_checked_prev_item.set_key_type(IMK_DIGITS);
   m_r_checked_prev_item.set_disp_drv(ap_lcd_drv_service);
   m_r_checked_prev_item.set_key_event(ap_menu_kb_event);
+  m_r_checked_prev_item.set_personal_key_event(ap_menu_kb_event);
   m_r_checked_prev_item.set_cursor_symbol(0x01);
   
   m_r_standard_item.set_header("Ввод эталона");
-  m_r_standard_item.set_str(mp_user_str, "Rэн", "Ом", r_width, r_precision,
-    irs::num_mode_general);
+  m_r_standard_item.set_str("Rэд", r_width, "Ом", r_precision);
   m_r_standard_item.set_max_value(r_max);
   m_r_standard_item.set_min_value(r_min);
   m_r_standard_item.add_change_event(&m_r_standard_changed_event);
-  m_r_standard_item.set_key_type(IMK_DIGITS);
+  m_r_standard_item.set_personal_key_event(ap_menu_kb_event);
   
   m_r_checked_item.set_header("Ввод поверяемой");
-  m_r_checked_item.set_str(mp_user_str, "Rпн", "Ом", r_width, r_precision,
-    irs::num_mode_general);
+  m_r_checked_item.set_str("Rпн", r_width, "Ом", r_precision);
   m_r_checked_item.set_max_value(r_max);
   m_r_checked_item.set_min_value(r_min);
   m_r_checked_item.add_change_event(&m_r_checked_changed_event);
-  m_r_checked_item.set_key_type(IMK_DIGITS);
+  m_r_checked_item.set_personal_key_event(ap_menu_kb_event);
 
   m_main_screen.set_disp_drv(ap_lcd_drv_service);
   m_main_screen.set_key_event(ap_menu_kb_event);
@@ -268,11 +265,14 @@ void hrm::experiment_options_dialog_t::menu_check()
         mp_cur_menu = &m_prepare_pause_item;
         m_prepare_pause_item.set_master_menu(&m_main_screen);
         m_prepare_pause_item.show();
+        m_prepare_pause_item.get_parametr_string(mp_user_str, m_user_str_len);
+        //  Без этого не показывается текущее значение, фишка spin_edit
       } break;
       case irskey_9: {
         mp_cur_menu = &m_r_checked_prev_item;
         m_r_checked_prev_item.set_master_menu(&m_main_screen);
         m_r_checked_prev_item.show();
+        m_r_checked_prev_item.get_parametr_string(mp_user_str, m_user_str_len);
       } break;
       case irskey_enter: {
         mp_eth_data->mode = md_balance;
@@ -439,7 +439,7 @@ hrm::experiment_result_t::experiment_result_t(
   m_ratio_item.set_min_value(-11.0);
   m_ratio_item.set_key_type(IMK_DIGITS);
   
-  m_r_standard_item.set_str(mp_r_standard_str, "Rэн", "Ом",
+  m_r_standard_item.set_str(mp_r_standard_str, "Rэд", "Ом",
     r_width, r_precision, irs::num_mode_general);
   m_r_standard_item.set_max_value(r_max);
   m_r_standard_item.set_min_value(r_min);
@@ -624,7 +624,7 @@ hrm::calculation_errors_dialog_t::calculation_errors_dialog_t(
   m_r_standard_item.set_key_event(ap_menu_kb_event);
   m_r_standard_item.set_cursor_symbol(0x01);
   m_r_standard_item.set_header("Ввод эталона");
-  m_r_standard_item.set_str(mp_user_str, "Rэн", "Ом",
+  m_r_standard_item.set_str(mp_user_str, "Rэд", "Ом",
     r_width, r_precision, irs::num_mode_general);
   m_r_standard_item.set_max_value(r_max);
   m_r_standard_item.set_min_value(r_min);

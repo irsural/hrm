@@ -83,7 +83,7 @@ struct eth_data_t {
   irs::conn_data_t<double> etalon;          //  8 byte
   irs::conn_data_t<double> checked;         //  8 byte
   irs::conn_data_t<double> result;          //  8 byte
-  irs::conn_data_t<double> result_error;    //  8 byte
+  irs::conn_data_t<double> elab_mode_limit; //  8 byte
   irs::conn_data_t<double> ratio;           //  8 byte
   irs::conn_data_t<double> checked_prev;    //  8 byte
   //  manual
@@ -144,6 +144,9 @@ struct eth_data_t {
   irs::bit_data_t adc_show_points;
   irs::bit_data_t show_last_result;
   irs::bit_data_t use_adc_adaptive_sko;
+  irs::bit_data_t show_pid_process;
+  irs::bit_data_t meas_sensivity;
+  irs::bit_data_t elab_mode_auto_select;
   irs::conn_data_t<irs_u8> balance_action;
   irs::conn_data_t<irs_u8> reserve_1;
   irs::conn_data_t<irs_u16> reserve_2;
@@ -154,8 +157,10 @@ struct eth_data_t {
   irs::conn_data_t<irs_u32> adc_experiment_filter;
   irs::conn_data_t<adc_value_t> old_adc_additional_gain;
   irs::conn_data_t<adc_value_t> old_adc_ref;
-  irs::conn_data_t<dac_value_t> dac_voltage_pos;
-  irs::conn_data_t<dac_value_t> dac_voltage_neg;
+  irs::conn_data_t<irs_u16> elab_pid_min_time;
+  irs::conn_data_t<irs_u16> elab_pid_max_time;
+  irs::conn_data_t<irs_u32> elab_pid_reserve;
+  irs::conn_data_t<dac_value_t> imm_coef;
   irs::conn_data_t<irs_i32> elab_step;
   irs::conn_data_t<irs_i32> min_elab_cnt;
   irs::conn_data_t<irs_i32> max_elab_cnt;
@@ -163,7 +168,7 @@ struct eth_data_t {
   irs::conn_data_t<dac_value_t> elab_step_multiplier;
   irs::conn_data_t<double> elab_max_delta;
   irs::conn_data_t<double> external_temperature;
-  irs::conn_data_t<double> termostat_off_pause;
+  irs::conn_data_t<double> elab_pid_sko_meas_time;
   irs::conn_data_t<double> elab_pid_kp;
   irs::conn_data_t<double> elab_pid_ki;
   irs::conn_data_t<double> elab_pid_kd;
@@ -177,7 +182,9 @@ struct eth_data_t {
   irs::conn_data_t<double> elab_pid_sko;
   irs::conn_data_t<double> elab_pid_avg_norm;
   irs::conn_data_t<double> elab_pid_sko_norm;
-  irs::conn_data_t<irs_u32> elab_pid_avg_cnt;
+  irs::conn_data_t<irs_u16> elab_pid_avg_cnt;
+  irs::conn_data_t<irs_u8>  elab_pid_ready_condition;
+  irs::conn_data_t<irs_u8>  elab_pid_options;
   irs::conn_data_t<double> elab_pid_target_sko;
   irs::conn_data_t<double> elab_pid_target_sko_norm;
   irs::conn_data_t<double> elab_pid_ref;
@@ -229,18 +236,18 @@ struct eth_data_t {
   irs::conn_data_t<irs_u8> adc_free_vx_impf_type;     //  1
   irs::conn_data_t<irs_u8> adc_free_vx_cont_mode;     //  1
   irs::conn_data_t<double> adc_free_vx_cont_sko;      //  8
-  //  ADC free / temperature
-  irs::conn_data_t<irs_u8> adc_free_th_gain;          //  1
-  irs::conn_data_t<irs_u8> adc_free_th_filter;        //  1
-  irs::conn_data_t<irs_u8> adc_free_th_channel;       //  1
-  irs::conn_data_t<irs_u32> adc_free_th_cnv_cnt;      //  4
-  irs::conn_data_t<double> adc_free_th_additional_gain;       //  8
-  irs::conn_data_t<double> adc_free_th_ref;           //  8
-  irs::conn_data_t<irs_u32> adc_free_th_cont_cnv_cnt; //  4
-  irs::conn_data_t<irs_u32> adc_free_th_impf_iterations_cnt;  //  4
-  irs::conn_data_t<irs_u8> adc_free_th_impf_type;     //  1
-  irs::conn_data_t<irs_u8> adc_free_th_cont_mode;     //  1
-  irs::conn_data_t<double> adc_free_th_cont_sko;      //  8
+  //  ADC PID
+  irs::conn_data_t<irs_u8> adc_pid_gain;          //  1
+  irs::conn_data_t<irs_u8> adc_pid_filter;        //  1
+  irs::conn_data_t<irs_u8> adc_pid_channel;       //  1
+  irs::conn_data_t<irs_u32> adc_pid_cnv_cnt;      //  4
+  irs::conn_data_t<double> adc_pid_additional_gain;       //  8
+  irs::conn_data_t<double> adc_pid_ref;           //  8
+  irs::conn_data_t<irs_u32> adc_pid_cont_cnv_cnt; //  4
+  irs::conn_data_t<irs_u32> adc_pid_impf_iterations_cnt;  //  4
+  irs::conn_data_t<irs_u8> adc_pid_impf_type;     //  1
+  irs::conn_data_t<irs_u8> adc_pid_cont_mode;     //  1
+  irs::conn_data_t<double> adc_pid_cont_sko;      //  8
   //  ADC manual
   irs::conn_data_t<irs_u8> adc_manual_gain;           //  1
   irs::conn_data_t<irs_u8> adc_manual_filter;         //  1
@@ -330,6 +337,7 @@ struct eth_data_t {
   irs::conn_data_t<irs_u32> version_info;             //  4
   //  Show options
   irs::conn_data_t<irs_u32> show_options;             //  4
+  //
   irs::bit_data_as_bool_t show_old_result;
   irs::bit_data_as_bool_t show_new_result;
   irs::bit_data_as_bool_t show_old_unc_result;
@@ -338,16 +346,25 @@ struct eth_data_t {
   irs::bit_data_as_bool_t show_th_dac;
   irs::bit_data_as_bool_t show_th_adc;
   irs::bit_data_as_bool_t show_th_ldo;
+  //
   irs::bit_data_as_bool_t show_exp_time;
   irs::bit_data_as_bool_t show_intersections;
   irs::bit_data_as_bool_t show_target_sko;
   irs::bit_data_as_bool_t show_target_balance_sko;
   irs::bit_data_as_bool_t show_target_elab_sko;
+  irs::bit_data_as_bool_t show_pid_target_adc_sko;
+  irs::bit_data_as_bool_t show_pid_dac_sko;
+  irs::bit_data_as_bool_t show_pid_n;
+  //
+  irs::bit_data_as_bool_t show_codes;
   //  Adaptive sko coefficients
   irs::conn_data_t<double> adaptive_sko_balance_multiplier;  //  8
   irs::conn_data_t<double> adaptive_sko_elab_multiplier;     //  8
   irs::conn_data_t<irs_u32> test;     //  4
   //------------------------------------------
+  irs::conn_data_t<double> dac_hv_correction;                 //  8
+  irs::conn_data_t<double> alternate_avg;                     //  8
+  irs::conn_data_t<double> alternate_sko;                     //  8
 
   eth_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
@@ -389,7 +406,7 @@ struct eth_data_t {
     index = etalon.connect(ap_data, index);
     index = checked.connect(ap_data, index);
     index = result.connect(ap_data, index);
-    index = result_error.connect(ap_data, index);
+    index = elab_mode_limit.connect(ap_data, index);
     index = ratio.connect(ap_data, index);
     index = checked_prev.connect(ap_data, index);
 
@@ -456,6 +473,9 @@ struct eth_data_t {
     adc_show_points.connect(ap_data,        index + 2, 7);
     show_last_result.connect(ap_data,       index + 3, 0);
     use_adc_adaptive_sko.connect(ap_data,   index + 3, 1);
+    show_pid_process.connect(ap_data,       index + 3, 2);
+    meas_sensivity.connect(ap_data,         index + 3, 3);
+    elab_mode_auto_select.connect(ap_data,  index + 3, 4);
     index = options.connect(ap_data,        index);
     
     index= balance_action.connect(ap_data, index);
@@ -471,8 +491,10 @@ struct eth_data_t {
 
     index = old_adc_additional_gain.connect(ap_data, index);
     index = old_adc_ref.connect(ap_data, index);
-    index = dac_voltage_pos.connect(ap_data, index);
-    index = dac_voltage_neg.connect(ap_data, index);
+    index = elab_pid_min_time.connect(ap_data, index);
+    index = elab_pid_max_time.connect(ap_data, index);
+    index = elab_pid_reserve.connect(ap_data, index);
+    index = imm_coef.connect(ap_data, index);
     index = elab_step.connect(ap_data, index);
     index = min_elab_cnt.connect(ap_data, index);
     index = max_elab_cnt.connect(ap_data, index);
@@ -480,7 +502,7 @@ struct eth_data_t {
     index = elab_step_multiplier.connect(ap_data, index);
     index = elab_max_delta.connect(ap_data, index);
     index = external_temperature.connect(ap_data, index);
-    index = termostat_off_pause.connect(ap_data, index);
+    index = elab_pid_sko_meas_time.connect(ap_data, index);
     index = elab_pid_kp.connect(ap_data, index);
     index = elab_pid_ki.connect(ap_data, index);
     index = elab_pid_kd.connect(ap_data, index);
@@ -495,6 +517,8 @@ struct eth_data_t {
     index = elab_pid_avg_norm.connect(ap_data, index);
     index = elab_pid_sko_norm.connect(ap_data, index);
     index = elab_pid_avg_cnt.connect(ap_data, index);
+    index = elab_pid_ready_condition.connect(ap_data, index);
+    index = elab_pid_options.connect(ap_data, index);
     index = elab_pid_target_sko.connect(ap_data, index);
     index = elab_pid_target_sko_norm.connect(ap_data, index);
     index = elab_pid_ref.connect(ap_data, index);
@@ -551,18 +575,18 @@ struct eth_data_t {
     index = adc_free_vx_impf_type.connect(ap_data, index);
     index = adc_free_vx_cont_mode.connect(ap_data, index);
     index = adc_free_vx_cont_sko.connect(ap_data, index);
-    //  ADC free / temperature
-    index = adc_free_th_gain.connect(ap_data, index);
-    index = adc_free_th_filter.connect(ap_data, index);
-    index = adc_free_th_channel.connect(ap_data, index);
-    index = adc_free_th_cnv_cnt.connect(ap_data, index);
-    index = adc_free_th_additional_gain.connect(ap_data, index);
-    index = adc_free_th_ref.connect(ap_data, index);
-    index = adc_free_th_cont_cnv_cnt.connect(ap_data, index);
-    index = adc_free_th_impf_iterations_cnt.connect(ap_data, index);
-    index = adc_free_th_impf_type.connect(ap_data, index);
-    index = adc_free_th_cont_mode.connect(ap_data, index);
-    index = adc_free_th_cont_sko.connect(ap_data, index);
+    //  ADC PID
+    index = adc_pid_gain.connect(ap_data, index);
+    index = adc_pid_filter.connect(ap_data, index);
+    index = adc_pid_channel.connect(ap_data, index);
+    index = adc_pid_cnv_cnt.connect(ap_data, index);
+    index = adc_pid_additional_gain.connect(ap_data, index);
+    index = adc_pid_ref.connect(ap_data, index);
+    index = adc_pid_cont_cnv_cnt.connect(ap_data, index);
+    index = adc_pid_impf_iterations_cnt.connect(ap_data, index);
+    index = adc_pid_impf_type.connect(ap_data, index);
+    index = adc_pid_cont_mode.connect(ap_data, index);
+    index = adc_pid_cont_sko.connect(ap_data, index);
     //  ADC manual
     index = adc_manual_gain.connect(ap_data, index);
     index = adc_manual_filter.connect(ap_data, index);
@@ -664,11 +688,19 @@ struct eth_data_t {
     show_target_sko.connect(ap_data, index + 1, 2);
     show_target_balance_sko.connect(ap_data, index + 1, 3);
     show_target_elab_sko.connect(ap_data, index + 1, 4);
+    show_pid_target_adc_sko.connect(ap_data, index + 1, 5);
+    show_pid_dac_sko.connect(ap_data, index + 1, 6);
+    show_pid_n.connect(ap_data, index + 1, 7);
+    show_codes.connect(ap_data, index + 2, 0);
     index = show_options.connect(ap_data, index);
     //  Adaptive sko coefficients
     index = adaptive_sko_balance_multiplier.connect(ap_data, index);
     index = adaptive_sko_elab_multiplier.connect(ap_data, index);
     index = test.connect(ap_data, index);
+    index = dac_hv_correction.connect(ap_data, index);
+    //
+    index = alternate_avg.connect(ap_data, index);
+    index = alternate_sko.connect(ap_data, index);
     
     return index;
   }
@@ -692,8 +724,10 @@ struct eeprom_data_t {
   irs::conn_data_t<irs_u32> adc_experiment_filter;    //  4
   irs::conn_data_t<adc_value_t> adc_additional_gain;  //  8 20
   irs::conn_data_t<adc_value_t> adc_ref;              //  8
-  irs::conn_data_t<dac_value_t> dac_voltage_pos;      //  8
-  irs::conn_data_t<dac_value_t> dac_voltage_neg;      //  8
+  irs::conn_data_t<irs_u16> elab_pid_min_time;        //  2
+  irs::conn_data_t<irs_u16> elab_pid_max_time;        //  2
+  irs::conn_data_t<irs_u32> elab_pid_reserve;         //  4
+  irs::conn_data_t<dac_value_t> imm_coef;      //  8
   irs::conn_data_t<irs_u32> options;                  //  4 28  112
   irs::bit_data_t no_prot;
   irs::bit_data_t optimize_balance;
@@ -705,6 +739,9 @@ struct eeprom_data_t {
   irs::bit_data_t adc_continious;
   irs::conn_data_t<irs_u8> elab_mode;
   irs::bit_data_t use_adc_adaptive_sko;
+  irs::bit_data_t show_pid_process;
+  irs::bit_data_t meas_sensivity;
+  irs::bit_data_t elab_mode_auto_select;
   irs::conn_data_t<irs_i32> elab_step;                //  4
   irs::conn_data_t<irs_i32> min_elab_cnt;             //  4
   irs::conn_data_t<irs_i32> max_elab_cnt;             //  4
@@ -726,17 +763,19 @@ struct eeprom_data_t {
   irs::conn_data_t<irs_u8> gateway_2;     //  1 byte
   irs::conn_data_t<irs_u8> gateway_3;     //  1 byte  //  4
   irs::bit_data_t dhcp_on;                //  1 bit   //  4 16
-  irs::conn_data_t<double> termostat_off_pause;       //  8
+  irs::conn_data_t<double> elab_pid_sko_meas_time;       //  8
   irs::conn_data_t<double> elab_pid_kp;               //  8
   irs::conn_data_t<double> elab_pid_ki;               //  8
   irs::conn_data_t<double> elab_pid_kd;               //  8
   irs::conn_data_t<double> elab_iso_k;                //  8
   irs::conn_data_t<double> elab_iso_t;                //  8
   irs::conn_data_t<double> elab_pid_fade_t;           //  8
-  irs::conn_data_t<irs_u32> elab_pid_avg_cnt;         //  4
+  irs::conn_data_t<irs_u16> elab_pid_avg_cnt;          //  2
+  irs::conn_data_t<irs_u8>  elab_pid_ready_condition;  //  1
+  irs::conn_data_t<irs_u8>  elab_pid_options;          //  1
   irs::conn_data_t<double> elab_pid_target_sko_norm;  //  8
   irs::conn_data_t<double> elab_pid_ref;              //  8
-  irs::conn_data_t<irs_u32> impf_iterations_cnt;      //  4 80  272
+  irs::conn_data_t<irs_u32> impf_iterations_cnt;       //  4 80  272
   //  ADC free / voltage
   irs::conn_data_t<irs_u8> adc_free_vx_gain;          //  1
   irs::conn_data_t<irs_u8> adc_free_vx_filter;        //  1
@@ -749,18 +788,18 @@ struct eeprom_data_t {
   irs::conn_data_t<irs_u8> adc_free_vx_impf_type;     //  1
   irs::conn_data_t<irs_u8> adc_free_vx_cont_mode;     //  1
   irs::conn_data_t<double> adc_free_vx_cont_sko;      //  8
-  //  ADC free / temperature
-  irs::conn_data_t<irs_u8> adc_free_th_gain;          //  1
-  irs::conn_data_t<irs_u8> adc_free_th_filter;        //  1
-  irs::conn_data_t<irs_u8> adc_free_th_channel;       //  1
-  irs::conn_data_t<irs_u32> adc_free_th_cnv_cnt;      //  4
-  irs::conn_data_t<double> adc_free_th_additional_gain;       //  8
-  irs::conn_data_t<double> adc_free_th_ref;           //  8
-  irs::conn_data_t<irs_u32> adc_free_th_cont_cnv_cnt; //  4
-  irs::conn_data_t<irs_u32> adc_free_th_impf_iterations_cnt;  //  4
-  irs::conn_data_t<irs_u8> adc_free_th_impf_type;     //  1
-  irs::conn_data_t<irs_u8> adc_free_th_cont_mode;     //  1
-  irs::conn_data_t<double> adc_free_th_cont_sko;      //  8
+  //  ADC PID
+  irs::conn_data_t<irs_u8> adc_pid_gain;          //  1
+  irs::conn_data_t<irs_u8> adc_pid_filter;        //  1
+  irs::conn_data_t<irs_u8> adc_pid_channel;       //  1
+  irs::conn_data_t<irs_u32> adc_pid_cnv_cnt;      //  4
+  irs::conn_data_t<double> adc_pid_additional_gain;       //  8
+  irs::conn_data_t<double> adc_pid_ref;           //  8
+  irs::conn_data_t<irs_u32> adc_pid_cont_cnv_cnt; //  4
+  irs::conn_data_t<irs_u32> adc_pid_impf_iterations_cnt;  //  4
+  irs::conn_data_t<irs_u8> adc_pid_impf_type;     //  1
+  irs::conn_data_t<irs_u8> adc_pid_cont_mode;     //  1
+  irs::conn_data_t<double> adc_pid_cont_sko;      //  8
   //  ADC manual
   irs::conn_data_t<irs_u8> adc_manual_gain;           //  1
   irs::conn_data_t<irs_u8> adc_manual_filter;         //  1
@@ -835,6 +874,7 @@ struct eeprom_data_t {
   irs::bit_data_as_bool_t treg_dac_polarity_pin_bit_data;
   //  Show options
   irs::conn_data_t<irs_u32> show_options;             //  4
+  //
   irs::bit_data_as_bool_t show_old_result;
   irs::bit_data_as_bool_t show_new_result;
   irs::bit_data_as_bool_t show_old_unc_result;
@@ -843,14 +883,24 @@ struct eeprom_data_t {
   irs::bit_data_as_bool_t show_th_dac;
   irs::bit_data_as_bool_t show_th_adc;
   irs::bit_data_as_bool_t show_th_ldo;
+  //
   irs::bit_data_as_bool_t show_exp_time;
   irs::bit_data_as_bool_t show_intersections;
   irs::bit_data_as_bool_t show_target_sko;
   irs::bit_data_as_bool_t show_target_balance_sko;
   irs::bit_data_as_bool_t show_target_elab_sko;
+  irs::bit_data_as_bool_t show_pid_target_adc_sko;
+  irs::bit_data_as_bool_t show_pid_dac_sko;
+  irs::bit_data_as_bool_t show_pid_n;
+  //
+  irs::bit_data_as_bool_t show_codes;
   //  Adaptive sko coefficients
   irs::conn_data_t<double> adaptive_sko_balance_multiplier;  //  8
   irs::conn_data_t<double> adaptive_sko_elab_multiplier;     //  8
+  //
+  irs::conn_data_t<double> elab_mode_limit;                  //  8
+  //
+  irs::conn_data_t<double> dac_hv_correction;                //  8
   
   eeprom_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
@@ -880,8 +930,10 @@ struct eeprom_data_t {
     index = adc_experiment_filter.connect(ap_data, index);
     index = adc_additional_gain.connect(ap_data, index);
     index = adc_ref.connect(ap_data, index);
-    index = dac_voltage_pos.connect(ap_data, index);
-    index = dac_voltage_neg.connect(ap_data, index);
+    index = elab_pid_min_time.connect(ap_data, index);
+    index = elab_pid_max_time.connect(ap_data, index);
+    index = elab_pid_reserve.connect(ap_data, index);
+    index = imm_coef.connect(ap_data, index);
     no_prot.connect(ap_data, index, 0);
     optimize_balance.connect(ap_data, index, 1);
     wild_relays.connect(ap_data, index, 2);
@@ -892,6 +944,9 @@ struct eeprom_data_t {
     adc_continious.connect(ap_data, index, 7);
     elab_mode.connect(ap_data, index + 1);
     use_adc_adaptive_sko.connect(ap_data, index + 2, 0);
+    show_pid_process.connect(ap_data, index + 2, 1);
+    meas_sensivity.connect(ap_data, index + 2, 2);
+    elab_mode_auto_select.connect(ap_data, index + 2, 3);
     index = options.connect(ap_data, index);
     index = elab_step.connect(ap_data, index);
     index = min_elab_cnt.connect(ap_data, index);
@@ -915,7 +970,7 @@ struct eeprom_data_t {
     index = gateway_3.connect(ap_data, index);
     index = dhcp_on.connect(ap_data, index, 0);
     index+=4;
-    index = termostat_off_pause.connect(ap_data, index);
+    index = elab_pid_sko_meas_time.connect(ap_data, index);
     index = elab_pid_kp.connect(ap_data, index);
     index = elab_pid_ki.connect(ap_data, index);
     index = elab_pid_kd.connect(ap_data, index);
@@ -923,6 +978,8 @@ struct eeprom_data_t {
     index = elab_iso_t.connect(ap_data, index);
     index = elab_pid_fade_t.connect(ap_data, index);
     index = elab_pid_avg_cnt.connect(ap_data, index);
+    index = elab_pid_ready_condition.connect(ap_data, index);
+    index = elab_pid_options.connect(ap_data, index);
     index = elab_pid_target_sko_norm.connect(ap_data, index);
     index = elab_pid_ref.connect(ap_data, index);
     index = impf_iterations_cnt.connect(ap_data, index);
@@ -938,18 +995,18 @@ struct eeprom_data_t {
     index = adc_free_vx_impf_type.connect(ap_data, index);
     index = adc_free_vx_cont_mode.connect(ap_data, index);
     index = adc_free_vx_cont_sko.connect(ap_data, index);
-    //  ADC free / temperature
-    index = adc_free_th_gain.connect(ap_data, index);
-    index = adc_free_th_filter.connect(ap_data, index);
-    index = adc_free_th_channel.connect(ap_data, index);
-    index = adc_free_th_cnv_cnt.connect(ap_data, index);
-    index = adc_free_th_additional_gain.connect(ap_data, index);
-    index = adc_free_th_ref.connect(ap_data, index);
-    index = adc_free_th_cont_cnv_cnt.connect(ap_data, index);
-    index = adc_free_th_impf_iterations_cnt.connect(ap_data, index);
-    index = adc_free_th_impf_type.connect(ap_data, index);
-    index = adc_free_th_cont_mode.connect(ap_data, index);
-    index = adc_free_th_cont_sko.connect(ap_data, index);
+    //  ADC PID
+    index = adc_pid_gain.connect(ap_data, index);
+    index = adc_pid_filter.connect(ap_data, index);
+    index = adc_pid_channel.connect(ap_data, index);
+    index = adc_pid_cnv_cnt.connect(ap_data, index);
+    index = adc_pid_additional_gain.connect(ap_data, index);
+    index = adc_pid_ref.connect(ap_data, index);
+    index = adc_pid_cont_cnv_cnt.connect(ap_data, index);
+    index = adc_pid_impf_iterations_cnt.connect(ap_data, index);
+    index = adc_pid_impf_type.connect(ap_data, index);
+    index = adc_pid_cont_mode.connect(ap_data, index);
+    index = adc_pid_cont_sko.connect(ap_data, index);
     //  ADC manual
     index = adc_manual_gain.connect(ap_data, index);
     index = adc_manual_filter.connect(ap_data, index);
@@ -1037,10 +1094,17 @@ struct eeprom_data_t {
     show_target_sko.connect(ap_data, index + 1, 2);
     show_target_balance_sko.connect(ap_data, index + 1, 3);
     show_target_elab_sko.connect(ap_data, index + 1, 4);
+    show_pid_target_adc_sko.connect(ap_data, index + 1, 5);
+    show_pid_dac_sko.connect(ap_data, index + 1, 6);
+    show_pid_n.connect(ap_data, index + 1, 7);
+    show_codes.connect(ap_data, index + 2, 0);
     index = show_options.connect(ap_data, index);
     //  Adaptive sko coefficients
     index = adaptive_sko_balance_multiplier.connect(ap_data, index);
     index = adaptive_sko_elab_multiplier.connect(ap_data, index);
+    //
+    index = elab_mode_limit.connect(ap_data, index);
+    index = dac_hv_correction.connect(ap_data, index);
     irs::mlog() << irsm("EEPROM size = ") << index << endl;
     return index;
   }
@@ -1064,8 +1128,10 @@ struct eeprom_data_t {
     adc_experiment_filter = 15;
     adc_additional_gain = 1.0;
     adc_ref = 4.096;
-    dac_voltage_pos = 12.288;
-    dac_voltage_neg = -12.288;
+    elab_pid_min_time = 120;
+    elab_pid_max_time = 300;
+    elab_pid_reserve = 888;
+    imm_coef = 1.0;
     no_prot = 0;
     optimize_balance = 0;
     wild_relays = 0;
@@ -1098,7 +1164,7 @@ struct eeprom_data_t {
 
     dhcp_on = HRM_DHCP_ON;
     
-    termostat_off_pause = 3.1459;
+    elab_pid_sko_meas_time = 3.1459;
     elab_pid_kp = 1.0;
     elab_pid_ki = 0.0;
     elab_pid_kd = 0.0;
@@ -1107,6 +1173,8 @@ struct eeprom_data_t {
     elab_mode = 0;
     elab_pid_fade_t = 0.0;
     elab_pid_avg_cnt = 10;
+    elab_pid_ready_condition = 0;
+    elab_pid_options = 0;
     elab_pid_target_sko_norm = 1.0 / pow(2.0, 20);
     elab_pid_ref = 0.0;
     impf_iterations_cnt = 10;
@@ -1122,18 +1190,18 @@ struct eeprom_data_t {
     adc_free_vx_impf_type = adc_default_impf_type;
     adc_free_vx_cont_mode = adc_default_cont_mode;
     adc_free_vx_cont_sko = adc_default_cont_sko;
-    //  ADC free / temperature
-    adc_free_th_gain = adc_default_gain;
-    adc_free_th_filter = adc_default_filter;
-    adc_free_th_channel = adc_default_channel_temperature;
-    adc_free_th_cnv_cnt = adc_default_cnv_cnt_temperature;
-    adc_free_th_additional_gain = adc_additional_gain;
-    adc_free_th_ref = adc_ref;
-    adc_free_th_cont_cnv_cnt = adc_default_cont_cnv_cnt;
-    adc_free_th_impf_iterations_cnt = adc_default_impf_iterations_cnt;
-    adc_free_th_impf_type = adc_default_impf_type;
-    adc_free_th_cont_mode = adc_default_cont_mode;
-    adc_free_th_cont_sko = adc_default_cont_sko;
+    //  ADC PID
+    adc_pid_gain = adc_default_gain;
+    adc_pid_filter = adc_default_filter;
+    adc_pid_channel = adc_default_channel_temperature;
+    adc_pid_cnv_cnt = adc_default_cnv_cnt_temperature;
+    adc_pid_additional_gain = adc_additional_gain;
+    adc_pid_ref = adc_ref;
+    adc_pid_cont_cnv_cnt = adc_default_cont_cnv_cnt;
+    adc_pid_impf_iterations_cnt = adc_default_impf_iterations_cnt;
+    adc_pid_impf_type = adc_default_impf_type;
+    adc_pid_cont_mode = adc_default_cont_mode;
+    adc_pid_cont_sko = adc_default_cont_sko;
     //  ADC manual
     adc_manual_gain = adc_default_gain;
     adc_manual_filter = adc_default_filter;
@@ -1205,9 +1273,15 @@ struct eeprom_data_t {
     show_target_sko = 0;
     show_target_balance_sko = 0;
     show_target_elab_sko = 0;
+    show_pid_target_adc_sko = 0;
+    show_pid_dac_sko = 0;
+    show_pid_n = 0;
+    show_codes = 0;
     //
     adaptive_sko_balance_multiplier = 10.0;
     adaptive_sko_elab_multiplier = 2.0;
+    elab_mode_limit = 5.0e9;
+    dac_hv_correction = 1.0;
   }
 };
 

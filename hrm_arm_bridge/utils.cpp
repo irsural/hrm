@@ -464,7 +464,7 @@ void hrm::dac_t::set_normalize_code(hrm::dac_value_t a_code)
     static_cast<irs_i32>(floor(code * (pow(2., 31) - 1.0) + 0.5));
 
   m_status = st_wait;
-  m_timer.set(m_after_pause);
+  //m_timer.set(m_after_pause);
   if (m_show) {
     irs::mlog() << irsm("DAC: code = ") << code << irsm(" / ")
       << (m_dac_data.signed_voltage_code >> 12) << endl;
@@ -556,6 +556,7 @@ void hrm::dac_t::tick()
   switch (m_status) {
     case st_wait: {
       if (m_dac_data.ready_bit == 1) {
+        m_timer.set(m_after_pause);
         m_timer.start();
         m_status = st_pause;
       }
@@ -958,6 +959,7 @@ hrm::ad7799_cread_t::ad7799_cread_t(irs::spi_t *ap_spi,
   m_value_deque(),
   m_fast_sko(min_cnv_cnt, min_cnv_cnt),
   m_impf_sko(min_cnv_cnt, min_cnv_cnt),
+  //m_static_sko(min_cnv_cnt),
   m_pause_interval(0),
   m_cs_interval(irs::make_cnt_us(1)),
   m_reset_interval(irs::make_cnt_us(500)),
@@ -981,6 +983,7 @@ hrm::ad7799_cread_t::ad7799_cread_t(irs::spi_t *ap_spi,
   mp_adc_exti->stop();
   m_result_data.avg = 0.0;
   m_result_data.sko = 0.0;
+  m_result_data.saturated = false;
 }
 
 void hrm::ad7799_cread_t::start_conversion()
@@ -1019,10 +1022,16 @@ double hrm::ad7799_cread_t::calc_frequency(counter_t a_prev_cnt,
   return freq;
 }
 
-double hrm::ad7799_cread_t::get_reference_frequency()
+double hrm::ad7799_cread_t::get_reference_frequency(bool a_actual)
 {
+  adc_param_data_t* p_param_data;
+  if (a_actual) {
+    p_param_data = &m_param_data;
+  } else {
+    p_param_data = &m_user_param_data;
+  }
   double freq = 0.0;
-  switch (m_param_data.filter) {
+  switch (p_param_data->filter) {
     case  1: freq = 470.0; break;
     case  2: freq = 242.0; break;
     case  3: freq = 123.0; break;
@@ -1041,6 +1050,56 @@ double hrm::ad7799_cread_t::get_reference_frequency()
     default: freq = 0.0;
   }
   return freq;
+}
+
+double hrm::ad7799_cread_t::get_td(bool a_actual)
+{
+  adc_param_data_t* ap_param_data;
+  if (a_actual) {
+    ap_param_data = &m_param_data;
+  } else {
+    ap_param_data = &m_user_param_data;
+  }
+  double td = 0.0;
+  td = get_reference_frequency(a_actual);
+  if (td > 0.0) {
+    td = 1.0 / td;
+    if (!in_infinity_mode(a_actual)) {
+      td = td * ap_param_data->cnv_cnt;
+      td += CNT_TO_DBLTIME(get_settle_time(ap_param_data->filter));
+    }
+  } else {
+    td = 0.0;
+  }
+  return td;
+}
+
+bool hrm::ad7799_cread_t::window_is_full() 
+{ 
+  bool result = false;
+  if (in_infinity_mode()) {
+    result = true;
+  } else {
+    result = m_fast_sko.is_full();
+  }
+  return result;
+}
+
+bool hrm::ad7799_cread_t::in_infinity_mode(bool a_actual)
+{
+  adc_param_data_t* ap_param_data;
+  if (a_actual) {
+    ap_param_data = &m_param_data;
+  } else {
+    ap_param_data = &m_user_param_data;
+  }
+  bool result = false;
+  if ((ap_param_data->cont_mode == cont_mode_none) ||
+      (ap_param_data->cont_mode == cont_mode_inf))
+  {
+    result = true;
+  }
+  return result;
 }
 
 counter_t hrm::ad7799_cread_t::get_settle_time(irs_u8 a_filter)
@@ -1124,12 +1183,16 @@ void hrm::ad7799_cread_t::tick()
       m_param_data.cont_sko = m_user_param_data.cont_sko;
       show_param_data(m_show, &m_param_data);
       //
+      m_result_data.saturated = false;
+      //
       m_value_deque.clear();
       m_imp_filt.clear();
       m_imp_filt.max_size(m_param_data.cnv_cnt);
       m_fast_sko.clear();
       m_fast_sko.resize(m_param_data.cnv_cnt);
       m_fast_sko.resize_average(m_param_data.cnv_cnt);
+      //m_static_sko.clear();
+      //m_static_sko.resize(m_param_data.cnv_cnt);
       m_need_prefilling = true;
       m_need_reconfigure = false;
       m_adc_filter_ready = false;
@@ -1248,133 +1311,178 @@ void hrm::ad7799_cread_t::tick()
           static_cast<adc_value_t>(adc_raw_value);
         adc_value_t adc_value = convert_value(adc_raw_value);
         m_result_data.raw = adc_raw_value;
+        //m_result_data.unfiltered_value = adc_value;
+        m_result_data.unfiltered_value = normalize_value(adc_raw_value);
         
-        if (m_adc_filter_ready) {
-          if (m_value_deque.size() >= m_param_data.cnv_cnt) {
-            m_value_deque.pop_front();
-          }
-          m_value_deque.push_back(adc_non_normalized_value);
-          
-          if (m_index >= (m_param_data.cnv_cnt - 1)) {
-            m_need_prefilling = false;
-          }
-          
+        if (m_param_data.cont_mode == cont_mode_none) {
+          m_result_data.avg = adc_value;
+          m_result_data.sko = 0.0;
+          m_result_data.current_point = m_index + 1;
+          m_result_data.unnormalized_value = adc_non_normalized_value;
+          m_new_result = true;
           if (m_index > 0) {
             m_valid_frequency = true;
           }
-          
-          
-          switch (m_param_data.impf_type) {
-            case impf_none: {
-              m_fast_sko.add(adc_non_normalized_value);
-              break;
-            }
-            case impf_mp: {
-              if (!m_need_prefilling) {
-                size_t iterations_cnt = m_param_data.impf_iterations_cnt;
-                size_t max_iterations_cnt = m_param_data.cnv_cnt / 2;
-                
-                if (iterations_cnt == 0 || iterations_cnt > max_iterations_cnt) {
-                  iterations_cnt = max_iterations_cnt;
-                }
-                adc_value_t impf = 0.0;
-                for (size_t i = 0; i < iterations_cnt; i++) {
-                  impf = calc_impf(&m_value_deque/*, &impf_test_data*/);
-                  /*if (m_test_impf) {
-                    show_impf_test_data(&m_value_deque, &impf_test_data, i, 
-                      m_result_data.impf);
-                  }*/
-                }
-                m_fast_sko.add(impf);
-                m_test_impf = false;
-              } else {
-                m_fast_sko.add(adc_non_normalized_value);
-              }
-              break;
-            }
-            case impf_mk: {
-              m_imp_filt.add(adc_non_normalized_value);
-              if (!m_need_prefilling) {
-                m_fast_sko.add(m_imp_filt.get());
-              } else {
-                m_fast_sko.add(adc_non_normalized_value);
-              }
-              break;
-            }
-          }
-          
-          m_result_data.sko = m_fast_sko / pow(2.0, 24);//max_non_normolized_value();
-          m_result_data.avg = normalize_value(m_fast_sko.average());
-          m_result_data.unnormalized_value = m_fast_sko.average() - pow(2.0, 23);
-          m_result_data.current_point = m_cont_index + 1;
-         
-          show_points(m_show_points, adc_value);
-          show_point_symbol(m_show);
-          
           m_index++;
-          m_cont_index++;
-          
-          if (m_index >= m_param_data.cnv_cnt) {
-            //m_index = 0;
-            switch (m_param_data.cont_mode) {
-              case cont_mode_none: {
-                m_need_stop = true;
-                if (m_show) {
-                  irs::mlog() << irsm("Stop NONE cont index = ");
-                  irs::mlog() << m_cont_index << endl;
-                }
-                break;
-              }
-              case cont_mode_cnt: {
-                if (m_cont_index >= m_param_data.cont_cnv_cnt) {
-                  if (m_show) {
-                    irs::mlog() << irsm("Stop CNT cont index = ");
-                    irs::mlog() << m_cont_index << endl;
-                  }
-                  m_need_stop = true;
-                }
-                break;
-              }
-              case cont_mode_sko: {
-                if (m_result_data.sko <= m_param_data.cont_sko) {
-                  if (m_show) {
-                    irs::mlog() << irsm("Stop SKO cont index = ");
-                    irs::mlog() << m_cont_index;
-                    irs::mlog() << irsm(" sko = ") << m_result_data.sko << endl;
-                  }
-                  m_need_stop = true;
-                }
-                if (m_cont_index >= m_param_data.cont_cnv_cnt) {
-                  if (m_show) {
-                    irs::mlog() << irsm("Stop SKO cont index = ");
-                    irs::mlog() << m_cont_index << endl;
-                  }
-                  m_need_stop = true;
-                }
-                break;
-              }
-            }
-            if (m_need_reconfigure) {
-              m_need_stop = true;
-              m_valid_frequency = false;
-              if (m_show) {
-                irs::mlog() << endl;
-              }
-            }
+          if (abs(adc_value) > m_max_value) {
+            m_result_data.saturated = true;
           } else {
-            if (abs(m_result_data.avg) > m_max_value) {
-              if (m_show) {
-                irs::mlog() << irsm("Stop Overvoltage") << endl;
-              }
-              m_need_stop = true;
-            }
+            m_result_data.saturated = false;
           }
-          
-          m_new_result = true;
-        }
-        if (m_need_stop) {
-          //irs::mlog() << irsm("-------------------") << endl;
-          //irs::mlog() << m_result_data.avg << endl;
+          if (m_need_reconfigure) {
+            m_need_stop = true;
+            m_valid_frequency = false;
+          }
+        } else {
+          if (m_adc_filter_ready) {
+            if (m_param_data.impf_type != impf_none) {
+              if (m_value_deque.size() >= m_param_data.cnv_cnt) {
+                m_value_deque.pop_front();
+              }
+              m_value_deque.push_back(adc_non_normalized_value);
+            }
+            
+            if (m_index >= (m_param_data.cnv_cnt - 1)) {
+              m_need_prefilling = false;
+            }
+            
+            if (m_index > 0) {
+              m_valid_frequency = true;
+            }
+            
+            
+            switch (m_param_data.impf_type) {
+              case impf_none: {
+                m_fast_sko.add(adc_non_normalized_value);
+                //m_static_sko.add(adc_raw_value);
+                break;
+              }
+              case impf_mp: {
+                if (!m_need_prefilling) {
+                  size_t iterations_cnt = m_param_data.impf_iterations_cnt;
+                  size_t max_iterations_cnt = m_param_data.cnv_cnt / 2;
+                  
+                  if (iterations_cnt == 0 || iterations_cnt > max_iterations_cnt) {
+                    iterations_cnt = max_iterations_cnt;
+                  }
+                  adc_value_t impf = 0.0;
+                  for (size_t i = 0; i < iterations_cnt; i++) {
+                    impf = calc_impf(&m_value_deque/*, &impf_test_data*/);
+                    /*if (m_test_impf) {
+                      show_impf_test_data(&m_value_deque, &impf_test_data, i, 
+                        m_result_data.impf);
+                    }*/
+                  }
+                  m_fast_sko.add(impf);
+                  //m_static_sko.add(impf);
+                  m_test_impf = false;
+                } else {
+                  m_fast_sko.add(adc_non_normalized_value);
+                }
+                break;
+              }
+              case impf_mk: {
+                m_imp_filt.add(adc_non_normalized_value);
+                if (!m_need_prefilling) {
+                  m_fast_sko.add(m_imp_filt.get());
+                  //m_static_sko.add(m_imp_filt.get());
+                } else {
+                  m_fast_sko.add(adc_non_normalized_value);
+                  //m_static_sko.add(adc_non_normalized_value);
+                }
+                break;
+              }
+            }
+            
+            m_result_data.sko = m_fast_sko / pow(2.0, 24);//max_non_normolized_value();
+            m_result_data.avg = normalize_value(m_fast_sko.average());
+            //m_result_data.avg = normalize_value(m_static_sko.average());
+            //m_result_data.sko = m_static_sko.sko() / pow(2.0, 24);
+            
+            m_result_data.unnormalized_value = m_fast_sko.average() - pow(2.0, 23);
+            m_result_data.current_point = m_cont_index + 1;
+            //m_result_data.alternative_avg = normalize_value(m_static_sko.average());
+            //m_result_data.alternative_sko = m_static_sko.sko() / pow(2.0, 24);
+                        
+            if (abs(m_result_data.avg) > m_max_value) {
+              m_result_data.saturated = true;
+            }
+           
+            show_points(m_show_points, adc_value);
+            show_point_symbol(m_show);
+            
+            m_index++;
+            m_cont_index++;
+            
+            if (m_index >= m_param_data.cnv_cnt) {
+              //m_index = 0;
+              switch (m_param_data.cont_mode) {
+                case cont_mode_none: {
+                  m_need_stop = true;
+                  if (m_show) {
+                    irs::mlog() << irsm("Stop NONE cont index = ");
+                    irs::mlog() << m_cont_index << endl;
+                  }
+                  break;
+                }
+                case cont_mode_cnt: {
+                  if (m_cont_index >= m_param_data.cont_cnv_cnt) {
+                    if (m_show) {
+                      irs::mlog() << irsm("Stop CNT cont index = ");
+                      irs::mlog() << m_cont_index << endl;
+                    }
+                    m_need_stop = true;
+                  }
+                  break;
+                }
+                case cont_mode_sko: {
+                  if (m_result_data.sko <= m_param_data.cont_sko) {
+                    if (m_show) {
+                      irs::mlog() << irsm("Stop SKO cont index = ");
+                      irs::mlog() << m_cont_index;
+                      irs::mlog() << irsm(" sko = ") << m_result_data.sko << endl;
+                    }
+                    m_need_stop = true;
+                  }
+                  if (m_cont_index >= m_param_data.cont_cnv_cnt) {
+                    if (m_show) {
+                      irs::mlog() << irsm("Stop SKO cont index = ");
+                      irs::mlog() << m_cont_index << endl;
+                    }
+                    m_need_stop = true;
+                  }
+                  break;
+                }
+                case cont_mode_inf: {
+                  break;
+                }
+                default: {
+                  m_need_stop = true;
+                  if (m_show) {
+                    irs::mlog() << irsm("Stop DEFAULT cont index = ");
+                    irs::mlog() << m_cont_index << endl;
+                  }
+                }
+              }
+              if (m_need_reconfigure) {
+                m_need_stop = true;
+                m_valid_frequency = false;
+                if (m_show) {
+                  irs::mlog() << endl;
+                }
+              }
+            } else {
+              if (abs(m_result_data.avg) > m_max_value) {
+                if (m_show) {
+                  irs::mlog() << irsm("Stop Overvoltage") << endl;
+                }
+                m_result_data.saturated = true;
+                m_need_stop = true;
+              }
+            }
+            
+            m_new_result = true;
+          }
         }
         m_status = st_cread;
         
@@ -1391,7 +1499,7 @@ void hrm::ad7799_cread_t::tick()
       if (mp_spi->get_status() == irs::spi_t::FREE) {
         mp_cs_pin->set();
         mp_spi->unlock();
-        if (m_need_reconfigure) {
+        if (/*m_need_reconfigure*/false) {
           m_status = st_reconfigure;
         } else {
           m_return_status = irs_st_ready;
@@ -1424,19 +1532,26 @@ void hrm::ad7799_cread_t::set_params(adc_param_data_t* ap_param_data)
   m_need_reconfigure = true;
 }
 
-void hrm::ad7799_cread_t::get_params(adc_param_data_t* ap_param_data)
+void hrm::ad7799_cread_t::get_params(adc_param_data_t* ap_param_data, 
+  bool a_actual)
 {
-  ap_param_data->gain = m_param_data.gain;
-  ap_param_data->filter = m_param_data.filter;
-  ap_param_data->channel = m_param_data.channel;
-  ap_param_data->cnv_cnt = m_param_data.cnv_cnt;
-  ap_param_data->additional_gain = m_param_data.additional_gain;
-  ap_param_data->ref = m_param_data.ref;
-  ap_param_data->cont_cnv_cnt = m_param_data.cont_cnv_cnt;
-  ap_param_data->impf_iterations_cnt = m_param_data.impf_iterations_cnt;
-  ap_param_data->impf_type = m_param_data.impf_type;
-  ap_param_data->cont_mode = m_param_data.cont_mode;
-  ap_param_data->cont_sko = m_param_data.cont_sko;
+  adc_param_data_t* p_param_data;
+  if (a_actual) {
+    p_param_data = &m_param_data;
+  } else {
+    p_param_data = &m_user_param_data;
+  }
+  ap_param_data->gain = p_param_data->gain;
+  ap_param_data->filter = p_param_data->filter;
+  ap_param_data->channel = p_param_data->channel;
+  ap_param_data->cnv_cnt = p_param_data->cnv_cnt;
+  ap_param_data->additional_gain = p_param_data->additional_gain;
+  ap_param_data->ref = p_param_data->ref;
+  ap_param_data->cont_cnv_cnt = p_param_data->cont_cnv_cnt;
+  ap_param_data->impf_iterations_cnt = p_param_data->impf_iterations_cnt;
+  ap_param_data->impf_type = p_param_data->impf_type;
+  ap_param_data->cont_mode = p_param_data->cont_mode;
+  ap_param_data->cont_sko = p_param_data->cont_sko;
 }
 
 hrm::adc_value_t hrm::ad7799_cread_t::calc_impf(
@@ -1530,6 +1645,8 @@ void hrm::ad7799_cread_t::show_param_data(bool a_show,
   adc_param_data_t* ap_param_data)
 {
   if (a_show) {
+    irs::mlog() << irsm("---------------------------------") << endl;
+    irs::mlog() << defaultfloat << fixed;
     irs::mlog() << irsm("Gain          = ");
     irs::mlog() << static_cast<irs_u32>(ap_param_data->gain);
     irs::mlog() << endl;
@@ -1567,12 +1684,14 @@ void hrm::ad7799_cread_t::show_param_data(bool a_show,
     switch (ap_param_data->cont_mode) {
       case cont_mode_cnt: irs::mlog() << irsm("CNT"); break;
       case cont_mode_sko: irs::mlog() << irsm("SKO"); break;
+      case cont_mode_inf: irs::mlog() << irsm("INF"); break;
       default: irs::mlog() << irsm("None");
     }
     irs::mlog() << endl;
     
+    irs::mlog() << setprecision(2);
     irs::mlog() << irsm("Cont sko      = ");
-    irs::mlog() << ap_param_data->cont_sko;
+    irs::mlog() << ap_param_data->cont_sko * 1.0e6;
     irs::mlog() << endl;
   }
 }
@@ -1707,6 +1826,10 @@ void hrm::ad7799_cread_t::result(adc_result_data_t* ap_result_data)
   ap_result_data->point_time = m_result_data.point_time;
   ap_result_data->current_point = m_result_data.current_point;
   ap_result_data->unnormalized_value = m_result_data.unnormalized_value;
+  ap_result_data->unfiltered_value = m_result_data.unfiltered_value;
+  ap_result_data->saturated = m_result_data.saturated;
+  ap_result_data->alternative_avg = m_result_data.alternative_avg;
+  ap_result_data->alternative_sko = m_result_data.alternative_sko;
 }
 
 void hrm::ad7799_cread_t::set_max_value(adc_value_t a_max_value) 
@@ -1743,6 +1866,7 @@ hrm::cont_mode_t hrm::convert_to_cont_mode(irs_u8 a_value)
   switch (a_value) {
     case 1: cont_mode = cont_mode_cnt; break;
     case 2: cont_mode = cont_mode_sko; break;
+    case 3: cont_mode = cont_mode_inf; break;
     default: cont_mode = cont_mode_none;
   }
   return cont_mode;
@@ -1754,6 +1878,7 @@ irs_u8 hrm::convert_from_cont_mode(hrm::cont_mode_t a_value)
   switch (a_value) {
     case cont_mode_cnt: cont_mode = 1; break;
     case cont_mode_sko: cont_mode = 2; break;
+    case cont_mode_inf: cont_mode = 3; break;
     default: cont_mode = 0;
   }
   return cont_mode;
@@ -2606,4 +2731,259 @@ void hrm::sync_treg_parameters_t::sync()
   if (*mp_eth_treg_polarity_pin_bit_data != *mp_ee_treg_polarity_pin_bit_data) {
     *mp_ee_treg_polarity_pin_bit_data = *mp_eth_treg_polarity_pin_bit_data;
   }
+}
+
+void hrm::show_dac_adc(show_dac_adc_data_t& a_data)
+{
+  irs::mlog() << defaultfloat << fixed;
+  irs::mlog() << setw(2) << a_data.iteration << irsm(" : ");
+  irs::mlog() << setprecision(0);
+  irs::mlog() << setw(8) << a_data.dac_code << irsm(" : ");
+  irs::mlog() << setw(8) << a_data.dac_step << irsm(" : ");
+  irs::mlog() << setprecision(7);
+  irs::mlog() << setw(12) << a_data.adc << irsm(" : ");
+  irs::mlog() << setprecision(3);
+  irs::mlog() << setw(8) << a_data.sko << irsm(" ppm : ");
+  irs::mlog() << a_data.cnt;
+  irs::mlog() << endl;
+}
+
+void hrm::show_pid(show_pid_data_t& a_data)
+{
+  irs::mlog() << defaultfloat << fixed;
+  irs::mlog() << setw(5) << a_data.iteration << irsm(" : ");
+  irs::mlog() << setprecision(0);
+  irs::mlog() << setw(7) << a_data.dac_code << irsm(" : ");
+  irs::mlog() << setprecision(2);
+  irs::mlog() << setw(10) << a_data.dac << irsm(" : ");
+  irs::mlog() << setw(10) << a_data.dac_avg << irsm(" : ");
+  irs::mlog() << setprecision(7);
+  irs::mlog() << setw(12) << a_data.adc << irsm(" : ");
+  irs::mlog() << setprecision(3);
+  irs::mlog() << setw(8) << a_data.adc_sko << irsm(" ppm : ");
+  irs::mlog() << setw(4) << a_data.adc_cnt << irsm(" : ");
+  irs::mlog() << setw(8) << a_data.dac_sko << irsm(" Ø : ");
+  irs::mlog() << setw(2) << a_data.dac_sko_ready;
+  irs::mlog() << endl;
+}
+
+hrm::dac_value_t hrm::calc_initial_dac_code(dac_value_t a_etalon, 
+  dac_value_t a_checked)
+{
+  dac_value_t result = 0.0;
+  if ((a_etalon > 0.0) && (a_checked > 0.0)) {
+    const dac_value_t min = -pow(2.0, 19);
+    const dac_value_t max = pow(2.0, 19) - 1.0;
+    dac_value_t rel = 1.0 / (1.0 + (a_etalon / a_checked));
+    result = (max - min) * rel + min;
+  }
+  return round(result);
+}
+
+irs_u8 hrm::pid_ready_condition_to_u8(hrm::pid_ready_condition_t a_condition)
+{
+  irs_u8 result = 1;
+  switch (a_condition) {
+    case prc_dac_sko: result = 1; break;
+    case prc_adc_sko: result = 2; break;
+    case prc_adc_value: result = 4; break;
+    case prc_dac_adc_sko: result = 5; break;
+    case prc_dac_adc_value: result = 8; break;
+    case prc_dac_adc_sko_value: result = 9; break;
+  };
+  return result;
+}
+
+irs_u32 hrm::pid_ready_condition_to_u32(hrm::pid_ready_condition_t a_condition)
+{
+  return static_cast<irs_u32>(pid_ready_condition_to_u8(a_condition));
+}
+
+hrm::pid_ready_condition_t hrm::u8_to_pid_ready_condition(irs_u8 a_condition)
+{
+  pid_ready_condition_t result = prc_dac_sko;
+  switch (a_condition) {
+    case 1: result = prc_dac_sko; break;
+    case 2: result = prc_adc_sko; break;
+    case 4: result = prc_adc_value; break;
+    case 5: result = prc_dac_adc_sko; break;
+    case 8: result = prc_dac_adc_value; break;
+    case 9: result = prc_dac_adc_sko_value; break;
+  };
+  return result;
+}
+
+hrm::pid_ready_condition_t hrm::apply_pid_ready_condition(irs_u8 a_condition)
+{
+  pid_ready_condition_t condition = prc_dac_sko;
+  irs::mlog() << irsm("Ãîòîâíîñòü ðåãóëÿòîðà ïî ");
+  switch (a_condition) {
+    case prc_dac_sko: {
+      condition = u8_to_pid_ready_condition(a_condition);
+      irs::mlog() << irsm("ÑÊÎ ÖÀÏ (");
+      irs::mlog() << pid_ready_condition_to_u32(condition);
+      irs::mlog() << irsm(")") << endl;
+      break;
+    }
+    case prc_adc_sko: {
+      condition = u8_to_pid_ready_condition(a_condition);
+      irs::mlog() << irsm("ÑÊÎ ÀÖÏ (");
+      irs::mlog() << pid_ready_condition_to_u32(condition);
+      irs::mlog() << irsm(")") << endl;
+      break;
+    }
+    case prc_adc_value: {
+      condition = u8_to_pid_ready_condition(a_condition);
+      irs::mlog() << irsm("|ÀÖÏ| (");
+      irs::mlog() << pid_ready_condition_to_u32(condition);
+      irs::mlog() << irsm(")") << endl;
+      break;
+    }
+    case prc_dac_adc_sko: {
+      condition = u8_to_pid_ready_condition(a_condition);
+      irs::mlog() << irsm("ÑÊÎ ÖÀÏ è ÑÊÎ ÀÖÏ (");
+      irs::mlog() << pid_ready_condition_to_u32(condition);
+      irs::mlog() << irsm(")") << endl;
+      break;
+    }
+    case prc_dac_adc_value: {
+      condition = u8_to_pid_ready_condition(a_condition);
+      irs::mlog() << irsm("ÑÊÎ ÖÀÏ è ÀÖÏ (");
+      irs::mlog() << pid_ready_condition_to_u32(condition);
+      irs::mlog() << irsm(")") << endl;
+      break;
+    }
+    case prc_dac_adc_sko_value: {
+      condition = u8_to_pid_ready_condition(a_condition);
+      irs::mlog() << irsm("ÑÊÎ ÖÀÏ, ÑÊÎ ÀÖÏ è çíà÷åíèå ÀÖÏ (");
+      irs::mlog() << pid_ready_condition_to_u32(condition);
+      irs::mlog() << irsm(")") << endl;
+      break;
+    }
+    default: {
+      irs::mlog() << irsm("ÑÊÎ ÖÀÏ (");
+      irs::mlog() << pid_ready_condition_to_u32(condition);
+      irs::mlog() << irsm("), ïî óìîë÷àíèþ") << endl;
+    }
+  }
+  return condition;
+}
+
+bool hrm::pid_ready(hrm::pid_ready_data_t* ap_pid_ready_data)
+{
+  bool ready = false;
+  bool ready_dac_sko = 
+    (ap_pid_ready_data->dac_sko < ap_pid_ready_data->dac_target_sko);
+  bool ready_adc_sko = 
+    (ap_pid_ready_data->adc_sko < ap_pid_ready_data->adc_target_sko);
+  bool ready_adc_value = 
+    (abs(ap_pid_ready_data->adc_value) 
+     < ap_pid_ready_data->adc_target_value_accuracy);
+  
+  if (ap_pid_ready_data->prepare_pause_completed) {
+    if (ap_pid_ready_data->is_overtime == false) {
+      switch (ap_pid_ready_data->pid_ready_condition) {
+        case prc_dac_sko: {
+          if (ready_dac_sko && ap_pid_ready_data->dac_sko_ready) {
+            irs::mlog() << irsm("Ðåãóëÿòîð ãîòîâ: ÑÊÎ ÖÀÏ ") << setprecision(2);
+            irs::mlog() << ap_pid_ready_data->dac_sko;
+            irs::mlog() << irsm(" < ");
+            irs::mlog() << ap_pid_ready_data->dac_target_sko;
+            irs::mlog() << endl;
+            ready = true;
+          }
+          break;
+        }
+        case prc_adc_sko: {
+          if (ready_adc_sko && ap_pid_ready_data->dac_sko_ready) {
+            irs::mlog() << irsm("Ðåãóëÿòîð ãîòîâ: ÑÊÎ ÀÖÏ ") << setprecision(2);
+            irs::mlog() << ap_pid_ready_data->adc_sko;
+            irs::mlog() << irsm(" ppm < ");
+            irs::mlog() << (ap_pid_ready_data->adc_target_sko * 1.0e6);
+            irs::mlog() << irsm(" ppm") << endl;
+            ready = true;
+          }
+          break;
+        }
+        case prc_adc_value: {
+          if (ready_adc_value && ap_pid_ready_data->dac_sko_ready) {
+            irs::mlog() << irsm("Ðåãóëÿòîð ãîòîâ: |ÀÖÏ| ") << setprecision(7);
+            irs::mlog() << abs(ap_pid_ready_data->adc_value);
+            irs::mlog() << irsm(" Â < ");
+            irs::mlog() << abs(ap_pid_ready_data->adc_target_value_accuracy);
+            irs::mlog() << irsm(" Â") << endl;
+            ready = true;
+          }
+          break;
+        }
+        case prc_dac_adc_sko: {
+          if (ready_dac_sko && ready_adc_sko && ap_pid_ready_data->dac_sko_ready) {
+            irs::mlog() << irsm("Ðåãóëÿòîð ãîòîâ: ÑÊÎ ÖÀÏ ") << setprecision(2);
+            irs::mlog() << ap_pid_ready_data->dac_sko;
+            irs::mlog() << irsm(" < ");
+            irs::mlog() << ap_pid_ready_data->dac_target_sko;
+            irs::mlog() << irsm("; ÑÊÎ ÀÖÏ ");
+            irs::mlog() << (ap_pid_ready_data->adc_sko * 1.0e6);
+            irs::mlog() << irsm(" ppm < ");
+            irs::mlog() << (ap_pid_ready_data->adc_target_sko * 1.0e6);
+            irs::mlog() << irsm(" ppm") << endl;
+            ready = true;
+          }
+          break;
+        }
+        case prc_dac_adc_value: {
+          if (ready_dac_sko && ready_adc_value 
+              && ap_pid_ready_data->dac_sko_ready) {
+            irs::mlog() << irsm("Ðåãóëÿòîð ãîòîâ: ÑÊÎ ÖÀÏ ") << setprecision(2);
+            irs::mlog() << ap_pid_ready_data->dac_sko;
+            irs::mlog() << irsm(" < ");
+            irs::mlog() << ap_pid_ready_data->dac_target_sko;
+            irs::mlog() << irsm("; |ÀÖÏ| ") << setprecision(7);
+            irs::mlog() << abs(ap_pid_ready_data->adc_value);
+            irs::mlog() << irsm(" Â < ");
+            irs::mlog() << abs(ap_pid_ready_data->adc_target_value_accuracy);
+            irs::mlog() << irsm(" Â; ÑÊÎ ÀÖÏ ") << setprecision(2);
+            irs::mlog() << (ap_pid_ready_data->adc_target_sko * 1.0e6);
+            irs::mlog() << irsm(" ppm") << endl;
+            ready = true;
+          }
+          break;
+        }
+        case prc_dac_adc_sko_value: {
+          if (ready_dac_sko && ready_adc_sko && ready_adc_value 
+              && ap_pid_ready_data->dac_sko_ready) {
+            irs::mlog() << irsm("Ðåãóëÿòîð ãîòîâ: ÑÊÎ ÖÀÏ ") << setprecision(2);
+            irs::mlog() << ap_pid_ready_data->dac_sko;
+            irs::mlog() << irsm(" < ");
+            irs::mlog() << ap_pid_ready_data->dac_target_sko;
+            irs::mlog() << irsm("; |ÀÖÏ| ") << setprecision(7);
+            irs::mlog() << abs(ap_pid_ready_data->adc_value);
+            irs::mlog() << irsm(" Â < ");
+            irs::mlog() << abs(ap_pid_ready_data->adc_target_value_accuracy);
+            irs::mlog() << irsm(" Â; ÑÊÎ ÀÖÏ ") << setprecision(2);
+            irs::mlog() << (ap_pid_ready_data->adc_sko * 1.0e6);
+            irs::mlog() << irsm(" ppm < ");
+            irs::mlog() << (ap_pid_ready_data->adc_target_sko * 1.0e6);
+            irs::mlog() << irsm(" ppm") << endl;
+            ready = true;
+          }
+          break;
+        }
+        default: {
+          if (ready_dac_sko && ap_pid_ready_data->dac_sko_ready) {
+            irs::mlog() << irsm("Ðåãóëÿòîð ãîòîâ: ÑÊÎ ÖÀÏ ");
+            irs::mlog() << ap_pid_ready_data->dac_sko;
+            irs::mlog() << irsm(" < ");
+            irs::mlog() << ap_pid_ready_data->dac_target_sko;
+            irs::mlog() << endl;
+            ready = true;
+          }
+        }
+      };
+    } else {
+      irs::mlog() << irsm("Ðåãóëÿòîð: òàéìàóò") << endl;
+      ready = true;
+    }
+  }
+  return ready;
 }

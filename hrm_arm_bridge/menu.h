@@ -161,19 +161,19 @@ private:
   irs_menu_string_item_t m_hint_item;
 
   double m_prepare_pause_value;
-  irs_menu_double_item_t m_prepare_pause_item;
+  irs_menu_spin_item_t m_prepare_pause_item;
   mxfact_event_t m_prepare_pause_event;
   
   double m_r_checked_prev;
-  irs_menu_double_item_t m_r_checked_prev_item;
+  irs_menu_spin_item_t m_r_checked_prev_item;
   mxfact_event_t m_r_checked_prev_event;
   
   double m_r_standard;
-  irs_menu_double_item_t m_r_standard_item;
+  irs_menu_spin_item_t m_r_standard_item;
   mxfact_event_t m_r_standard_changed_event;
 
   double m_r_checked;
-  irs_menu_double_item_t m_r_checked_item;
+  irs_menu_spin_item_t m_r_checked_item;
   mxfact_event_t m_r_checked_changed_event;
 
   static const irs_u8 m_user_str_len = 30;
