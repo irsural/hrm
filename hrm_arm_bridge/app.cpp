@@ -26,6 +26,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   m_mxnet_server(
     mp_cfg->connector_hardflow,
     m_eth_data.connect(&m_mxnet_server, 0)/sizeof(irs_u32)),
+  m_show_network_params(true),
   m_eeprom(&mp_cfg->spi_aux, &mp_cfg->ee_cs, 4096, true, 0, 64,
     irs::make_cnt_s(1)),
   m_eeprom_data(&m_eeprom),
@@ -360,8 +361,6 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
 
   mp_cfg->network_config.set(ip, mask, gateway, dhcp_enabled);
 
-  show_network_params_t show_network_params(&mp_cfg->network_config);
-
   irs::mlog() << setprecision(8);
 
   m_exp_cnt = m_eeprom_data.exp_cnt;
@@ -608,6 +607,18 @@ void hrm::app_t::tick()
   m_eeprom.tick();
   m_raw_dac.tick();
   m_dac.tick();
+  
+  if (m_show_network_params) {
+    mxip_t ip = mxip_t::zero_ip();
+    mxip_t mask = mxip_t::zero_ip();
+    mxip_t gateway = mxip_t::zero_ip();
+    bool dhcp_enabled = false;
+    mp_cfg->network_config.get(&ip, &mask, &gateway, &dhcp_enabled);
+    if (ip.val[0] != 0 || ip.val[1] != 0 || ip.val[2] != 0 || ip.val[3] != 0) {
+      m_show_network_params = false;
+      show_network_params_t show_network_params(&mp_cfg->network_config);
+    }
+  }
   
   for (size_t i = 0; i < 10; i++) {
     m_adc.tick();

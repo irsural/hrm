@@ -365,6 +365,7 @@ private:
   irs::event_t m_escape_pressed_event;
   
   irs::mxnet_t m_mxnet_server;
+  bool m_show_network_params;
 
   irs::eeprom_at25128_data_t m_eeprom;
   eeprom_data_t m_eeprom_data;
