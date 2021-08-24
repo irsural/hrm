@@ -88,7 +88,7 @@ private:
     bs_termostat_off_adc_start,
     bs_adc_start,
     bs_adc_wait,
-    bs_adc_average,
+    //bs_adc_average,
     bs_balance,
     bs_dac_set,
     bs_termostat_off_dac_wait,
@@ -124,9 +124,9 @@ private:
     ms_pid_start,
     ms_pid_process,
     ms_pid_reset,
-    ms_pid_reset_wait,
-    ms_adc_continious_start,
-    ms_adc_continious
+    ms_pid_reset_wait
+    //ms_adc_continious_start,
+    //ms_adc_continious
   };
   enum scan_status_t {
     ss_prepare,

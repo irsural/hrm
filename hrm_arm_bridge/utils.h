@@ -655,7 +655,7 @@ private:
   adc_result_data_t m_result_data;
   adc_param_data_t m_param_data;
   adc_param_data_t m_user_param_data;
-  u309m::filt_imp_noise_t m_imp_filt;
+  irs::filt_imp_noise_t m_imp_filt;
   adc_value_t m_max_value;
   void event();
   inline adc_value_t convert_value(irs_i32 a_in_value)

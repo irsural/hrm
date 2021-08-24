@@ -5380,6 +5380,10 @@ void hrm::app_t::remaining_time_calculator_t::secund_tick()
 {
   //irs::mlog() << irsm("rem = ") << m_remaining_time;
   switch (m_balance_action) {
+    case ba_idle: {
+      //
+      break;
+    }
     case ba_prepare: {
       m_remaining_time = irs::bound<irs_u32>(m_remaining_time - 1,
         0, m_remaining_time);
@@ -5460,6 +5464,10 @@ void hrm::app_t::remaining_time_calculator_t::change_balance_action(
 {
   m_balance_action = a_balance_action;
   switch (m_balance_action) {
+    case ba_idle: {
+      //
+      break;
+    }
     case ba_prepare: {
       //
       break;

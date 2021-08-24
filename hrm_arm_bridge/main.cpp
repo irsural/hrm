@@ -12,9 +12,9 @@
 #include <irsfinal.h>
 
 enum { 
-  hardware_rev = 3,
-  software_rev = 102,
-  mxsrclib_rev = 1361,
+  hardware_rev = 4,
+  software_rev = 103,
+  mxsrclib_rev = 1451,
   extern_libs_rev = 26
 };
 

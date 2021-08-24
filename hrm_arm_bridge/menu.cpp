@@ -282,6 +282,8 @@ void hrm::experiment_options_dialog_t::menu_check()
       case irskey_backspace: {
         set_command(command_show_options);
       } break;
+      default: {
+      } break;
     }
   }
 }
@@ -342,6 +344,8 @@ void hrm::experiment_progress_t::menu_check()
       case irskey_escape: {
         set_command(command_show_confirmation_stop_experiment);
       } break;
+      default: {
+      } break;
     }
   }
   if (m_update_items.check()) {
@@ -372,6 +376,8 @@ void hrm::experiment_progress_t::menu_check()
         m_mode_item.set_parametr_string("Уточнение +"); 
         break;
       }
+      default: {
+      } break;
     }
     update_progress();
   }
@@ -498,6 +504,8 @@ void hrm::experiment_result_t::menu_check()
       case irskey_1: {
         set_command(command_show_calculation_errors_dialog);
       } break;
+      default: {
+      } break;
     }
   }
 }
@@ -551,6 +559,8 @@ void hrm::confirmation_stop_experiment_t::menu_check()
       } break;
       case irskey_escape: {
         set_command(command_show_experiment_progress);
+      } break;
+      default: {
       } break;
     }
   }
@@ -694,6 +704,8 @@ void hrm::calculation_errors_dialog_t::menu_check()
       } break;
       case irskey_escape: {
         set_command(command_show_prev_form);
+      } break;
+      default: {
       } break;
     }
   }
@@ -1032,6 +1044,8 @@ void hrm::menu_t::check_commands()
     } break;
     case form_t::command_show_options: {
       show_options();
+    } break;
+    default: {
     } break;
   }
 }

@@ -1736,6 +1736,10 @@ void hrm::ad7799_cread_t::show_start_message(bool a_show,
         irs::mlog() << irsm(" ppm");
         break;
       }
+      case cont_mode_inf: {
+        irs::mlog() << irsm("INF");
+        break;
+      }
     }
     irs::mlog() << endl;
     irs::mlog() << irsm("Impf Iter. cnt: ");
