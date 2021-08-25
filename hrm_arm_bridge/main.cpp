@@ -17,12 +17,12 @@
 
 enum { 
   hardware_rev = 4,
-  software_rev = 104,
+  software_rev = 105,
   mxsrclib_rev = 1455,
   extern_libs_rev = 26
 };
 
-void app_start(hrm::cfg_t* ap_cfg, irs::lwipbuf* ap_buf, irs_u32 a_version);
+void app_start(hrm::cfg_t* ap_cfg, irs_u32 a_version);
 
 void main()
 {
@@ -52,28 +52,22 @@ void main()
 
   //static irs::arm::com_buf log_buf(1, 10, 115200);
   irs::loc();
-  static irs::lwipbuf log_buf;
-  irs::mlog().rdbuf(&log_buf);
-  volatile int x = MEMP_NUM_TCP_PCB_LISTEN;
-  irs::mlog() << endl;
-  irs::mlog() << endl;
-  irs::mlog() << irsm("--------- INITIALIZATION --------") << endl;
-  irs::mlog() << irsm("hardware rev. ") << hardware_rev << endl;
-  irs::mlog() << irsm("software rev. ") << software_rev << endl;
-  irs::mlog() << irsm("mxsrclib rev. ") << mxsrclib_rev << endl;
-  irs::mlog() << irsm("extern_libs rev. ") << extern_libs_rev << endl;
-  irs::mlog() << endl;
-
-  irs::pause(irs::make_cnt_s(1));
   
   static hrm::cfg_t cfg;
-  app_start(&cfg, &log_buf, software_rev);
+  
+  app_start(&cfg, software_rev);
 }
 
-void app_start(hrm::cfg_t* ap_cfg, irs::lwipbuf* ap_buf, irs_u32 a_version)
+void app_start(hrm::cfg_t* ap_cfg, irs_u32 a_version)
 {
   static hrm::app_t app(ap_cfg, a_version);
 
+  static irs::lwipbuf log_buf;
+  irs::mlog().rdbuf(&log_buf);
+
+  irs::pause(irs::make_cnt_s(1));
+  int c = 0;
+  
   irs::mlog() << irsm("------------- START -------------") << endl;
   while(true) {
     #ifdef HRM_DEBUG
@@ -85,9 +79,19 @@ void app_start(hrm::cfg_t* ap_cfg, irs::lwipbuf* ap_buf, irs_u32 a_version)
     tick_measure_time.start();
     #endif // HRM_DEBUG
     app.tick();
-    ap_buf->tick();
+    log_buf.tick();
     static irs::blink_t green_led_blink(GPIO_PORTD, 8, irs::make_cnt_ms(100));
     green_led_blink(); // Мигание зелёным светодиодом на плате arm
+    
+    irs::mlog() << endl;
+    irs::mlog() << endl;
+    irs::mlog() << irsm("--------- INITIALIZATION --------") << endl;
+    irs::mlog() << irsm("hardware rev. ") << hardware_rev << endl;
+    irs::mlog() << irsm("software rev. ") << software_rev << endl;
+    irs::mlog() << irsm("mxsrclib rev. ") << mxsrclib_rev << endl;
+    irs::mlog() << irsm("extern_libs rev. ") << extern_libs_rev << endl;
+    irs::mlog() << c++ << endl;
+    irs::mlog() << endl;
 
     #ifdef HRM_DEBUG
     count++;
