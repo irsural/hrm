@@ -1,3 +1,6 @@
+//#define MEMP_NUM_TCP_PCB                5
+
+
 #include <irsdefs.h>
 
 #include <irsstrm.h>
@@ -6,6 +9,7 @@
 #include <armcfg.h>
 #include <irserror.h>
 #include <irslocale.h>
+#include <irslwipbuf.h>
 
 #include "app.h"
 
@@ -13,12 +17,12 @@
 
 enum { 
   hardware_rev = 4,
-  software_rev = 103,
-  mxsrclib_rev = 1451,
+  software_rev = 104,
+  mxsrclib_rev = 1455,
   extern_libs_rev = 26
 };
 
-void app_start(hrm::cfg_t* ap_cfg, irs_u32 a_version);
+void app_start(hrm::cfg_t* ap_cfg, irs::lwipbuf* ap_buf, irs_u32 a_version);
 
 void main()
 {
@@ -46,9 +50,11 @@ void main()
 
   static hard_fault_event_t hard_fault_event(GPIO_PORTD, 9);  //  Red LED
 
-  static irs::arm::com_buf log_buf(1, 10, 115200);
+  //static irs::arm::com_buf log_buf(1, 10, 115200);
   irs::loc();
+  static irs::lwipbuf log_buf;
   irs::mlog().rdbuf(&log_buf);
+  volatile int x = MEMP_NUM_TCP_PCB_LISTEN;
   irs::mlog() << endl;
   irs::mlog() << endl;
   irs::mlog() << irsm("--------- INITIALIZATION --------") << endl;
@@ -61,10 +67,10 @@ void main()
   irs::pause(irs::make_cnt_s(1));
   
   static hrm::cfg_t cfg;
-  app_start(&cfg, software_rev);
+  app_start(&cfg, &log_buf, software_rev);
 }
 
-void app_start(hrm::cfg_t* ap_cfg, irs_u32 a_version)
+void app_start(hrm::cfg_t* ap_cfg, irs::lwipbuf* ap_buf, irs_u32 a_version)
 {
   static hrm::app_t app(ap_cfg, a_version);
 
@@ -79,6 +85,7 @@ void app_start(hrm::cfg_t* ap_cfg, irs_u32 a_version)
     tick_measure_time.start();
     #endif // HRM_DEBUG
     app.tick();
+    ap_buf->tick();
     static irs::blink_t green_led_blink(GPIO_PORTD, 8, irs::make_cnt_ms(100));
     green_led_blink(); // Мигание зелёным светодиодом на плате arm
 
