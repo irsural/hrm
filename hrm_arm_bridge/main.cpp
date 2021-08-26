@@ -12,17 +12,19 @@
 #include <irslwipbuf.h>
 
 #include "app.h"
+#include "irsmembuf.h"
 
 #include <irsfinal.h>
 
 enum { 
   hardware_rev = 4,
-  software_rev = 105,
+  software_rev = 106,
   mxsrclib_rev = 1455,
   extern_libs_rev = 26
 };
 
-void app_start(hrm::cfg_t* ap_cfg, irs_u32 a_version);
+void app_start(hrm::cfg_t* ap_cfg, hrm::version_t a_version, 
+  irs::membuf& a_buf);
 
 void main()
 {
@@ -49,26 +51,38 @@ void main()
   irs::pll_on(param_pll);
 
   static hard_fault_event_t hard_fault_event(GPIO_PORTD, 9);  //  Red LED
-
-  //static irs::arm::com_buf log_buf(1, 10, 115200);
   irs::loc();
+  
+  static irs::membuf mem_log_buf(2000);
+  irs::mlog().rdbuf(&mem_log_buf);
+  
+  irs::mlog() << endl;
+  irs::mlog() << endl;
+  irs::mlog() << irsm("--------- INITIALIZATION --------") << endl;
+  irs::mlog() << irsm("hardware rev. ") << hardware_rev << endl;
+  irs::mlog() << irsm("software rev. ") << software_rev << endl;
+  irs::mlog() << irsm("mxsrclib rev. ") << mxsrclib_rev << endl;
+  irs::mlog() << irsm("extern_libs rev. ") << extern_libs_rev << endl;
+  irs::mlog() << endl;
   
   static hrm::cfg_t cfg;
   
-  app_start(&cfg, software_rev);
+  hrm::version_t version;
+  version.hardware = hardware_rev;
+  version.software = software_rev;
+  version.mxsrclib = mxsrclib_rev;
+  version.extern_libs = extern_libs_rev;
+  
+  app_start(&cfg, version, mem_log_buf);
 }
 
-void app_start(hrm::cfg_t* ap_cfg, irs_u32 a_version)
-{
+void app_start(hrm::cfg_t* ap_cfg, hrm::version_t a_version, 
+  irs::membuf& a_buf)
+{ 
   static hrm::app_t app(ap_cfg, a_version);
 
   static irs::lwipbuf log_buf;
-  irs::mlog().rdbuf(&log_buf);
 
-  irs::pause(irs::make_cnt_s(1));
-  int c = 0;
-  
-  irs::mlog() << irsm("------------- START -------------") << endl;
   while(true) {
     #ifdef HRM_DEBUG
     static const counter_t period = irs::make_cnt_s(1);
@@ -78,21 +92,20 @@ void app_start(hrm::cfg_t* ap_cfg, irs_u32 a_version)
     static irs::measure_time_t tick_measure_time;
     tick_measure_time.start();
     #endif // HRM_DEBUG
+    
+    static bool lwipbuf_ready = false;
+    if (!lwipbuf_ready)
+    if (log_buf.is_any_connected()) {
+      lwipbuf_ready = true;
+      irs::mlog().rdbuf(&log_buf);
+      irs::mlog() << a_buf.get_buf();
+      irs::mlog().flush();
+    }
+      
     app.tick();
     log_buf.tick();
     static irs::blink_t green_led_blink(GPIO_PORTD, 8, irs::make_cnt_ms(100));
     green_led_blink(); // Мигание зелёным светодиодом на плате arm
-    
-    irs::mlog() << endl;
-    irs::mlog() << endl;
-    irs::mlog() << irsm("--------- INITIALIZATION --------") << endl;
-    irs::mlog() << irsm("hardware rev. ") << hardware_rev << endl;
-    irs::mlog() << irsm("software rev. ") << software_rev << endl;
-    irs::mlog() << irsm("mxsrclib rev. ") << mxsrclib_rev << endl;
-    irs::mlog() << irsm("extern_libs rev. ") << extern_libs_rev << endl;
-    irs::mlog() << c++ << endl;
-    irs::mlog() << endl;
-
     #ifdef HRM_DEBUG
     count++;
     tick_time += tick_measure_time.get();
