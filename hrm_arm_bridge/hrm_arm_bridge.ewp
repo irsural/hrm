@@ -229,6 +229,7 @@
                     <state>STM32F40_41xxx</state>
                     <state>USE_LWIP</state>
                     <state>IRS_USE_LWIP_PROJECT_CONFIGURATION=1</state>
+                    <state>IRS_USE_UTF8_CPP=1</state>
                 </option>
                 <option>
                     <name>CCPreprocFile</name>
@@ -268,7 +269,7 @@
                 </option>
                 <option>
                     <name>CCDiagSuppress</name>
-                    <state>Pe068, Pe193, Pa039, Pa050, Pe261, Pe340, Pa091, Pa089, Go005, Pa137, Pe2330</state>
+                    <state>Pa039, Pe261, Pe340, Pa050, Pa091, Pa089, Go005, Pe193, Pa137, Pe826, Pe237, Pe2349, Pe1873, Pe068, Pa109, Pe2330</state>
                 </option>
                 <option>
                     <name>CCDiagRemark</name>
@@ -365,6 +366,7 @@
                     <state>$PROJ_DIR$\..\..\extern_libs\lwip\ports\STM32F2x7\</state>
                     <state>$PROJ_DIR$\..\..\extern_libs\lwip\src\include\ipv4\</state>
                     <state>$PROJ_DIR$\..\..\mxsrclib\utils\libconfig</state>
+                    <state>$PROJ_DIR$\..\..\extern_libs\utf8cpp\source</state>
                 </option>
                 <option>
                     <name>CCStdIncCheck</name>
@@ -1020,7 +1022,7 @@
                 </option>
                 <option>
                     <name>IlinkTrustzoneImportLibraryOut</name>
-                    <state>###Unitialized###</state>
+                    <state>hrm_arm_bridge_import_lib.o</state>
                 </option>
                 <option>
                     <name>OILinkExtraOption</name>
@@ -2908,6 +2910,9 @@
     </file>
     <file>
         <name>$PROJ_DIR$\..\hrm_general\hrm_bridge_data.h</name>
+    </file>
+    <file>
+        <name>$PROJ_DIR$\irsmembuf.h</name>
     </file>
     <file>
         <name>$PROJ_DIR$\main.cpp</name>

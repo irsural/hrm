@@ -35,7 +35,7 @@ public:
 class app_t
 {
 public:
-  app_t(cfg_t* ap_cfg, irs_u32 a_version);
+  app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready = 0);
   void tick();
 
 private:
@@ -343,8 +343,9 @@ private:
 
   cfg_t* mp_cfg;
   eth_data_t m_eth_data;
+  bool* mp_buf_ready;
   
-  irs_u32 m_version;
+  version_t m_version;
   
   buzzer_t m_buzzer;
   

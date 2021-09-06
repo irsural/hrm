@@ -6,9 +6,10 @@
 
 #include <irsfinal.h>
 
-hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
+hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   mp_cfg(ap_cfg),
   m_eth_data(),
+  mp_buf_ready(ap_buf_ready),
   m_version(a_version),
   m_buzzer(&mp_cfg->buzzer),
   m_lcd_drv(irslcd_4x20, mp_cfg->lcd_port, mp_cfg->lcd_rs_pin,
@@ -582,7 +583,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, irs_u32 a_version):
   irs::mlog() << irsm("sizeof(adc_value_t) = ");
   irs::mlog() << sizeof(adc_value_t) << endl;
   //
-  m_eth_data.version_info = m_version;
+  m_eth_data.version_info = m_version.software;
   //
   m_eth_data.show_options = m_eeprom_data.show_options;
 }
@@ -616,7 +617,10 @@ void hrm::app_t::tick()
     mp_cfg->network_config.get(&ip, &mask, &gateway, &dhcp_enabled);
     if (ip.val[0] != 0 || ip.val[1] != 0 || ip.val[2] != 0 || ip.val[3] != 0) {
       m_show_network_params = false;
+      
       show_network_params_t show_network_params(&mp_cfg->network_config);
+      
+      m_buzzer.bzz();
     }
   }
   
@@ -983,8 +987,8 @@ void hrm::app_t::tick()
       show_last_result();
     }
     //  Version info
-    if (m_eth_data.version_info != m_version) {
-      m_eth_data.version_info = m_version;
+    if (m_eth_data.version_info != m_version.software) {
+      m_eth_data.version_info = m_version.software;
     }
     //  Show options
     if (m_eth_data.show_options != m_eeprom_data.show_options) {
