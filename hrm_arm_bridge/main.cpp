@@ -18,7 +18,7 @@
 
 enum { 
   hardware_rev = 4,
-  software_rev = 106,
+  software_rev = 107,
   mxsrclib_rev = 1455,
   extern_libs_rev = 26
 };
@@ -53,7 +53,7 @@ void main()
   static hard_fault_event_t hard_fault_event(GPIO_PORTD, 9);  //  Red LED
   irs::loc();
   
-  static irs::membuf mem_log_buf(2000);
+  static irs::membuf mem_log_buf;
   irs::mlog().rdbuf(&mem_log_buf);
   
   irs::mlog() << endl;
