@@ -11,6 +11,13 @@
 
 namespace hrm {
 
+struct version_t {
+  irs_u16 hardware;
+  irs_u16 software;
+  irs_u16 mxsrclib;
+  irs_u16 extern_libs;
+};
+
 enum mode_t {
   md_free = 0,
   md_manual = 1,

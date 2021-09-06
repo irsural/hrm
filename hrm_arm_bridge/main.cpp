@@ -1,3 +1,6 @@
+//#define MEMP_NUM_TCP_PCB                5
+
+
 #include <irsdefs.h>
 
 #include <irsstrm.h>
@@ -6,19 +9,22 @@
 #include <armcfg.h>
 #include <irserror.h>
 #include <irslocale.h>
+#include <irslwipbuf.h>
 
 #include "app.h"
+#include "irsmembuf.h"
 
 #include <irsfinal.h>
 
 enum { 
-  hardware_rev = 3,
-  software_rev = 102,
-  mxsrclib_rev = 1361,
+  hardware_rev = 4,
+  software_rev = 107,
+  mxsrclib_rev = 1455,
   extern_libs_rev = 26
 };
 
-void app_start(hrm::cfg_t* ap_cfg, irs_u32 a_version);
+void app_start(hrm::cfg_t* ap_cfg, hrm::version_t a_version, 
+  irs::membuf& a_buf);
 
 void main()
 {
@@ -45,10 +51,11 @@ void main()
   irs::pll_on(param_pll);
 
   static hard_fault_event_t hard_fault_event(GPIO_PORTD, 9);  //  Red LED
-
-  static irs::arm::com_buf log_buf(1, 10, 115200);
   irs::loc();
-  irs::mlog().rdbuf(&log_buf);
+  
+  static irs::membuf mem_log_buf;
+  irs::mlog().rdbuf(&mem_log_buf);
+  
   irs::mlog() << endl;
   irs::mlog() << endl;
   irs::mlog() << irsm("--------- INITIALIZATION --------") << endl;
@@ -57,18 +64,25 @@ void main()
   irs::mlog() << irsm("mxsrclib rev. ") << mxsrclib_rev << endl;
   irs::mlog() << irsm("extern_libs rev. ") << extern_libs_rev << endl;
   irs::mlog() << endl;
-
-  irs::pause(irs::make_cnt_s(1));
   
   static hrm::cfg_t cfg;
-  app_start(&cfg, software_rev);
+  
+  hrm::version_t version;
+  version.hardware = hardware_rev;
+  version.software = software_rev;
+  version.mxsrclib = mxsrclib_rev;
+  version.extern_libs = extern_libs_rev;
+  
+  app_start(&cfg, version, mem_log_buf);
 }
 
-void app_start(hrm::cfg_t* ap_cfg, irs_u32 a_version)
-{
+void app_start(hrm::cfg_t* ap_cfg, hrm::version_t a_version, 
+  irs::membuf& a_buf)
+{ 
   static hrm::app_t app(ap_cfg, a_version);
 
-  irs::mlog() << irsm("------------- START -------------") << endl;
+  static irs::lwipbuf log_buf;
+
   while(true) {
     #ifdef HRM_DEBUG
     static const counter_t period = irs::make_cnt_s(1);
@@ -78,10 +92,20 @@ void app_start(hrm::cfg_t* ap_cfg, irs_u32 a_version)
     static irs::measure_time_t tick_measure_time;
     tick_measure_time.start();
     #endif // HRM_DEBUG
+    
+    static bool lwipbuf_ready = false;
+    if (!lwipbuf_ready)
+    if (log_buf.is_any_connected()) {
+      lwipbuf_ready = true;
+      irs::mlog().rdbuf(&log_buf);
+      irs::mlog() << a_buf.get_buf();
+      irs::mlog().flush();
+    }
+      
     app.tick();
+    log_buf.tick();
     static irs::blink_t green_led_blink(GPIO_PORTD, 8, irs::make_cnt_ms(100));
     green_led_blink(); // Мигание зелёным светодиодом на плате arm
-
     #ifdef HRM_DEBUG
     count++;
     tick_time += tick_measure_time.get();

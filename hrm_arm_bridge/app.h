@@ -35,7 +35,7 @@ public:
 class app_t
 {
 public:
-  app_t(cfg_t* ap_cfg, irs_u32 a_version);
+  app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready = 0);
   void tick();
 
 private:
@@ -88,7 +88,7 @@ private:
     bs_termostat_off_adc_start,
     bs_adc_start,
     bs_adc_wait,
-    bs_adc_average,
+    //bs_adc_average,
     bs_balance,
     bs_dac_set,
     bs_termostat_off_dac_wait,
@@ -124,9 +124,9 @@ private:
     ms_pid_start,
     ms_pid_process,
     ms_pid_reset,
-    ms_pid_reset_wait,
-    ms_adc_continious_start,
-    ms_adc_continious
+    ms_pid_reset_wait
+    //ms_adc_continious_start,
+    //ms_adc_continious
   };
   enum scan_status_t {
     ss_prepare,
@@ -343,8 +343,9 @@ private:
 
   cfg_t* mp_cfg;
   eth_data_t m_eth_data;
+  bool* mp_buf_ready;
   
-  irs_u32 m_version;
+  version_t m_version;
   
   buzzer_t m_buzzer;
   
