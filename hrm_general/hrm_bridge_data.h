@@ -65,6 +65,9 @@ typedef double  th_value_t;
 const adc_value_t adc_additional_gain = 1.0;
 const adc_value_t adc_ref = 4.096;
 const adc_value_t adc_default_cont_sko = 1.0e-6;
+const double min_bridge_voltage = 12.0;
+const double max_bridge_voltage = 200.0;
+const double bridge_voltage_trans_coef = 65536.0 / 220.22;
 
 struct eth_data_t {
   irs::conn_data_t<irs_u32> counter;        //  4 byte
@@ -372,6 +375,8 @@ struct eth_data_t {
   irs::conn_data_t<double> dac_hv_correction;                 //  8
   irs::conn_data_t<double> alternate_avg;                     //  8
   irs::conn_data_t<double> alternate_sko;                     //  8
+  //------------------------------------------
+  irs::conn_data_t<double> bridge_voltage;                    //  8
 
   eth_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
@@ -708,6 +713,7 @@ struct eth_data_t {
     //
     index = alternate_avg.connect(ap_data, index);
     index = alternate_sko.connect(ap_data, index);
+    index = bridge_voltage.connect(ap_data, index);
     
     return index;
   }
@@ -908,6 +914,7 @@ struct eeprom_data_t {
   irs::conn_data_t<double> elab_mode_limit;                  //  8
   //
   irs::conn_data_t<double> dac_hv_correction;                //  8
+  irs::conn_data_t<double> bridge_voltage;                   //  8
   
   eeprom_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
@@ -1112,6 +1119,7 @@ struct eeprom_data_t {
     //
     index = elab_mode_limit.connect(ap_data, index);
     index = dac_hv_correction.connect(ap_data, index);
+    index = bridge_voltage.connect(ap_data, index);
     irs::mlog() << irsm("EEPROM size = ") << index << endl;
     return index;
   }
@@ -1289,6 +1297,7 @@ struct eeprom_data_t {
     adaptive_sko_elab_multiplier = 2.0;
     elab_mode_limit = 5.0e9;
     dac_hv_correction = 1.0;
+    bridge_voltage = 12.0;
   }
 };
 

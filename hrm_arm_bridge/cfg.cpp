@@ -122,11 +122,11 @@ hrm::cfg_t::cfg_t():
 //  encoder_timer_address(IRS_TIM3_BASE),
 //  enc_sw(GPIO_PORTC, 8, irs::io_t::dir_in),
   buzzer(irs::handle_t<irs::pwm_gen_t>(
-    new irs::arm::st_pwm_gen_t(PF6, IRS_TIM10_BASE, 4000, 0.5))),
+    new irs::arm::st_pwm_gen_t(PF6, IRS_TIM10_BASE, 4000, 0.05))),
   //  ADC
   adc_cs(GPIO_PORTF, 1, irs::io_t::dir_out, irs::io_pin_on),
   adc_reset(GPIO_PORTC, 14, irs::io_t::dir_out, irs::io_pin_off),
-  adc_start(GPIO_PORTC, 15, irs::io_t::dir_out, irs::io_pin_off),
+  //adc_start(GPIO_PORTC, 15, irs::io_t::dir_out, irs::io_pin_off),
   adc_clk(GPIO_PORTF, 8, irs::io_t::dir_out, irs::io_pin_off),
   adc_en(GPIO_PORTF, 2, irs::io_t::dir_out, irs::io_pin_on),
   //  DAC
@@ -136,6 +136,8 @@ hrm::cfg_t::cfg_t():
   dac_reset(GPIO_PORTB, 8, irs::io_t::dir_out, irs::io_pin_off),
   dac_en(GPIO_PORTE, 1, irs::io_t::dir_out, irs::io_pin_on),
   dac_enctrl(GPIO_PORTB, 7, irs::io_t::dir_in),
+  //  Bridge voltage DAC
+  bridge_voltage_dac_cs(GPIO_PORTC, 15, irs::io_t::dir_out, irs::io_pin_on),
   //  Relays
   relay_bridge_pos_on(GPIO_PORTD, 0, irs::io_t::dir_out, irs::io_pin_off),
   relay_bridge_pos_off(GPIO_PORTD, 3, irs::io_t::dir_out, irs::io_pin_off),

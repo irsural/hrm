@@ -162,7 +162,7 @@ public:
   //  ADC
   irs::arm::io_pin_t adc_cs;
   irs::arm::io_pin_t adc_reset;
-  irs::arm::io_pin_t adc_start;
+  //irs::arm::io_pin_t adc_start;
   irs::arm::io_pin_t adc_clk;
   irs::arm::io_pin_t adc_en;
   //  DAC
@@ -172,6 +172,8 @@ public:
   irs::arm::io_pin_t dac_reset;
   irs::arm::io_pin_t dac_en;
   irs::arm::io_pin_t dac_enctrl;
+  //  Bridge voltage DAC
+  irs::arm::io_pin_t bridge_voltage_dac_cs;
   //  Relays
   irs::arm::io_pin_t relay_bridge_pos_on;
   irs::arm::io_pin_t relay_bridge_pos_off;

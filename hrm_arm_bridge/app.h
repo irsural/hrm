@@ -375,6 +375,7 @@ private:
   irs::dac_ad5791_t m_raw_dac;
   dac_t m_dac;
   ad7799_cread_t m_adc;
+  bridge_voltage_dac_t m_bridge_voltage_dac;
 
   irs::loop_timer_t m_eth_timer;
   irs::loop_timer_t m_blink_timer;
@@ -550,6 +551,10 @@ private:
   irs_i32 m_bac_new_int_multiplier;
   //
   double m_dac_hv_correction;
+  //
+  const double m_min_bridge_voltage;
+  const double m_max_bridge_voltage;
+  double m_bridge_voltage;
   //
   device_condition_controller_t m_device_condition_controller;
   //

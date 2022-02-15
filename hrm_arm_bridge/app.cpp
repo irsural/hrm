@@ -41,6 +41,8 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
     0),
   m_dac(&m_raw_dac),
   m_adc(&mp_cfg->spi_adc, &mp_cfg->adc_cs, &mp_cfg->adc_exti),
+  m_bridge_voltage_dac(&mp_cfg->spi_adc, &mp_cfg->bridge_voltage_dac_cs,
+    min_bridge_voltage, max_bridge_voltage, bridge_voltage_trans_coef),
   m_eth_timer(irs::make_cnt_ms(100)),
   m_blink_timer(irs::make_cnt_ms(500)),
   m_service_timer(irs::make_cnt_ms(1000)),
@@ -206,6 +208,9 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   m_bac_new_int_coefficient(1),
   m_bac_new_int_multiplier(1000.0),
   m_dac_hv_correction(1.0),
+  m_min_bridge_voltage(12.0),
+  m_max_bridge_voltage(200.0),
+  m_bridge_voltage(m_min_bridge_voltage),
   m_device_condition_controller(
     &mp_cfg->fan_ac_on,
     &mp_cfg->fan_dc_ls,
@@ -530,6 +535,10 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   m_eth_data.dac_hv_correction = m_eeprom_data.dac_hv_correction;
   m_dac_hv_correction = m_eeprom_data.dac_hv_correction;
   
+  m_eth_data.bridge_voltage = m_eeprom_data.bridge_voltage;
+  m_bridge_voltage = m_eeprom_data.bridge_voltage;
+  m_bridge_voltage_dac.set_voltage(m_bridge_voltage);
+  
   m_adc_fade_data.x1 = 0.0;
   m_adc_fade_data.y1 = 0.0;
   m_adc_fade_data.t = m_eeprom_data.adc_filter_constant;
@@ -586,6 +595,8 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   m_eth_data.version_info = m_version.software;
   //
   m_eth_data.show_options = m_eeprom_data.show_options;
+  //
+  m_bridge_voltage_dac.show();
 }
 
 void hrm::app_t::init_keyboard_drv()
@@ -608,6 +619,7 @@ void hrm::app_t::tick()
   m_eeprom.tick();
   m_raw_dac.tick();
   m_dac.tick();
+  m_bridge_voltage_dac.tick();
   
   if (m_show_network_params) {
     mxip_t ip = mxip_t::zero_ip();
@@ -1134,6 +1146,7 @@ void hrm::app_t::tick()
           //m_termostat.set_after_pause(m_min_after_pause);
           m_imm_coef = m_eth_data.imm_coef;
           m_manual_status = ms_adc_setup;
+          m_adc.stop_continious();
           break;
         }
         case ms_adc_setup: {
@@ -1253,6 +1266,18 @@ void hrm::app_t::tick()
               m_manual_status = ms_adc_show;
             } else if (m_eth_data.elab_pid_on == 1) {
               m_manual_status = ms_pid_start;
+            }
+            if (m_eth_data.bridge_voltage != m_bridge_voltage) {
+              double bridge_voltage = 
+                irs::bound<double>(m_eth_data.bridge_voltage, 
+                m_min_bridge_voltage, m_max_bridge_voltage);
+              if (m_eth_data.bridge_voltage != bridge_voltage) {
+                m_eth_data.bridge_voltage = bridge_voltage;
+              }
+              m_bridge_voltage = bridge_voltage;
+              m_eeprom_data.bridge_voltage = bridge_voltage;
+              m_bridge_voltage_dac.set_voltage(m_bridge_voltage);
+              m_adc.stop_continious();
             }
           } break;
         }
@@ -1625,6 +1650,12 @@ void hrm::app_t::tick()
           irs::mlog() << irsm("Корректирующий коэффициент ЦАП = ");
           irs::mlog() << fixed << defaultfloat << setprecision(8);
           irs::mlog() << m_dac_hv_correction << endl;
+          
+          m_bridge_voltage = m_eth_data.bridge_voltage;
+          irs::mlog() << irsm("Напряжение моста = ");
+          irs::mlog() << fixed << defaultfloat << setprecision(2);
+          irs::mlog() << m_bridge_voltage << endl;
+          irs::mlog() << irsm(" В");
           
           m_device_condition_controller.set_idle(true);
             

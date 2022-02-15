@@ -203,6 +203,48 @@ private:
   bool m_show;
 };
 
+//  Здесь не использован готовый класс из irsadc dac_8531_t, 
+//  т.к. у него нет статуса готовности
+class bridge_voltage_dac_t
+{
+public:
+  bridge_voltage_dac_t(irs::spi_t *ap_spi, irs::gpio_pin_t* ap_cs_pin, 
+    double a_min_voltage, double a_max_voltage, double a_trans_coef);
+  ~bridge_voltage_dac_t() {};
+  void set_voltage(double a_voltage);
+  double get_voltage();
+  void set_after_pause(counter_t a_after_pause);
+  irs_status_t ready();
+  inline void show() { m_show = true; }
+  inline void hide() { m_show = false; }
+  void tick();
+private:
+  enum status_t {
+    st_ready,
+    st_write,
+    st_pause,
+    st_wait
+  };
+  enum {
+    dac_resolution = 16,
+    write_buf_size = 3,
+    dac_max_value = 0xFFFF
+  };
+  const double m_min_voltage;
+  const double m_max_voltage;
+  const double m_trans_coef;
+  irs::spi_t* mp_spi;
+  irs::gpio_pin_t* mp_cs_pin;
+  irs_u8 mp_spi_buf[write_buf_size];
+  status_t m_status;
+  counter_t m_after_pause;
+  irs::timer_t m_timer;
+  irs_u16 m_dac_code;
+  double m_dac_voltage;
+  bool m_need_set_voltage;
+  bool m_show;
+};
+
 class adc_t
 {
 public:

@@ -2991,3 +2991,106 @@ bool hrm::pid_ready(hrm::pid_ready_data_t* ap_pid_ready_data)
   }
   return ready;
 }
+
+//
+hrm::bridge_voltage_dac_t::bridge_voltage_dac_t(irs::spi_t *ap_spi, 
+    irs::gpio_pin_t* ap_cs_pin, 
+    double a_min_voltage, double a_max_voltage, double a_trans_coef):
+  m_min_voltage(a_min_voltage),
+  m_max_voltage(a_max_voltage),
+  m_trans_coef(a_trans_coef),
+  mp_spi(ap_spi),
+  mp_cs_pin(ap_cs_pin),
+  m_status(st_write),
+  m_after_pause(0),
+  m_timer(m_after_pause),
+  m_dac_voltage(m_min_voltage),
+  m_need_set_voltage(false),
+  m_show(true)
+{
+  memset(mp_spi_buf, 0, write_buf_size);
+  mp_cs_pin->set();
+  set_voltage(m_min_voltage);
+}
+
+void hrm::bridge_voltage_dac_t::set_voltage(double a_voltage)
+{
+  m_dac_voltage = irs::bound<double>(a_voltage, m_min_voltage, m_max_voltage);
+  m_dac_code = static_cast<irs_u16>(m_trans_coef * m_dac_voltage);
+  m_need_set_voltage = true;
+  if (m_show) {
+    irs::mlog() << irsm("vDAC: code = ");
+    irs::mlog() << irsm("Êîä ÖÀÏ 0x") << hex;
+    irs::mlog() << m_dac_code << dec << defaultfloat << irsm(" / ");
+    irs::mlog() << m_dac_voltage << irsm(" Â") << endl;
+  }
+}
+
+double hrm::bridge_voltage_dac_t::get_voltage()
+{
+  return m_dac_voltage;
+}
+
+void hrm::bridge_voltage_dac_t::set_after_pause(counter_t a_after_pause)
+{
+  m_after_pause = a_after_pause;
+}
+
+irs_status_t hrm::bridge_voltage_dac_t::ready()
+{
+  irs_status_t return_status = irs_st_busy;
+  if (m_status == st_ready) {
+    return_status = irs_st_ready;
+  }
+  return return_status;
+}
+
+void hrm::bridge_voltage_dac_t::tick()
+{
+  mp_spi->tick();
+  switch (m_status) {
+    case st_ready: {
+      if (m_need_set_voltage) {
+        m_need_set_voltage = false;
+        mp_spi_buf[0] = 0;
+        mp_spi_buf[1] = IRS_HIBYTE(m_dac_code);
+        mp_spi_buf[2] = IRS_LOBYTE(m_dac_code);
+        m_status = st_write;
+      }
+      break;
+    }
+    case st_write: {
+      if ((mp_spi->get_status() == irs::spi_t::FREE) && !mp_spi->get_lock()) {
+        mp_spi->lock();
+        mp_spi->set_order(irs::spi_t::MSB);
+        mp_spi->set_polarity(irs::spi_t::POSITIVE_POLARITY);
+        mp_spi->set_phase(irs::spi_t::TRAIL_EDGE);
+        mp_cs_pin->clear();
+        mp_spi->write(mp_spi_buf, write_buf_size);
+        m_status = st_pause;
+      }
+      break;
+    }
+    case st_pause: {
+      if (mp_spi->get_status() == irs::spi_t::FREE) {
+        mp_cs_pin->set();
+        mp_spi->reset_configuration();
+        mp_spi->unlock();
+        memset(mp_spi_buf, 0, write_buf_size);
+        m_timer.set(m_after_pause);
+        m_timer.start();
+        m_status = st_wait;
+      }
+      break;
+    }
+    case st_wait: {
+      if (m_timer.check()) {
+        if (m_show) {
+          irs::mlog() << irsm("vDAC: ready") << endl;
+        }
+        m_status = st_ready;
+      }
+      break;
+    }
+  }
+}
