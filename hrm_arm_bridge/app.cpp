@@ -83,10 +83,10 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
     irst("HVNEG"),
     0,
     irs::make_cnt_ms(100)),
-  m_relay_hv_dac_amp(
-    &mp_cfg->relay_hv_dac_amp_off,
-    &mp_cfg->relay_hv_dac_amp_on,
-    irst("HVDAC"),
+  m_relay_adc_src(
+    &mp_cfg->relay_adc_src_off,
+    &mp_cfg->relay_adc_src_on,
+    irst("ADCSRC"),
     0,
     irs::make_cnt_ms(100)),
   m_mode(md_free),
@@ -120,6 +120,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   m_prepare_current_time(0),
   m_elab_vector(),
   m_fast_elab_vector(),
+  m_analog_vector(),
   m_fast_elab_dac_step(0.0),
   m_fast_elab_dac_step_2(0.0),
   m_fast_elab_dac_step_3(0.0),
@@ -210,7 +211,15 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   m_dac_hv_correction(1.0),
   m_min_bridge_voltage(12.0),
   m_max_bridge_voltage(200.0),
+  m_min_bridge_voltage_speed(1.0),
+  m_max_bridge_voltage_speed(200.0),
+  m_min_bridge_voltage_after_pause_ms(0.0),
+  m_max_bridge_voltage_after_pause_ms(10000.0),
   m_bridge_voltage(m_min_bridge_voltage),
+  m_bridge_voltage_reduced(m_min_bridge_voltage),
+  m_bridge_voltage_speed(m_min_bridge_voltage_speed),
+  m_bridge_voltage_after_pause_ms(m_max_bridge_voltage_after_pause_ms),
+  m_bridge_voltage_reduce_after_switching(true),
   m_device_condition_controller(
     &mp_cfg->fan_ac_on,
     &mp_cfg->fan_dc_ls,
@@ -480,7 +489,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   m_relay_bridge_neg.set_wild(m_wild_relays);
   m_relay_hv_pos.set_wild(m_wild_relays);
   m_relay_hv_neg.set_wild(m_wild_relays);
-  m_relay_hv_dac_amp.set_wild(m_wild_relays);
+  m_relay_adc_src.set_wild(m_wild_relays);
 
   m_auto_elab_step = m_eeprom_data.auto_elab_step;
   m_eth_data.auto_elab_step = m_auto_elab_step;
@@ -537,7 +546,18 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   
   m_eth_data.bridge_voltage = m_eeprom_data.bridge_voltage;
   m_bridge_voltage = m_eeprom_data.bridge_voltage;
+  m_eth_data.bridge_voltage_reduced = m_eeprom_data.bridge_voltage_reduced;
+  m_bridge_voltage_reduced = m_eeprom_data.bridge_voltage_reduced;
+  m_eth_data.bridge_voltage_speed = m_eeprom_data.bridge_voltage_speed;
+  m_bridge_voltage_speed = m_eeprom_data.bridge_voltage_speed;
+  m_eth_data.bridge_voltage_after_pause_ms 
+    = m_eeprom_data.bridge_voltage_after_pause_ms;
+  m_bridge_voltage_after_pause_ms = m_eeprom_data.bridge_voltage_after_pause_ms;
   m_bridge_voltage_dac.set_voltage(m_bridge_voltage);
+  m_bridge_voltage_reduce_after_switching 
+    = m_eeprom_data.bridge_voltage_reduce_after_switching;
+  m_eth_data.bridge_voltage_reduce_after_switching
+    = m_eeprom_data.bridge_voltage_reduce_after_switching;
   
   m_adc_fade_data.x1 = 0.0;
   m_adc_fade_data.y1 = 0.0;
@@ -568,7 +588,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   m_relay_hv_amps_gain.set_after_pause(m_min_after_pause);
   m_relay_hv_pos.set_after_pause(m_min_after_pause);
   m_relay_hv_neg.set_after_pause(m_min_after_pause);
-  m_relay_hv_dac_amp.set_after_pause(m_min_after_pause);
+  m_relay_adc_src.set_after_pause(m_min_after_pause);
 
   m_eth_data.elab_pid_sko_meas_time = m_eeprom_data.elab_pid_sko_meas_time;
   //m_termostat.set_after_pause(m_min_after_pause);
@@ -636,9 +656,7 @@ void hrm::app_t::tick()
     }
   }
   
-  for (size_t i = 0; i < 10; i++) {
-    m_adc.tick();
-  }
+  m_adc.tick();
 
   m_relay_bridge_pos.tick();
   m_relay_bridge_neg.tick();
@@ -647,7 +665,7 @@ void hrm::app_t::tick()
   m_relay_hv_amps_gain.tick();
   m_relay_hv_pos.tick();
   m_relay_hv_neg.tick();
-  m_relay_hv_dac_amp.tick();
+  m_relay_adc_src.tick();
 
   m_buzzer.tick();
 
@@ -721,13 +739,14 @@ void hrm::app_t::tick()
       if (m_eth_data.relay_hv_neg != m_relay_hv_neg) {
         m_eth_data.relay_hv_neg = m_relay_hv_neg;
       }
-      if (m_eth_data.relay_hv_dac_amp != m_relay_hv_dac_amp) {
-        m_eth_data.relay_hv_dac_amp = m_relay_hv_dac_amp;
+      if (m_eth_data.relay_adc_src != m_relay_adc_src) {
+        m_eth_data.relay_adc_src = m_relay_adc_src;
       }
     }
     if (m_adc.new_result()) {
       m_adc.result(&m_adc_result_data);
-      m_eth_data.test = m_adc_result_data.current_point;
+      m_eth_data.adc_current_point = m_adc_result_data.current_point;
+      m_eth_data.adc_error_cnt = m_adc_result_data.error_cnt;
       m_eth_data.adc_sko = abs(m_adc_result_data.sko * 1e6);
       m_eth_data.alternate_avg = m_adc_result_data.alternative_avg;
       m_eth_data.alternate_sko = abs(m_adc_result_data.alternative_sko * 1e6);
@@ -776,7 +795,10 @@ void hrm::app_t::tick()
 //    if (m_eth_data.adc_temperature != m_temperature) {
 //      m_eth_data.adc_temperature = m_temperature;
 //    }
-
+    if (m_bridge_voltage_dac.get_voltage() 
+        != m_eth_data.bridge_voltage_current) {
+      m_eth_data.bridge_voltage_current = m_bridge_voltage_dac.get_voltage();
+    }
     if ((m_mode == md_free) && (m_free_status == fs_idle)) {
       if (m_eth_data.apply_network_options == 1) {
         m_eth_data.apply_network_options = 0;
@@ -1050,7 +1072,7 @@ void hrm::app_t::tick()
           m_relay_hv_amps_gain = 0;
           m_relay_hv_pos = 0;
           m_relay_hv_neg = 0;
-          m_relay_hv_dac_amp = 0;
+          m_relay_adc_src = 0;
           m_adc.set_max_value(m_adc_max_value_prot);
           //
           m_dac.show();
@@ -1065,7 +1087,7 @@ void hrm::app_t::tick()
           m_relay_bridge_neg.set_wild(false);
           m_relay_hv_pos.set_wild(false);
           m_relay_hv_neg.set_wild(false);
-          m_relay_hv_dac_amp.set_wild(false);
+          m_relay_adc_src.set_wild(false);
           //
           m_eth_data.apply = 0;
           m_eth_data.prepare_pause = m_prepare_pause;
@@ -1141,7 +1163,7 @@ void hrm::app_t::tick()
           m_relay_hv_amps_gain.set_after_pause(m_min_after_pause);
           m_relay_hv_pos.set_after_pause(m_min_after_pause);
           m_relay_hv_neg.set_after_pause(m_min_after_pause);
-          m_relay_hv_dac_amp.set_after_pause(m_min_after_pause);
+          m_relay_adc_src.set_after_pause(m_min_after_pause);
           m_dac.set_after_pause(m_min_after_pause);
           //m_termostat.set_after_pause(m_min_after_pause);
           m_imm_coef = m_eth_data.imm_coef;
@@ -1193,8 +1215,8 @@ void hrm::app_t::tick()
             if (m_eth_data.relay_hv_neg != m_relay_hv_neg) {
               m_relay_hv_neg = m_eth_data.relay_hv_neg;
             }
-            if (m_eth_data.relay_hv_dac_amp != m_relay_hv_dac_amp) {
-              m_relay_hv_dac_amp = m_eth_data.relay_hv_dac_amp;
+            if (m_eth_data.relay_adc_src != m_relay_adc_src) {
+              m_relay_adc_src = m_eth_data.relay_adc_src;
             }
             //  Wild mode for bridge relays
             if (m_wild_relays != m_relay_bridge_pos.wild()) {
@@ -1210,8 +1232,8 @@ void hrm::app_t::tick()
             if (m_wild_relays != m_relay_hv_neg.wild()) {
               m_relay_hv_neg.set_wild(m_wild_relays);
             }
-            if (m_wild_relays != m_relay_hv_dac_amp.wild()) {
-              m_relay_hv_dac_amp.set_wild(m_wild_relays);
+            if (m_wild_relays != m_relay_adc_src.wild()) {
+              m_relay_adc_src.set_wild(m_wild_relays);
             }
             //if (m_eth_data.wild_relays)
             //  ЦАП
@@ -1267,6 +1289,7 @@ void hrm::app_t::tick()
             } else if (m_eth_data.elab_pid_on == 1) {
               m_manual_status = ms_pid_start;
             }
+            //  Напряжение моста
             if (m_eth_data.bridge_voltage != m_bridge_voltage) {
               double bridge_voltage = 
                 irs::bound<double>(m_eth_data.bridge_voltage, 
@@ -1278,6 +1301,45 @@ void hrm::app_t::tick()
               m_eeprom_data.bridge_voltage = bridge_voltage;
               m_bridge_voltage_dac.set_voltage(m_bridge_voltage);
               m_adc.stop_continious();
+            }
+            if (m_eth_data.bridge_voltage_reduced != m_bridge_voltage_reduced) {
+              double bridge_voltage_reduced = 
+                irs::bound<double>(m_eth_data.bridge_voltage_reduced, 
+                m_min_bridge_voltage, m_max_bridge_voltage);
+              if (m_eth_data.bridge_voltage_reduced 
+                != bridge_voltage_reduced) {
+                m_eth_data.bridge_voltage_reduced = bridge_voltage_reduced;
+              }
+              m_bridge_voltage_reduced = bridge_voltage_reduced;
+              m_eeprom_data.bridge_voltage_reduced = bridge_voltage_reduced;
+            }
+            if (m_eth_data.bridge_voltage_speed != m_bridge_voltage_speed) {
+              double bridge_voltage_speed = 
+                irs::bound<double>(m_eth_data.bridge_voltage_speed, 
+                m_min_bridge_voltage_speed, m_max_bridge_voltage_speed);
+              if (m_eth_data.bridge_voltage_speed != bridge_voltage_speed) {
+                m_eth_data.bridge_voltage_speed = bridge_voltage_speed;
+              }
+              m_bridge_voltage_speed = bridge_voltage_speed;
+              m_eeprom_data.bridge_voltage_speed = bridge_voltage_speed;
+              m_bridge_voltage_dac.set_speed(m_bridge_voltage_speed);
+            }
+            if (m_eth_data.bridge_voltage_after_pause_ms 
+                != m_bridge_voltage_after_pause_ms) {
+              double bridge_voltage_after_pause_ms = 
+                irs::bound<double>(m_eth_data.bridge_voltage_after_pause_ms,
+                m_min_bridge_voltage_after_pause_ms,
+                m_max_bridge_voltage_after_pause_ms);
+              if (m_eth_data.bridge_voltage_after_pause_ms 
+                != bridge_voltage_after_pause_ms) {
+                m_eth_data.bridge_voltage_after_pause_ms 
+                = bridge_voltage_after_pause_ms;
+              }
+              m_bridge_voltage_after_pause_ms = bridge_voltage_after_pause_ms;
+              m_eeprom_data.bridge_voltage_after_pause_ms 
+                = bridge_voltage_after_pause_ms;
+              m_bridge_voltage_dac.set_after_pause_ms(
+                m_bridge_voltage_after_pause_ms);
             }
           } break;
         }
@@ -1443,7 +1505,7 @@ void hrm::app_t::tick()
           if (bridge_relays_ready()) {
             m_relay_bridge_pos = 1;
             m_relay_hv_pos = 1;
-            m_relay_hv_dac_amp = 0;
+            m_relay_adc_src = 0;
             m_relay_hv_amps_gain = 0;
             m_scan_status = ss_dac_prepare;
           }
@@ -1524,7 +1586,7 @@ void hrm::app_t::tick()
           if (bridge_relays_ready()) {
             m_relay_bridge_pos = 0;
             m_relay_hv_pos = 0;
-            m_relay_hv_dac_amp = 0;
+            m_relay_adc_src = 0;
             m_relay_hv_amps_gain = 0;
             m_scan_status = ss_relay_wait;
           }
@@ -1575,7 +1637,7 @@ void hrm::app_t::tick()
           m_relay_hv_amps_gain.set_after_pause(m_relay_after_pause);
           m_relay_hv_pos.set_after_pause(m_relay_after_pause);
           m_relay_hv_neg.set_after_pause(m_relay_after_pause);
-          m_relay_hv_dac_amp.set_after_pause(m_relay_after_pause);
+          m_relay_adc_src.set_after_pause(m_relay_after_pause);
 
           m_wild_relays = m_eth_data.wild_relays;
           m_eeprom_data.wild_relays = m_wild_relays;
@@ -1584,7 +1646,7 @@ void hrm::app_t::tick()
             m_relay_bridge_neg.set_wild(true);
             m_relay_hv_pos.set_wild(true);
             m_relay_hv_neg.set_wild(true);
-            m_relay_hv_dac_amp.set_wild(true);
+            m_relay_adc_src.set_wild(true);
           }
 
           m_relay_pause_timer.set(m_relay_after_pause);
@@ -1603,6 +1665,8 @@ void hrm::app_t::tick()
           m_exp_vector.clear();
           m_elab_vector.clear();
           m_fast_elab_vector.clear();
+          m_analog_vector.clear();
+          m_analog_point.clear();
           m_exp_cnt = m_eth_data.exp_cnt;
           if (m_exp_cnt > 1) {
             m_eth_data.current_exp_cnt = m_exp_cnt;
@@ -1651,11 +1715,67 @@ void hrm::app_t::tick()
           irs::mlog() << fixed << defaultfloat << setprecision(8);
           irs::mlog() << m_dac_hv_correction << endl;
           
+          //  Обслуживание ЦАП напряжения моста
           m_bridge_voltage = m_eth_data.bridge_voltage;
+          m_bridge_voltage = irs::bound(m_bridge_voltage, 
+            m_min_bridge_voltage, m_max_bridge_voltage);
+          if (m_bridge_voltage != m_eeprom_data.bridge_voltage) {
+            m_eeprom_data.bridge_voltage = m_bridge_voltage;
+          }
+          m_bridge_voltage_reduced = m_eth_data.bridge_voltage_reduced;
+          m_bridge_voltage_reduced = irs::bound(
+            m_bridge_voltage_reduced, 
+            m_min_bridge_voltage, m_max_bridge_voltage);
+          if (m_bridge_voltage_reduced != 
+            m_eeprom_data.bridge_voltage_reduced) {
+            m_eeprom_data.bridge_voltage_reduced = m_bridge_voltage_reduced;
+          }
+          if (m_bridge_voltage_reduced > m_bridge_voltage) {
+            m_bridge_voltage_reduced = m_bridge_voltage;
+          }
+          m_bridge_voltage_speed = m_eth_data.bridge_voltage_speed;
+          m_bridge_voltage_speed = irs::bound(m_bridge_voltage_speed, 
+            m_min_bridge_voltage_speed, m_max_bridge_voltage_speed);
+          if (m_bridge_voltage_speed != m_eeprom_data.bridge_voltage_speed) {
+            m_eeprom_data.bridge_voltage_speed = m_bridge_voltage_speed;
+          }
+          m_bridge_voltage_after_pause_ms
+            = m_eth_data.bridge_voltage_after_pause_ms;
+          m_bridge_voltage_after_pause_ms = irs::bound(
+            m_bridge_voltage_after_pause_ms,
+            m_min_bridge_voltage_after_pause_ms,
+            m_max_bridge_voltage_after_pause_ms);
+          if (m_bridge_voltage_after_pause_ms != 
+            m_eeprom_data.bridge_voltage_after_pause_ms) {
+            m_eeprom_data.bridge_voltage_after_pause_ms 
+              = m_bridge_voltage_after_pause_ms;
+          }
+          m_bridge_voltage_reduce_after_switching
+            = m_eth_data.bridge_voltage_reduce_after_switching;
+          if (m_bridge_voltage_reduce_after_switching !=
+            m_eeprom_data.bridge_voltage_reduce_after_switching) {
+            m_eeprom_data.bridge_voltage_reduce_after_switching
+              = m_bridge_voltage_reduce_after_switching;
+          }
+          
+          m_bridge_voltage_dac.set_after_pause_ms(
+            m_bridge_voltage_after_pause_ms);
+          m_bridge_voltage_dac.set_speed(m_bridge_voltage_speed);
+          
+          double current_bridge_dac_voltage = 0.0;
+          if (m_bridge_voltage_reduce_after_switching) {
+            m_bridge_voltage_dac.set_voltage(m_bridge_voltage_reduced);
+            current_bridge_dac_voltage = m_bridge_voltage_reduced;
+          } else {
+            m_bridge_voltage_dac.set_voltage(m_bridge_voltage);
+            current_bridge_dac_voltage = m_bridge_voltage;
+          }
           irs::mlog() << irsm("Напряжение моста = ");
-          irs::mlog() << fixed << defaultfloat << setprecision(2);
-          irs::mlog() << m_bridge_voltage << endl;
-          irs::mlog() << irsm(" В");
+          irs::mlog() << fixed << defaultfloat << setprecision(4);
+          irs::mlog() << m_bridge_voltage;
+          irs::mlog() << irsm(" В, установлено ");
+          irs::mlog() << current_bridge_dac_voltage;
+          irs::mlog() << irsm(" В") << endl;
           
           m_device_condition_controller.set_idle(true);
             
@@ -1685,6 +1805,9 @@ void hrm::app_t::tick()
             case em_pid_linear: {
               irs::mlog() << irsm(" (ПИД с уточнением)") << endl;
             } break;
+            case em_analog: {
+              irs::mlog() << irsm(" (аналоговое)") << endl;
+            } break;
             default: {
               irs::mlog() << irsm(" (нет)") << endl;
             }
@@ -1700,7 +1823,13 @@ void hrm::app_t::tick()
           m_prev_balance_completed = false;
           m_prepare_pause_completed = false;
           
-          m_balance_status = bs_set_prot;
+          m_balance_status = bs_wait_adc_dac;
+          break;
+        }
+        case bs_wait_adc_dac: {
+          if (m_adc.status() == irs_st_ready && m_bridge_voltage_dac.ready()) {
+            m_balance_status = bs_set_prot;
+          }
           break;
         }
         case bs_set_prot: {
@@ -1710,7 +1839,7 @@ void hrm::app_t::tick()
               m_relay_prot = 0;
               m_adc.set_max_value(m_adc_max_value_no_prot);
             }
-            m_relay_hv_dac_amp = 0;
+            m_relay_adc_src = 0;
             m_relay_hv_amps_gain = 0;
             m_balance_status = bs_set_coils;
           }
@@ -1753,11 +1882,22 @@ void hrm::app_t::tick()
           if (m_relay_pause_timer.check()) {
             //  Пауза перед измерениями
             irs::mlog() << irsm("Реле готовы") << endl;
+            if (m_elab_mode == em_analog) {
+              if (m_bridge_voltage_reduce_after_switching) {
+                m_bridge_voltage_dac.set_voltage(m_bridge_voltage);
+              }
+            }
+            m_balance_status = bs_wait_bridge_voltage_dac;
+          }
+          break;
+        }
+        case bs_wait_bridge_voltage_dac: {
+          if (m_bridge_voltage_dac.ready()) {
             if (m_elab_mode == em_pid || m_elab_mode == em_pid_linear) {
               m_balance_status = bs_preset_dac_prepare;
             } else {
               if (m_exp_vector.size() < 1 && m_balance_polarity == bp_neg) {
-                if (m_adaptive_sko_calc.used()) {
+                if (m_adaptive_sko_calc.used() && m_elab_mode != em_analog) {
                   m_balance_status = bs_prev_balance_prepare;
                 } else {
                   m_balance_status = bs_set_pause;
@@ -2377,7 +2517,7 @@ void hrm::app_t::tick()
           break;
         }
         case bs_set_pause: {
-          if (m_adc.status() == irs_st_ready) {
+          if (m_adc.status() == irs_st_ready && m_bridge_voltage_dac.ready()) {
             if (m_exp_vector.size() < 1
               && m_balance_polarity == bp_neg) {
               m_is_exp = false;
@@ -2483,7 +2623,89 @@ void hrm::app_t::tick()
               irs::mlog() << irsm("Параметры АЦП m_adc_balance_param_data")
                 << endl;
             }
-            m_balance_status = bs_dac_prepare;
+            if (m_elab_mode == em_analog) {
+              m_balance_status = bs_analog_adc_start_coils;
+            } else {
+              m_balance_status = bs_dac_prepare;
+            }
+          }
+          break;
+        }
+        case bs_analog_adc_start_coils: {
+          if (m_adc.status() == irs_st_ready) {
+            m_adc.start_conversion();
+            m_balance_status = bs_analog_adc_wait_coils;
+          }
+          break;
+        }
+        case bs_analog_adc_wait_coils: {
+          if (m_adc.status() == irs_st_ready) {
+            adc_result_data_t adc_result_data;
+            m_adc.result(&adc_result_data);
+            m_analog_point.coils_voltage = adc_result_data.avg;
+            m_analog_point.coils_sko = adc_result_data.sko;
+            m_analog_point.coils_num_of_points = adc_result_data.current_point;
+            m_analog_point.show_coils();
+            m_balance_status = bs_analog_relay_switch_supply;
+          }
+          break;
+        }
+        case bs_analog_relay_switch_supply: {
+          if (bridge_relays_ready()) {
+            m_relay_adc_src = 1;
+            m_balance_status = bs_analog_relay_wait_supply;
+          }
+          break;
+        }
+        case bs_analog_relay_wait_supply: {
+          if (bridge_relays_ready()) {
+            m_bridge_voltage_dac.set_voltage(m_bridge_voltage);
+            m_balance_status = bs_analog_wait_repeat_dac;
+          }
+          break;
+        }
+        case bs_analog_wait_repeat_dac: {
+          if (m_bridge_voltage_dac.ready()) {
+            m_balance_status = bs_analog_adc_start_supply;
+          }
+          break;
+        }
+        case bs_analog_adc_start_supply: {
+          if (m_adc.status() == irs_st_ready) {
+            m_adc.start_conversion();
+            m_balance_status = bs_analog_adc_wait_supply;
+          }
+          break;
+        }
+        case bs_analog_adc_wait_supply: {
+          if (m_adc.status() == irs_st_ready) {
+            adc_result_data_t adc_result_data;
+            m_adc.result(&adc_result_data);
+            m_analog_point.supply_voltage = adc_result_data.avg;
+            m_analog_point.supply_sko = adc_result_data.sko;
+            m_analog_point.supply_num_of_points = adc_result_data.current_point;
+            m_analog_point.show_supply();
+            m_balance_status = bs_analog_half_report;
+          }
+          break;
+        }
+        case bs_analog_half_report: {
+          m_analog_point.calc_ratio();
+          m_analog_vector.push_back(m_analog_point);
+          m_analog_point.show_point();
+          switch (m_balance_polarity) {
+            case bp_neg: m_etalon_code = m_analog_point.ratio; break;
+            case bp_pos: m_checked_code = m_analog_point.ratio; break;
+          }
+          if (m_bridge_voltage_reduce_after_switching) {
+            m_bridge_voltage_dac.set_voltage(m_min_bridge_voltage);
+          }
+          m_balance_status = bs_analog_dac_wait;
+          break;
+        }
+        case bs_analog_dac_wait: {
+          if (m_bridge_voltage_dac.ready()) {
+            m_balance_status = bs_coils_off;
           }
           break;
         }
@@ -3204,14 +3426,27 @@ void hrm::app_t::tick()
             m_relay_bridge_neg = 0;
             m_relay_hv_pos = 0;
             m_relay_hv_neg = 0;
-            m_relay_hv_dac_amp = 0;
+            m_relay_adc_src = 0;
             m_relay_hv_amps_gain = 0;
             m_balance_status = bs_wait_relays;
           }
           break;
         }
         case bs_wait_relays: {
-          if (m_relay_prot.status() == irs_st_ready && bridge_relays_ready()) {
+          if (m_relay_prot.status() == irs_st_ready && bridge_relays_ready())
+          {
+            if (m_balance_polarity == bp_pos) {
+              if (m_bridge_voltage_reduce_after_switching) {
+                m_bridge_voltage_dac.set_voltage(m_bridge_voltage);
+              }
+            }
+            m_balance_status = bs_change_bridge_polarity;
+          }
+          break;
+
+        }
+        case bs_change_bridge_polarity: {
+          if (m_bridge_voltage_dac.ready()) {
             if (m_balance_polarity == bp_neg) {
               m_balance_polarity = bp_pos;
               m_max_unsaturated_voltage = 0.0;
@@ -3625,6 +3860,28 @@ void hrm::app_t::tick()
               m_exp_vector.push_back(exp);
               break;
             }
+            case em_analog: {
+              exp_t exp;
+              exp.ch_code = m_checked_code;
+              exp.et_code = m_etalon_code;
+              
+              m_result = (1.0 - m_checked_code + m_etalon_code);
+              m_result /= (1.0 + m_checked_code - m_etalon_code);
+              irs::mlog() << irsm("Старый результат ") << setw(14) <<
+                setprecision(14) << m_result << endl << endl;
+              
+              exp.exp_time = m_prev_exp_time;
+              exp.result_old = m_result;
+              exp.temperature_ext = m_eth_data.th_ext_1;
+              exp.temperature_dac = m_eth_data.th_dac;
+              exp.temperature_adc = m_eth_data.th_box_adc;
+
+              m_exp_vector.push_back(exp);
+
+              m_eth_data.result = exp.result_old * m_eth_data.etalon;
+              m_eth_data.ratio = m_result;
+              break;
+            }
             default: {
               if (m_elab_iteration_count >= 2) {
                 irs::mlog() << irsm("Результаты уточнения") << endl;
@@ -3721,7 +3978,20 @@ void hrm::app_t::tick()
             m_pos_current_elab = 0;
 
             m_balance_polarity = bp_neg;
+            if (m_bridge_voltage_reduce_after_switching) {
+              m_bridge_voltage_dac.set_voltage(m_bridge_voltage_reduced);
+            }
 
+            m_balance_status = bs_wait_dac_before_switching;
+          }
+          break;
+        }
+        case bs_wait_dac_before_switching: {
+          if (m_bridge_voltage_dac.ready())
+          {
+            if (m_bridge_voltage_reduce_after_switching) {
+              m_bridge_voltage_dac.set_voltage(m_bridge_voltage_reduced);
+            }
             m_balance_status = bs_set_coils;
           }
           break;
@@ -3742,6 +4012,7 @@ void hrm::app_t::tick()
         m_balance_action = ba_idle;
         m_remaining_time_calculator.change_balance_action(
           m_balance_action);
+        m_adc.stop_continious();
         if (m_mode == md_balance) {
           mp_menu->show_experiment_options();
           m_balance_status = bs_final_report;
@@ -5368,6 +5639,7 @@ hrm::app_t::elab_mode_t hrm::app_t::convert_u8_to_elab_mode(irs_u8 a_mode)
     case 2: return_mode = em_fast_2points;  break;
     case 3: return_mode = em_none;          break;
     case 4: return_mode = em_pid_linear;    break;
+    case 5: return_mode = em_analog;        break;
     default:return_mode = em_none;
   }
   return return_mode;
@@ -5643,8 +5915,8 @@ void hrm::app_t::adaptive_sko_calc_t::sync_parameters()
     irs::mlog() << mp_ee_data.adaptive_sko_elab_multiplier << endl;
     irs::mlog() << irsm("adaptive_sko_elab_multiplier = ");
     irs::mlog() << m_adaptive_sko_elab_multiplier << endl;
-    irs::mlog() << irsm("TEST = ");
-    irs::mlog() << mp_eth_data.test << endl;
+//    irs::mlog() << irsm("TEST = ");
+//    irs::mlog() << mp_eth_data.test << endl;
   }
   if (mp_eth_data.adaptive_sko_balance_multiplier 
       != mp_ee_data.adaptive_sko_balance_multiplier) {

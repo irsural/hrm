@@ -187,8 +187,8 @@ public:
   irs::arm::io_pin_t relay_hv_pos_off;
   irs::arm::io_pin_t relay_hv_neg_on;
   irs::arm::io_pin_t relay_hv_neg_off;
-  irs::arm::io_pin_t relay_hv_dac_amp_on;
-  irs::arm::io_pin_t relay_hv_dac_amp_off;
+  irs::arm::io_pin_t relay_adc_src_on;
+  irs::arm::io_pin_t relay_adc_src_off;
   //  SPI
   irs_u32 m_spi_bitrate;
   irs::arm::arm_spi_t spi_adc;

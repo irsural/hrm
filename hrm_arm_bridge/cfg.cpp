@@ -151,10 +151,10 @@ hrm::cfg_t::cfg_t():
   relay_hv_pos_off(GPIO_PORTC, 6, irs::io_t::dir_out, irs::io_pin_off),   //enca
   relay_hv_neg_on(GPIO_PORTC, 8, irs::io_t::dir_out, irs::io_pin_off),    //encs
   relay_hv_neg_off(GPIO_PORTC, 7, irs::io_t::dir_out, irs::io_pin_off),   //encb
-  relay_hv_dac_amp_on(GPIO_PORTA, 12, irs::io_t::dir_out, irs::io_pin_off),//au3
-  relay_hv_dac_amp_off(GPIO_PORTA, 11, irs::io_t::dir_out, irs::io_pin_off),//a2
+  relay_adc_src_on(GPIO_PORTA, 12, irs::io_t::dir_out, irs::io_pin_off),//au3
+  relay_adc_src_off(GPIO_PORTA, 11, irs::io_t::dir_out, irs::io_pin_off),//a2
   //  SPI
-  m_spi_bitrate(1000000),
+  m_spi_bitrate(50000),
   spi_adc(IRS_SPI3_I2S3_BASE, m_spi_bitrate, PC10, PC11, PC12,
     irs::arm::arm_spi_t::gpio_speed_25mhz),
   spi_dac(IRS_SPI1_BASE, m_spi_bitrate, PA5, PB4, PB5,

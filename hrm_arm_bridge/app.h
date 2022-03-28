@@ -54,10 +54,12 @@ private:
   };
   enum balance_status_t {
     bs_prepare,
+    bs_wait_adc_dac,
     bs_set_prot,
     bs_set_coils,
     bs_coils_wait,
     bs_coils_relay_pause,
+    bs_wait_bridge_voltage_dac,
     bs_preset_dac_prepare,
     bs_preset_dac_adc_start,
     bs_preset_additional_pause_wait,
@@ -84,6 +86,17 @@ private:
     bs_pause,
     bs_adc_show,
     bs_adc_prepare,
+    //
+    bs_analog_adc_start_coils,
+    bs_analog_adc_wait_coils,
+    bs_analog_relay_switch_supply,
+    bs_analog_relay_wait_supply,
+    bs_analog_wait_repeat_dac,
+    bs_analog_adc_start_supply,
+    bs_analog_adc_wait_supply,
+    bs_analog_half_report,
+    bs_analog_dac_wait,
+    //
     bs_dac_prepare,
     bs_termostat_off_adc_start,
     bs_adc_start,
@@ -111,8 +124,10 @@ private:
     bs_elab_result,
     bs_coils_off,
     bs_wait_relays,
+    bs_change_bridge_polarity,
     bs_report,
     bs_next_exp,
+    bs_wait_dac_before_switching,
     bs_final_report
   };
   enum manual_status_t {
@@ -172,6 +187,55 @@ private:
     double sko;
     double avg;
     size_t num_of_adc_points;
+  };
+  struct analog_point_t {
+    double coils_voltage;
+    double coils_sko;
+    size_t coils_num_of_points;
+    double supply_voltage;
+    double supply_sko;
+    size_t supply_num_of_points;
+    double ratio;
+    void clear()
+    {
+      coils_voltage = 0.0;
+      coils_sko = 0.0;
+      supply_voltage = 0.0;
+      supply_sko = 0.0;
+      ratio = 0.0;
+    }
+    double calc_ratio()
+    {
+      ratio = 0.0;
+      if (supply_voltage != 0.0) {
+        ratio = coils_voltage / supply_voltage;
+      }
+      return ratio;
+    }
+    void show_coils()
+    {
+      irs::mlog() << irsm("Напряжение на катушках:") << endl;
+      irs::mlog() << setprecision(7) << fixed;
+      irs::mlog() << coils_voltage << irsm(" В : ");
+      irs::mlog() << setprecision(3);
+      irs::mlog() << (coils_sko * 1e6) << irsm(" ppm : ");
+      irs::mlog() << coils_num_of_points << endl;
+    }
+    void show_supply()
+    {
+      irs::mlog() << irsm("Напряжение на источнике:") << endl;
+      irs::mlog() << setprecision(7) << fixed;
+      irs::mlog() << supply_voltage << irsm(" В : ");
+      irs::mlog() << setprecision(3);
+      irs::mlog() << (supply_sko * 1e6) << irsm(" ppm : ");
+      irs::mlog() << supply_num_of_points << endl;
+    }
+    void show_point()
+    {
+      irs::mlog() << irsm("Отношение:") << endl;
+      irs::mlog() << setprecision(7) << fixed;
+      irs::mlog() << ratio << endl;
+    }
   };
   struct sensivity_data_t {
     double dac_1;
@@ -268,7 +332,8 @@ private:
     em_pid = 1,
     em_fast_2points = 2,
     em_none = 3,
-    em_pid_linear = 4
+    em_pid_linear = 4,
+    em_analog = 5
   };
   enum {
     default_balance_points = 20,
@@ -391,7 +456,7 @@ private:
   mono_relay_t m_relay_hv_amps_gain;
   bi_relay_t m_relay_hv_pos;
   bi_relay_t m_relay_hv_neg;
-  bi_relay_t m_relay_hv_dac_amp;
+  bi_relay_t m_relay_adc_src;
 
   mode_t m_mode;
 
@@ -426,6 +491,8 @@ private:
   irs_u32 m_prepare_current_time;
   vector<elab_point_t> m_elab_vector;
   vector<elab_point_t> m_fast_elab_vector;
+  vector<analog_point_t> m_analog_vector;
+  analog_point_t m_analog_point;
   adc_value_t m_fast_elab_dac_step;
   adc_value_t m_fast_elab_dac_step_2;
   adc_value_t m_fast_elab_dac_step_3;
@@ -552,9 +619,17 @@ private:
   //
   double m_dac_hv_correction;
   //
-  const double m_min_bridge_voltage;
-  const double m_max_bridge_voltage;
+  /*const */double m_min_bridge_voltage;
+  /*const */double m_max_bridge_voltage;
+  /*const */double m_min_bridge_voltage_speed;
+  /*const */double m_max_bridge_voltage_speed;
+  /*const */double m_min_bridge_voltage_after_pause_ms;
+  /*const */double m_max_bridge_voltage_after_pause_ms;
   double m_bridge_voltage;
+  double m_bridge_voltage_reduced;
+  double m_bridge_voltage_speed;
+  double m_bridge_voltage_after_pause_ms;
+  bool m_bridge_voltage_reduce_after_switching;
   //
   device_condition_controller_t m_device_condition_controller;
   //
@@ -598,7 +673,7 @@ private:
       && (m_relay_bridge_neg.status() == irs_st_ready)
       && (m_relay_hv_pos.status() == irs_st_ready)
       && (m_relay_hv_neg.status() == irs_st_ready)
-      && (m_relay_hv_dac_amp.status() == irs_st_ready);
+      && (m_relay_adc_src.status() == irs_st_ready);
   }
   void print_voltage(adc_value_t a_value);
   void update_elab_pid_koefs(double a_td, double a_adc, 

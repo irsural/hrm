@@ -975,7 +975,8 @@ hrm::ad7799_cread_t::ad7799_cread_t(irs::spi_t *ap_spi,
   m_show_points(false),
   m_adc_filter_ready(false),
   m_imp_filt(),
-  m_max_value(1.0)
+  m_max_value(1.0),
+  m_error_cnt(0)
 {
   mp_cs_pin->set();
   memset(mp_spi_buf, 0, spi_buf_size);
@@ -1492,6 +1493,7 @@ void hrm::ad7799_cread_t::tick()
         }
         m_point_time = counter_get() - m_point_time;
         m_result_data.point_time = CNT_TO_DBLTIME(m_point_time);
+        m_result_data.error_cnt = m_error_cnt;
         mp_adc_exti->start();
       }
     } break;
@@ -1773,6 +1775,7 @@ void hrm::ad7799_cread_t::show_verify_message(bool a_show, irs_u8 a_status_reg,
     a_show = true;
   }
   if (a_show) {
+    m_error_cnt++;
     irs_u8 adc_type = (a_status_reg >> 3) & 0x01;
     irs_u8 no_ref = (a_status_reg >> 5) & 0x01;
     irs_u8 rdy = (a_status_reg >> 7) & 0x01;
@@ -1834,6 +1837,7 @@ void hrm::ad7799_cread_t::result(adc_result_data_t* ap_result_data)
   ap_result_data->saturated = m_result_data.saturated;
   ap_result_data->alternative_avg = m_result_data.alternative_avg;
   ap_result_data->alternative_sko = m_result_data.alternative_sko;
+  ap_result_data->error_cnt = m_result_data.error_cnt;
 }
 
 void hrm::ad7799_cread_t::set_max_value(adc_value_t a_max_value) 
@@ -3001,29 +3005,69 @@ hrm::bridge_voltage_dac_t::bridge_voltage_dac_t(irs::spi_t *ap_spi,
   m_trans_coef(a_trans_coef),
   mp_spi(ap_spi),
   mp_cs_pin(ap_cs_pin),
-  m_status(st_write),
-  m_after_pause(0),
-  m_timer(m_after_pause),
-  m_dac_voltage(m_min_voltage),
+  m_status(st_idle),
+  m_after_pause_ms(0.0),
+  m_dt(0.01),
+  m_step_interval(irs::make_cnt_ms(static_cast<int>(m_dt * 1000.0))),
+  m_timer(m_step_interval),
+  m_dac_voltage(0.0),
+  m_target_voltage(m_dac_voltage),
+  m_speed(10.0),
+  m_current_point(0),
+  m_num_of_points(0),
   m_need_set_voltage(false),
   m_show(true)
 {
   memset(mp_spi_buf, 0, write_buf_size);
   mp_cs_pin->set();
-  set_voltage(m_min_voltage);
+  //set_voltage(m_min_voltage);
 }
 
-void hrm::bridge_voltage_dac_t::set_voltage(double a_voltage)
+size_t hrm::bridge_voltage_dac_t::spline_t::init(double a_v1, double a_v2, 
+  double a_S, double a_dt)
 {
-  m_dac_voltage = irs::bound<double>(a_voltage, m_min_voltage, m_max_voltage);
-  m_dac_code = static_cast<irs_u16>(m_trans_coef * m_dac_voltage);
+  dt = a_dt;
+  double A = a_v2 - a_v1;
+  double T = abs(A / a_S);
+  dv = a_S * dt;
+  size_t N = 1;
+  a = 0.0;
+  b = 0.0;
+  if (abs(A) > dv) {
+    N = static_cast<size_t>(T / dt);
+    a = -2.0 * A / (T * T * T);
+    b = 3.0 * A / (T * T);
+  }
+  d = a_v1;
+  return N;
+}
+
+double hrm::bridge_voltage_dac_t::spline_t::calc(size_t a_n)
+{
+  double t = static_cast<double>(a_n) * dt;
+  double t2 = t * t;
+  double t3 = t2 * t;
+  double v = a * t3 + b * t2 + d;
+  return v;
+}
+
+double hrm::bridge_voltage_dac_t::set_voltage(double a_voltage)
+{
+  m_target_voltage 
+    = irs::bound<double>(a_voltage, m_min_voltage, m_max_voltage);
+  m_dac_code = static_cast<irs_u16>(m_trans_coef * m_target_voltage);
+  m_num_of_points 
+    = m_spline.init(m_dac_voltage, m_target_voltage, m_speed, m_dt);
   m_need_set_voltage = true;
   if (m_show) {
-    irs::mlog() << irsm("vDAC: code = ");
-    irs::mlog() << irsm("Êîä ÖÀÏ 0x") << hex;
+    irs::mlog() << irsm("vDAC: code = 0x");
+    irs::mlog() << hex << uppercase;
     irs::mlog() << m_dac_code << dec << defaultfloat << irsm(" / ");
-    irs::mlog() << m_dac_voltage << irsm(" Â") << endl;
+    irs::mlog() << m_target_voltage;
+    irs::mlog() << irsm(" Â, S = ");
+    irs::mlog() << m_speed << irsm(" Â/ñ") << endl;
   }
+  return m_target_voltage;
 }
 
 double hrm::bridge_voltage_dac_t::get_voltage()
@@ -3031,15 +3075,49 @@ double hrm::bridge_voltage_dac_t::get_voltage()
   return m_dac_voltage;
 }
 
-void hrm::bridge_voltage_dac_t::set_after_pause(counter_t a_after_pause)
+double hrm::bridge_voltage_dac_t::set_after_pause_ms(double a_after_pause_ms)
 {
-  m_after_pause = a_after_pause;
+  m_after_pause_ms = irs::bound(a_after_pause_ms, 0.0, 10000.0);
+  return m_after_pause_ms;
+}
+
+double hrm::bridge_voltage_dac_t::set_speed(double a_speed)
+{
+  m_speed = irs::bound(a_speed, 1.0, 200.0);
+  return m_speed;
+}
+
+double hrm::bridge_voltage_dac_t::sync_voltage(double a_voltage)
+{
+  double returned_voltage = a_voltage;
+  if (a_voltage != m_target_voltage) {
+    returned_voltage = set_voltage(a_voltage);
+  }
+  return returned_voltage;
+}
+
+double hrm::bridge_voltage_dac_t::sync_speed(double a_speed)
+{
+  double returned_speed = a_speed;
+  if (a_speed != m_speed) {
+    returned_speed = set_speed(a_speed);
+  }
+  return returned_speed;
+}
+
+double hrm::bridge_voltage_dac_t::sync_after_pause_ms(double a_after_pause_ms)
+{
+  double returned_after_pause_ms = a_after_pause_ms;
+  if (a_after_pause_ms != m_after_pause_ms) {
+    returned_after_pause_ms = set_after_pause_ms(a_after_pause_ms);
+  }
+  return returned_after_pause_ms;
 }
 
 irs_status_t hrm::bridge_voltage_dac_t::ready()
 {
   irs_status_t return_status = irs_st_busy;
-  if (m_status == st_ready) {
+  if (m_status == st_idle) {
     return_status = irs_st_ready;
   }
   return return_status;
@@ -3049,48 +3127,126 @@ void hrm::bridge_voltage_dac_t::tick()
 {
   mp_spi->tick();
   switch (m_status) {
-    case st_ready: {
+    case st_idle: {
       if (m_need_set_voltage) {
         m_need_set_voltage = false;
-        mp_spi_buf[0] = 0;
-        mp_spi_buf[1] = IRS_HIBYTE(m_dac_code);
-        mp_spi_buf[2] = IRS_LOBYTE(m_dac_code);
-        m_status = st_write;
+        m_current_point = 1;
+        m_timer.set(m_step_interval);
+        m_status = st_wait_spi;
       }
       break;
     }
-    case st_write: {
+    case st_wait_spi: {
       if ((mp_spi->get_status() == irs::spi_t::FREE) && !mp_spi->get_lock()) {
         mp_spi->lock();
         mp_spi->set_order(irs::spi_t::MSB);
         mp_spi->set_polarity(irs::spi_t::POSITIVE_POLARITY);
         mp_spi->set_phase(irs::spi_t::TRAIL_EDGE);
-        mp_cs_pin->clear();
-        mp_spi->write(mp_spi_buf, write_buf_size);
-        m_status = st_pause;
+        m_status = st_calc_code_and_write;
       }
       break;
     }
-    case st_pause: {
+    case st_calc_code_and_write: {
+      m_dac_voltage = m_spline.calc(m_current_point);
+      if (abs(m_dac_voltage - m_target_voltage) < m_spline.dv) {
+        m_dac_voltage = m_target_voltage;
+      }
+      m_dac_code = static_cast<irs_u16>(m_trans_coef * m_dac_voltage);
+      mp_spi_buf[0] = 0;
+      mp_spi_buf[1] = IRS_HIBYTE(m_dac_code);
+      mp_spi_buf[2] = IRS_LOBYTE(m_dac_code);
+      mp_cs_pin->clear();
+      mp_spi->write(mp_spi_buf, write_buf_size);
+      m_timer.start();
+      m_status = st_wait_writing;
+      break;
+    }
+    case st_wait_writing: {
       if (mp_spi->get_status() == irs::spi_t::FREE) {
         mp_cs_pin->set();
-        mp_spi->reset_configuration();
-        mp_spi->unlock();
-        memset(mp_spi_buf, 0, write_buf_size);
-        m_timer.set(m_after_pause);
-        m_timer.start();
-        m_status = st_wait;
-      }
-      break;
-    }
-    case st_wait: {
-      if (m_timer.check()) {
-        if (m_show) {
-          irs::mlog() << irsm("vDAC: ready") << endl;
+        if (m_current_point < m_num_of_points) {
+          m_current_point++;
+          m_status = st_wait_dt;
+        } else {
+          m_timer.set(m_after_pause);
+          m_timer.start();
+          m_status = st_wait_after_pause;
         }
-        m_status = st_ready;
       }
       break;
     }
+    case st_wait_dt: {
+      if (m_timer.check()) {
+        m_status = st_calc_code_and_write;
+      }
+      break;
+    }
+    case st_wait_after_pause: {
+      if (m_timer.check()) {
+        m_status = st_finish;
+      }
+      break;
+    }
+    case st_finish: {
+      mp_spi->reset_configuration();
+      mp_spi->unlock();
+      memset(mp_spi_buf, 0, write_buf_size);
+      if (m_show) {
+        irs::mlog() << irsm("vDAC: ready") << endl;
+      }
+      m_status = st_idle;
+      break;
+    }
+//    case st_ready: {
+//      if (m_need_set_voltage) {
+//        m_need_set_voltage = false;
+//        m_dac_voltage = 
+//      }
+//      break;
+//    }
+//    case st_ready: {
+//      if (m_need_set_voltage) {
+//        m_need_set_voltage = false;
+//        m_dac_code = static_cast<irs_u16>(m_trans_coef * m_dac_voltage);
+//        mp_spi_buf[0] = 0;
+//        mp_spi_buf[1] = IRS_HIBYTE(m_dac_code);
+//        mp_spi_buf[2] = IRS_LOBYTE(m_dac_code);
+//        m_status = st_write;
+//      }
+//      break;
+//    }
+//    case st_write: {
+//      if ((mp_spi->get_status() == irs::spi_t::FREE) && !mp_spi->get_lock()) {
+//        mp_spi->lock();
+//        mp_spi->set_order(irs::spi_t::MSB);
+//        mp_spi->set_polarity(irs::spi_t::POSITIVE_POLARITY);
+//        mp_spi->set_phase(irs::spi_t::TRAIL_EDGE);
+//        mp_cs_pin->clear();
+//        mp_spi->write(mp_spi_buf, write_buf_size);
+//        m_status = st_pause;
+//      }
+//      break;
+//    }
+//    case st_pause: {
+//      if (mp_spi->get_status() == irs::spi_t::FREE) {
+//        mp_cs_pin->set();
+//        mp_spi->reset_configuration();
+//        mp_spi->unlock();
+//        memset(mp_spi_buf, 0, write_buf_size);
+//        m_timer.set(m_after_pause);
+//        m_timer.start();
+//        m_status = st_wait;
+//      }
+//      break;
+//    }
+//    case st_wait: {
+//      if (m_timer.check()) {
+//        if (m_show) {
+//          irs::mlog() << irsm("vDAC: ready") << endl;
+//        }
+//        m_status = st_ready;
+//      }
+//      break;
+//    }
   }
 }

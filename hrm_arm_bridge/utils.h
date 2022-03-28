@@ -205,30 +205,55 @@ private:
 
 //  Здесь не использован готовый класс из irsadc dac_8531_t, 
 //  т.к. у него нет статуса готовности
+//  Реализована функция плавного изменения кода ЦАП по кривой 
+//  в виде кубического сплайна
 class bridge_voltage_dac_t
 {
 public:
   bridge_voltage_dac_t(irs::spi_t *ap_spi, irs::gpio_pin_t* ap_cs_pin, 
     double a_min_voltage, double a_max_voltage, double a_trans_coef);
   ~bridge_voltage_dac_t() {};
-  void set_voltage(double a_voltage);
+  //  Все функции set_** возвращают ограниченное bound-ом значение
+  double set_voltage(double a_voltage);
   double get_voltage();
-  void set_after_pause(counter_t a_after_pause);
+  //  Пауза после полной установки напряжения в мс
+  double set_after_pause_ms(double a_after_pause_ms);
+  //  Интегральная скорость установки напряжения (всё напряжение / всё время)
+  //  Вольт в секунду
+  double set_speed(double a_speed);
+  //  Функции синхронизации, запускают соответствующие функции set_**,
+  //  только если входной параметр отличается от внутренней переменной,
+  //  возвращают результат функции set_**, если она вызвалась
+  double sync_voltage(double a_voltage);
+  double sync_speed(double a_speed);
+  double sync_after_pause_ms(double a_after_pause_ms);
   irs_status_t ready();
   inline void show() { m_show = true; }
   inline void hide() { m_show = false; }
   void tick();
 private:
   enum status_t {
-    st_ready,
-    st_write,
-    st_pause,
-    st_wait
+    st_idle,
+    st_wait_spi,
+    st_calc_code_and_write,
+    st_wait_writing,
+    st_wait_dt,
+    st_wait_after_pause,
+    st_finish
   };
   enum {
     dac_resolution = 16,
     write_buf_size = 3,
     dac_max_value = 0xFFFF
+  };
+  struct spline_t {
+    double a;
+    double b;
+    double d;
+    double dt;
+    double dv;
+    size_t init(double a_v1, double a_v2, double a_S, double a_dt);
+    double calc(size_t a_n);
   };
   const double m_min_voltage;
   const double m_max_voltage;
@@ -238,11 +263,19 @@ private:
   irs_u8 mp_spi_buf[write_buf_size];
   status_t m_status;
   counter_t m_after_pause;
+  double m_after_pause_ms;
+  const double m_dt;
+  const counter_t m_step_interval;
   irs::timer_t m_timer;
   irs_u16 m_dac_code;
   double m_dac_voltage;
+  double m_target_voltage;
+  double m_speed;
+  size_t m_current_point;
+  size_t m_num_of_points;
   bool m_need_set_voltage;
   bool m_show;
+  spline_t m_spline;
 };
 
 class adc_t
@@ -412,6 +445,7 @@ struct adc_result_data_t {
   adc_value_t alternative_avg;
   adc_value_t alternative_sko;
   bool saturated;
+  irs_u16 error_cnt;
 };
 
 struct adc_param_data_t {
@@ -699,6 +733,7 @@ private:
   adc_param_data_t m_user_param_data;
   irs::filt_imp_noise_t m_imp_filt;
   adc_value_t m_max_value;
+  irs_u16 m_error_cnt;
   void event();
   inline adc_value_t convert_value(irs_i32 a_in_value)
   {

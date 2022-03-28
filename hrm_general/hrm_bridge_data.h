@@ -101,7 +101,7 @@ struct eth_data_t {
   irs::bit_data_t relay_hv_amps_gain;
   irs::bit_data_t relay_hv_pos;
   irs::bit_data_t relay_hv_neg;
-  irs::bit_data_t relay_hv_dac_amp;
+  irs::bit_data_t relay_adc_src;
   irs::bit_data_t relay_chon;
   irs::bit_data_t relay_eton;
   irs::bit_data_t relay_prot;
@@ -157,6 +157,7 @@ struct eth_data_t {
   irs::bit_data_t show_pid_process;
   irs::bit_data_t meas_sensivity;
   irs::bit_data_t elab_mode_auto_select;
+  irs::bit_data_t bridge_voltage_reduce_after_switching;
   irs::conn_data_t<irs_u8> balance_action;
   irs::conn_data_t<irs_u8> reserve_1;
   irs::conn_data_t<irs_u16> reserve_2;
@@ -368,15 +369,20 @@ struct eth_data_t {
   //
   irs::bit_data_as_bool_t show_codes;
   //  Adaptive sko coefficients
-  irs::conn_data_t<double> adaptive_sko_balance_multiplier;  //  8
-  irs::conn_data_t<double> adaptive_sko_elab_multiplier;     //  8
-  irs::conn_data_t<irs_u32> test;     //  4
+  irs::conn_data_t<double> adaptive_sko_balance_multiplier;   //  8
+  irs::conn_data_t<double> adaptive_sko_elab_multiplier;      //  8
+  irs::conn_data_t<irs_u16> adc_current_point;                 //  2
+  irs::conn_data_t<irs_u16> adc_error_cnt;                     //  2
   //------------------------------------------
   irs::conn_data_t<double> dac_hv_correction;                 //  8
   irs::conn_data_t<double> alternate_avg;                     //  8
   irs::conn_data_t<double> alternate_sko;                     //  8
   //------------------------------------------
   irs::conn_data_t<double> bridge_voltage;                    //  8
+  irs::conn_data_t<double> bridge_voltage_reduced;            //  8
+  irs::conn_data_t<double> bridge_voltage_speed;              //  8
+  irs::conn_data_t<double> bridge_voltage_current;            //  8
+  irs::conn_data_t<double> bridge_voltage_after_pause_ms;     //  8
 
   eth_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
@@ -426,7 +432,7 @@ struct eth_data_t {
     relay_hv_amps_gain.connect(ap_data, index, 1);
     relay_hv_pos.connect(ap_data, index, 2);
     relay_hv_neg.connect(ap_data, index, 3);
-    relay_hv_dac_amp.connect(ap_data, index, 4);
+    relay_adc_src.connect(ap_data, index, 4);
     relay_chon.connect(ap_data, index, 5);
     relay_eton.connect(ap_data, index, 6);
     relay_prot.connect(ap_data, index, 7);
@@ -488,6 +494,7 @@ struct eth_data_t {
     show_pid_process.connect(ap_data,       index + 3, 2);
     meas_sensivity.connect(ap_data,         index + 3, 3);
     elab_mode_auto_select.connect(ap_data,  index + 3, 4);
+    bridge_voltage_reduce_after_switching.connect(ap_data, index + 3, 5);
     index = options.connect(ap_data,        index);
     
     index= balance_action.connect(ap_data, index);
@@ -708,12 +715,17 @@ struct eth_data_t {
     //  Adaptive sko coefficients
     index = adaptive_sko_balance_multiplier.connect(ap_data, index);
     index = adaptive_sko_elab_multiplier.connect(ap_data, index);
-    index = test.connect(ap_data, index);
+    index = adc_current_point.connect(ap_data, index);
+    index = adc_error_cnt.connect(ap_data, index);
     index = dac_hv_correction.connect(ap_data, index);
     //
     index = alternate_avg.connect(ap_data, index);
     index = alternate_sko.connect(ap_data, index);
     index = bridge_voltage.connect(ap_data, index);
+    index = bridge_voltage_reduced.connect(ap_data, index);
+    index = bridge_voltage_speed.connect(ap_data, index);
+    index = bridge_voltage_current.connect(ap_data, index);
+    index = bridge_voltage_after_pause_ms.connect(ap_data, index);
     
     return index;
   }
@@ -755,6 +767,7 @@ struct eeprom_data_t {
   irs::bit_data_t show_pid_process;
   irs::bit_data_t meas_sensivity;
   irs::bit_data_t elab_mode_auto_select;
+  irs::bit_data_t bridge_voltage_reduce_after_switching;
   irs::conn_data_t<irs_i32> elab_step;                //  4
   irs::conn_data_t<irs_i32> min_elab_cnt;             //  4
   irs::conn_data_t<irs_i32> max_elab_cnt;             //  4
@@ -915,6 +928,9 @@ struct eeprom_data_t {
   //
   irs::conn_data_t<double> dac_hv_correction;                //  8
   irs::conn_data_t<double> bridge_voltage;                   //  8
+  irs::conn_data_t<double> bridge_voltage_reduced;           //  8
+  irs::conn_data_t<double> bridge_voltage_speed;             //  8
+  irs::conn_data_t<double> bridge_voltage_after_pause_ms;    //  8
   
   eeprom_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
@@ -961,6 +977,7 @@ struct eeprom_data_t {
     show_pid_process.connect(ap_data, index + 2, 1);
     meas_sensivity.connect(ap_data, index + 2, 2);
     elab_mode_auto_select.connect(ap_data, index + 2, 3);
+    bridge_voltage_reduce_after_switching.connect(ap_data, index + 2, 4);
     index = options.connect(ap_data, index);
     index = elab_step.connect(ap_data, index);
     index = min_elab_cnt.connect(ap_data, index);
@@ -1120,6 +1137,9 @@ struct eeprom_data_t {
     index = elab_mode_limit.connect(ap_data, index);
     index = dac_hv_correction.connect(ap_data, index);
     index = bridge_voltage.connect(ap_data, index);
+    index = bridge_voltage_reduced.connect(ap_data, index);
+    index = bridge_voltage_speed.connect(ap_data, index);
+    index = bridge_voltage_after_pause_ms.connect(ap_data, index);
     irs::mlog() << irsm("EEPROM size = ") << index << endl;
     return index;
   }
