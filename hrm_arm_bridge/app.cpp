@@ -33,15 +33,29 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   m_eeprom_data(&m_eeprom),
   m_init_eeprom(&m_eeprom, &m_eeprom_data),
   m_raw_dac(
-    &mp_cfg->spi_dac,
+    //&mp_cfg->spi_dac,
+    &mp_cfg->spi_aux,
     &mp_cfg->dac_cs,
     &mp_cfg->dac_ldac,
     &mp_cfg->dac_clr,
     &mp_cfg->dac_reset,
     0),
   m_dac(&m_raw_dac),
-  m_adc(&mp_cfg->spi_adc, &mp_cfg->adc_cs, &mp_cfg->adc_exti),
-  m_bridge_voltage_dac(&mp_cfg->spi_adc, &mp_cfg->bridge_voltage_dac_cs,
+  //m_adc(&mp_cfg->spi_adc, &mp_cfg->adc_cs, &mp_cfg->adc_exti),
+  m_adc(&mp_cfg->spi_aux, &mp_cfg->adc_cs, &mp_cfg->adc_exti),
+  m_adc_ad4630(&mp_cfg->spi_dac,
+    &mp_cfg->ad4630_rst,
+    &mp_cfg->ad4630_cs,
+    &mp_cfg->ad4630_busy,
+    &mp_cfg->ad4630_pwr,
+    &mp_cfg->ad4630_point_control,
+    &mp_cfg->pulse_gen,
+    &mp_cfg->adc_ready,
+    &mp_cfg->spi_dma_reader),
+  m_n_avg(0),
+  m_t_adc(0),
+  m_ef_smooth(0.0),
+  m_bridge_voltage_dac(&mp_cfg->spi_aux, &mp_cfg->bridge_voltage_dac_cs,
     min_bridge_voltage, max_bridge_voltage, bridge_voltage_trans_coef),
   m_eth_timer(irs::make_cnt_ms(100)),
   m_blink_timer(irs::make_cnt_ms(500)),
@@ -69,26 +83,37 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
 //    0),
   m_relay_prot(&mp_cfg->relay_prot, irst("PROT"), 1),
   //  HV Relays
-  m_relay_hv_polarity(&mp_cfg->relay_hv_polarity, irst("HVPOL"), 0),
-  m_relay_hv_amps_gain(&mp_cfg->relay_hv_amps_gain, irst("HVGAIN"), 0),
-  m_relay_hv_pos(
-    &mp_cfg->relay_hv_pos_off,
-    &mp_cfg->relay_hv_pos_on,
-    irst("HVPOS"),
-    0,
-    irs::make_cnt_ms(100)),
-  m_relay_hv_neg(
-    &mp_cfg->relay_hv_neg_off,
-    &mp_cfg->relay_hv_neg_on,
-    irst("HVNEG"),
-    0,
-    irs::make_cnt_ms(100)),
-  m_relay_adc_src(
-    &mp_cfg->relay_adc_src_off,
-    &mp_cfg->relay_adc_src_on,
-    irst("ADCSRC"),
-    0,
-    irs::make_cnt_ms(100)),
+//  m_relay_hv_polarity(&mp_cfg->relay_hv_polarity, irst("HVPOL"), 0),
+//  m_relay_hv_amps_gain(&mp_cfg->relay_hv_amps_gain, irst("HVGAIN"), 0),
+//  m_relay_hv_pos(
+//    &mp_cfg->relay_hv_pos_off,
+//    &mp_cfg->relay_hv_pos_on,
+//    irst("HVPOS"),
+//    0,
+//    irs::make_cnt_ms(100)),
+//  m_relay_hv_neg(
+//    &mp_cfg->relay_hv_neg_off,
+//    &mp_cfg->relay_hv_neg_on,
+//    irst("HVNEG"),
+//    0,
+//    irs::make_cnt_ms(100)),
+//  m_relay_adc_src(
+//    &mp_cfg->relay_adc_src_off,
+//    &mp_cfg->relay_adc_src_on,
+//    irst("ADCSRC"),
+//    0,
+//    irs::make_cnt_ms(100)),
+  //  Relays AD4630
+  m_relay_divp(
+    &mp_cfg->relay_bridge_divp_on,
+    &mp_cfg->relay_bridge_divp_off,
+    irst("DIVP"),
+    0),
+  m_relay_divn(
+    &mp_cfg->relay_bridge_divn_on,
+    &mp_cfg->relay_bridge_divn_off,
+    irst("DIVN"),
+    0),
   m_mode(md_free),
   m_free_status(fs_prepare),
   m_balance_status(bs_prepare),
@@ -245,7 +270,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   //  treg adc
   m_treg_operating_duty_time_interval_s(1.0),
   m_treg_operating_duty_deviation(0.05),
-  m_treg_pwm_max_code_float(1.0),
+  m_treg_pwm_max_code_float(0.3),
   m_treg_polarity_map(peltier_t::default_polarity_map),
   m_treg_temperature_setpoint(25.0),
   m_treg_termosensor(&m_eth_data.th_box_adc, 15.0, 35.0),
@@ -297,10 +322,10 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   // treg dac
   m_treg_dac_operating_duty_time_interval_s(1.0),
   m_treg_dac_operating_duty_deviation(0.05),
-  m_treg_dac_pwm_max_code_float(1.0),
+  m_treg_dac_pwm_max_code_float(0.3),
   m_treg_dac_polarity_map(peltier_t::default_polarity_map),
   m_treg_dac_temperature_setpoint(25.0),
-  m_treg_dac_termosensor(&m_eth_data.th_dac, 15.0, 45.0),
+  m_treg_dac_termosensor(&m_eth_data./*th_dac*/th_box_ldo, 15.0, 45.0),
   m_treg_dac_peltier_parameters(
     &m_treg_dac_termosensor,
     &mp_cfg->peltier_pwm2_gen,
@@ -351,6 +376,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   //m_use_adaptive_sko(false),
   //m_adaptive_sko(0.0)
 {
+  m_adc.mute();
   init_keyboard_drv();
   init_encoder_drv();
 
@@ -487,9 +513,11 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   m_eth_data.wild_relays = m_wild_relays;
   m_relay_bridge_pos.set_wild(m_wild_relays);
   m_relay_bridge_neg.set_wild(m_wild_relays);
-  m_relay_hv_pos.set_wild(m_wild_relays);
-  m_relay_hv_neg.set_wild(m_wild_relays);
-  m_relay_adc_src.set_wild(m_wild_relays);
+//  m_relay_hv_pos.set_wild(m_wild_relays);
+//  m_relay_hv_neg.set_wild(m_wild_relays);
+//  m_relay_adc_src.set_wild(m_wild_relays);
+  m_relay_divp.set_wild(m_wild_relays);
+  m_relay_divn.set_wild(m_wild_relays);
 
   m_auto_elab_step = m_eeprom_data.auto_elab_step;
   m_eth_data.auto_elab_step = m_auto_elab_step;
@@ -584,11 +612,13 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   m_relay_bridge_pos.set_after_pause(m_min_after_pause);
   m_relay_bridge_neg.set_after_pause(m_min_after_pause);
   m_relay_prot.set_after_pause(m_min_after_pause);
-  m_relay_hv_polarity.set_after_pause(m_min_after_pause);
-  m_relay_hv_amps_gain.set_after_pause(m_min_after_pause);
-  m_relay_hv_pos.set_after_pause(m_min_after_pause);
-  m_relay_hv_neg.set_after_pause(m_min_after_pause);
-  m_relay_adc_src.set_after_pause(m_min_after_pause);
+//  m_relay_hv_polarity.set_after_pause(m_min_after_pause);
+//  m_relay_hv_amps_gain.set_after_pause(m_min_after_pause);
+//  m_relay_hv_pos.set_after_pause(m_min_after_pause);
+//  m_relay_hv_neg.set_after_pause(m_min_after_pause);
+//  m_relay_adc_src.set_after_pause(m_min_after_pause);
+  m_relay_divp.set_after_pause(m_min_after_pause);
+  m_relay_divn.set_after_pause(m_min_after_pause);
 
   m_eth_data.elab_pid_sko_meas_time = m_eeprom_data.elab_pid_sko_meas_time;
   //m_termostat.set_after_pause(m_min_after_pause);
@@ -617,6 +647,19 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   m_eth_data.show_options = m_eeprom_data.show_options;
   //
   m_bridge_voltage_dac.show();
+  //
+  m_n_avg = m_eeprom_data.n_avg;
+  m_t_adc = m_eeprom_data.t_adc;
+  m_ef_smooth = m_eeprom_data.ef_smooth;
+  m_eth_data.n_avg = m_n_avg;
+  m_eth_data.t_adc = m_t_adc;
+  m_eth_data.ef_smooth = m_ef_smooth;
+  m_adc_ad4630.set_ef_smooth(m_ef_smooth);
+  m_adc_ad4630.set_avg(m_n_avg);
+  m_adc_ad4630.set_t(m_t_adc);
+  //
+  //m_adc_ad4630.start_single_conversion();
+  m_adc_ad4630.start_continious();
 }
 
 void hrm::app_t::init_keyboard_drv()
@@ -634,11 +677,12 @@ void hrm::app_t::init_encoder_drv()
 
 void hrm::app_t::tick()
 { 
+  m_adc_ad4630.tick();
   mp_cfg->tick();
   m_mxnet_server.tick();
   m_eeprom.tick();
-  m_raw_dac.tick();
-  m_dac.tick();
+  //m_raw_dac.tick();
+  //m_dac.tick();
   m_bridge_voltage_dac.tick();
   
   if (m_show_network_params) {
@@ -661,11 +705,13 @@ void hrm::app_t::tick()
   m_relay_bridge_pos.tick();
   m_relay_bridge_neg.tick();
   m_relay_prot.tick();
-  m_relay_hv_polarity.tick();
-  m_relay_hv_amps_gain.tick();
-  m_relay_hv_pos.tick();
-  m_relay_hv_neg.tick();
-  m_relay_adc_src.tick();
+//  m_relay_hv_polarity.tick();
+//  m_relay_hv_amps_gain.tick();
+//  m_relay_hv_pos.tick();
+//  m_relay_hv_neg.tick();
+//  m_relay_adc_src.tick();
+  m_relay_divp.tick();
+  m_relay_divn.tick();
 
   m_buzzer.tick();
 
@@ -727,21 +773,58 @@ void hrm::app_t::tick()
       if (m_eth_data.relay_prot != m_relay_prot) {
         m_eth_data.relay_prot = m_relay_prot;
       }
-      if (m_eth_data.relay_hv_polarity != m_relay_hv_polarity) {
-        m_eth_data.relay_hv_polarity = m_relay_hv_polarity;
+//      if (m_eth_data.relay_hv_polarity != m_relay_hv_polarity) {
+//        m_eth_data.relay_hv_polarity = m_relay_hv_polarity;
+//      }
+//      if (m_eth_data.relay_hv_amps_gain != m_relay_hv_amps_gain) {
+//        m_eth_data.relay_hv_amps_gain = m_relay_hv_amps_gain;
+//      }
+//      if (m_eth_data.relay_hv_pos != m_relay_hv_pos) {
+//        m_eth_data.relay_hv_pos = m_relay_hv_pos;
+//      }
+//      if (m_eth_data.relay_hv_neg != m_relay_hv_neg) {
+//        m_eth_data.relay_hv_neg = m_relay_hv_neg;
+//      }
+//      if (m_eth_data.relay_adc_src != m_relay_adc_src) {
+//        m_eth_data.relay_adc_src = m_relay_adc_src;
+//      }
+      if (m_eth_data.relay_divp != m_relay_divp) {
+        m_eth_data.relay_divp = m_relay_divp;
       }
-      if (m_eth_data.relay_hv_amps_gain != m_relay_hv_amps_gain) {
-        m_eth_data.relay_hv_amps_gain = m_relay_hv_amps_gain;
+      if (m_eth_data.relay_divn != m_relay_divn) {
+        m_eth_data.relay_divn = m_relay_divn;
       }
-      if (m_eth_data.relay_hv_pos != m_relay_hv_pos) {
-        m_eth_data.relay_hv_pos = m_relay_hv_pos;
+    }
+    if (m_adc_ad4630.new_data()) {
+      m_eth_data.voltage1 = m_adc_ad4630.voltage1();
+      m_eth_data.voltage2 = m_adc_ad4630.voltage2();
+      m_eth_data.voltage_ef1 = m_adc_ad4630.voltage_ef1();
+      m_eth_data.voltage_ef2 = m_adc_ad4630.voltage_ef2();
+      if (m_eth_data.voltage_ef2 > 0.0) {
+        m_eth_data.result = m_eth_data.voltage_ef1 / m_eth_data.voltage_ef2;
+        m_eth_data.ratio = m_eth_data.voltage_ef1 - m_eth_data.voltage_ef2;
       }
-      if (m_eth_data.relay_hv_neg != m_relay_hv_neg) {
-        m_eth_data.relay_hv_neg = m_relay_hv_neg;
-      }
-      if (m_eth_data.relay_adc_src != m_relay_adc_src) {
-        m_eth_data.relay_adc_src = m_relay_adc_src;
-      }
+      //m_adc_ad4630.start_single_conversion();
+    }
+    m_eth_data.adc_error_cnt = m_adc_ad4630.error_cnt();
+    if (m_eth_data.n_avg != m_n_avg) {
+      m_n_avg = m_adc_ad4630.set_avg(m_eth_data.n_avg);
+      m_eth_data.n_avg = m_n_avg;
+      m_eeprom_data.n_avg = m_n_avg;
+    }
+    if (m_eth_data.t_adc != m_t_adc) {
+      m_t_adc = m_adc_ad4630.set_t(m_eth_data.t_adc);
+      m_eth_data.t_adc = m_t_adc;
+      m_eeprom_data.t_adc = m_t_adc;
+    }
+    if (m_eth_data.ef_smooth != m_ef_smooth) {
+      m_ef_smooth = m_adc_ad4630.set_ef_smooth(m_eth_data.ef_smooth);
+      m_eth_data.ef_smooth = m_ef_smooth;
+      m_eeprom_data.ef_smooth = m_ef_smooth;
+    }
+    if (m_eth_data.ef_preset != 0) {
+      m_eth_data.ef_preset = 0;
+      m_adc_ad4630.ef_preset();
     }
     if (m_adc.new_result()) {
       m_adc.result(&m_adc_result_data);
@@ -1068,11 +1151,13 @@ void hrm::app_t::tick()
           m_relay_bridge_pos = 0;
           m_relay_bridge_neg = 0;
           m_relay_prot = 1;
-          m_relay_hv_polarity = 0;
-          m_relay_hv_amps_gain = 0;
-          m_relay_hv_pos = 0;
-          m_relay_hv_neg = 0;
-          m_relay_adc_src = 0;
+//          m_relay_hv_polarity = 0;
+//          m_relay_hv_amps_gain = 0;
+//          m_relay_hv_pos = 0;
+//          m_relay_hv_neg = 0;
+//          m_relay_adc_src = 0;
+          m_relay_divp = 0;
+          m_relay_divn = 0;
           m_adc.set_max_value(m_adc_max_value_prot);
           //
           m_dac.show();
@@ -1085,9 +1170,11 @@ void hrm::app_t::tick()
           //
           m_relay_bridge_pos.set_wild(false);
           m_relay_bridge_neg.set_wild(false);
-          m_relay_hv_pos.set_wild(false);
-          m_relay_hv_neg.set_wild(false);
-          m_relay_adc_src.set_wild(false);
+//          m_relay_hv_pos.set_wild(false);
+//          m_relay_hv_neg.set_wild(false);
+//          m_relay_adc_src.set_wild(false);
+          m_relay_divp.set_wild(false);
+          m_relay_divn.set_wild(false);
           //
           m_eth_data.apply = 0;
           m_eth_data.prepare_pause = m_prepare_pause;
@@ -1159,11 +1246,13 @@ void hrm::app_t::tick()
           m_relay_bridge_pos.set_after_pause(m_min_after_pause);
           m_relay_bridge_neg.set_after_pause(m_min_after_pause);
           m_relay_prot.set_after_pause(m_min_after_pause);
-          m_relay_hv_polarity.set_after_pause(m_min_after_pause);
-          m_relay_hv_amps_gain.set_after_pause(m_min_after_pause);
-          m_relay_hv_pos.set_after_pause(m_min_after_pause);
-          m_relay_hv_neg.set_after_pause(m_min_after_pause);
-          m_relay_adc_src.set_after_pause(m_min_after_pause);
+//          m_relay_hv_polarity.set_after_pause(m_min_after_pause);
+//          m_relay_hv_amps_gain.set_after_pause(m_min_after_pause);
+//          m_relay_hv_pos.set_after_pause(m_min_after_pause);
+//          m_relay_hv_neg.set_after_pause(m_min_after_pause);
+//          m_relay_adc_src.set_after_pause(m_min_after_pause);
+          m_relay_divp.set_after_pause(m_min_after_pause);
+          m_relay_divn.set_after_pause(m_min_after_pause);
           m_dac.set_after_pause(m_min_after_pause);
           //m_termostat.set_after_pause(m_min_after_pause);
           m_imm_coef = m_eth_data.imm_coef;
@@ -1203,20 +1292,27 @@ void hrm::app_t::tick()
               }
             }
             //  HV relays
-            if (m_eth_data.relay_hv_polarity != m_relay_hv_polarity) {
-              m_relay_hv_polarity = m_eth_data.relay_hv_polarity;
+//            if (m_eth_data.relay_hv_polarity != m_relay_hv_polarity) {
+//              m_relay_hv_polarity = m_eth_data.relay_hv_polarity;
+//            }
+//            if (m_eth_data.relay_hv_amps_gain != m_relay_hv_amps_gain) {
+//              m_relay_hv_amps_gain = m_eth_data.relay_hv_amps_gain;
+//            }
+//            if (m_eth_data.relay_hv_pos != m_relay_hv_pos) {
+//              m_relay_hv_pos = m_eth_data.relay_hv_pos;
+//            }
+//            if (m_eth_data.relay_hv_neg != m_relay_hv_neg) {
+//              m_relay_hv_neg = m_eth_data.relay_hv_neg;
+//            }
+//            if (m_eth_data.relay_adc_src != m_relay_adc_src) {
+//              m_relay_adc_src = m_eth_data.relay_adc_src;
+//            }
+            //  Relays AD4630
+            if (m_eth_data.relay_divp != m_relay_divp) {
+              m_relay_divp = m_eth_data.relay_divp;
             }
-            if (m_eth_data.relay_hv_amps_gain != m_relay_hv_amps_gain) {
-              m_relay_hv_amps_gain = m_eth_data.relay_hv_amps_gain;
-            }
-            if (m_eth_data.relay_hv_pos != m_relay_hv_pos) {
-              m_relay_hv_pos = m_eth_data.relay_hv_pos;
-            }
-            if (m_eth_data.relay_hv_neg != m_relay_hv_neg) {
-              m_relay_hv_neg = m_eth_data.relay_hv_neg;
-            }
-            if (m_eth_data.relay_adc_src != m_relay_adc_src) {
-              m_relay_adc_src = m_eth_data.relay_adc_src;
+            if (m_eth_data.relay_divn != m_relay_divn) {
+              m_relay_divn = m_eth_data.relay_divn;
             }
             //  Wild mode for bridge relays
             if (m_wild_relays != m_relay_bridge_pos.wild()) {
@@ -1226,14 +1322,21 @@ void hrm::app_t::tick()
               m_relay_bridge_neg.set_wild(m_wild_relays);
             }
             //  Wild mode for HV relays
-            if (m_wild_relays != m_relay_hv_pos.wild()) {
-              m_relay_hv_pos.set_wild(m_wild_relays);
+//            if (m_wild_relays != m_relay_hv_pos.wild()) {
+//              m_relay_hv_pos.set_wild(m_wild_relays);
+//            }
+//            if (m_wild_relays != m_relay_hv_neg.wild()) {
+//              m_relay_hv_neg.set_wild(m_wild_relays);
+//            }
+//            if (m_wild_relays != m_relay_adc_src.wild()) {
+//              m_relay_adc_src.set_wild(m_wild_relays);
+//            }
+            //  Wild mode for relays AD4630
+            if (m_wild_relays != m_relay_divp.wild()) {
+              m_relay_divp.set_wild(m_wild_relays);
             }
-            if (m_wild_relays != m_relay_hv_neg.wild()) {
-              m_relay_hv_neg.set_wild(m_wild_relays);
-            }
-            if (m_wild_relays != m_relay_adc_src.wild()) {
-              m_relay_adc_src.set_wild(m_wild_relays);
+            if (m_wild_relays != m_relay_divn.wild()) {
+              m_relay_divn.set_wild(m_wild_relays);
             }
             //if (m_eth_data.wild_relays)
             //  ЦАП
@@ -1288,6 +1391,12 @@ void hrm::app_t::tick()
               m_manual_status = ms_adc_show;
             } else if (m_eth_data.elab_pid_on == 1) {
               m_manual_status = ms_pid_start;
+            }
+            if (m_eth_data.adc_restart == 1) {
+              m_eth_data.adc_restart = 0;
+              m_adc.restart();
+              irs::mlog() << irsm("ADC MANUAL RESTART") << endl;
+              m_adc.show_current_param_data(true);
             }
             //  Напряжение моста
             if (m_eth_data.bridge_voltage != m_bridge_voltage) {
@@ -1504,9 +1613,9 @@ void hrm::app_t::tick()
         case ss_on: {
           if (bridge_relays_ready()) {
             m_relay_bridge_pos = 1;
-            m_relay_hv_pos = 1;
-            m_relay_adc_src = 0;
-            m_relay_hv_amps_gain = 0;
+//            m_relay_hv_pos = 1;
+//            m_relay_adc_src = 0;
+//            m_relay_hv_amps_gain = 0;
             m_scan_status = ss_dac_prepare;
           }
           break;
@@ -1585,9 +1694,9 @@ void hrm::app_t::tick()
         case ss_relay_off: {
           if (bridge_relays_ready()) {
             m_relay_bridge_pos = 0;
-            m_relay_hv_pos = 0;
-            m_relay_adc_src = 0;
-            m_relay_hv_amps_gain = 0;
+//            m_relay_hv_pos = 0;
+//            m_relay_adc_src = 0;
+//            m_relay_hv_amps_gain = 0;
             m_scan_status = ss_relay_wait;
           }
           break;
@@ -1633,20 +1742,20 @@ void hrm::app_t::tick()
           m_relay_bridge_pos.set_after_pause(m_relay_after_pause);
           m_relay_bridge_neg.set_after_pause(m_relay_after_pause);
           m_relay_prot.set_after_pause(m_relay_after_pause);
-          m_relay_hv_polarity.set_after_pause(m_relay_after_pause);
-          m_relay_hv_amps_gain.set_after_pause(m_relay_after_pause);
-          m_relay_hv_pos.set_after_pause(m_relay_after_pause);
-          m_relay_hv_neg.set_after_pause(m_relay_after_pause);
-          m_relay_adc_src.set_after_pause(m_relay_after_pause);
+//          m_relay_hv_polarity.set_after_pause(m_relay_after_pause);
+//          m_relay_hv_amps_gain.set_after_pause(m_relay_after_pause);
+//          m_relay_hv_pos.set_after_pause(m_relay_after_pause);
+//          m_relay_hv_neg.set_after_pause(m_relay_after_pause);
+//          m_relay_adc_src.set_after_pause(m_relay_after_pause);
 
           m_wild_relays = m_eth_data.wild_relays;
           m_eeprom_data.wild_relays = m_wild_relays;
           if (m_wild_relays) {
             m_relay_bridge_pos.set_wild(true);
             m_relay_bridge_neg.set_wild(true);
-            m_relay_hv_pos.set_wild(true);
-            m_relay_hv_neg.set_wild(true);
-            m_relay_adc_src.set_wild(true);
+//            m_relay_hv_pos.set_wild(true);
+//            m_relay_hv_neg.set_wild(true);
+//            m_relay_adc_src.set_wild(true);
           }
 
           m_relay_pause_timer.set(m_relay_after_pause);
@@ -1839,8 +1948,8 @@ void hrm::app_t::tick()
               m_relay_prot = 0;
               m_adc.set_max_value(m_adc_max_value_no_prot);
             }
-            m_relay_adc_src = 0;
-            m_relay_hv_amps_gain = 0;
+//            m_relay_adc_src = 0;
+//            m_relay_hv_amps_gain = 0;
             m_balance_status = bs_set_coils;
           }
           break;
@@ -1854,12 +1963,12 @@ void hrm::app_t::tick()
             case bp_neg:
               irs::mlog() << irsm("------------- (-) ---------------") <<endl;
               m_relay_bridge_neg = 1;
-              m_relay_hv_neg = 1;
+//              m_relay_hv_neg = 1;
               break;
             case bp_pos:
               irs::mlog() << irsm("------------- (+) ---------------") <<endl;
               m_relay_bridge_pos = 1;
-              m_relay_hv_pos = 1;
+//              m_relay_hv_pos = 1;
               break;
             }
             m_balance_status = bs_coils_wait;
@@ -2527,6 +2636,13 @@ void hrm::app_t::tick()
               irs::mlog() << endl << irsm("Предварительная пауза ");
               irs::mlog() << m_eth_data.prepare_pause << irsm(" c") << endl;
               
+              
+              /////////////////////////////////////////
+              //m_adc_balance_param_data.cont_mode = 3;
+              //m_adc.set_params(&m_adc_balance_param_data);
+              /////////////////////////////////////////
+              
+              
               m_adc.hide();
               m_dac.hide();
               m_balance_action = ba_prepare_pause;
@@ -2552,6 +2668,12 @@ void hrm::app_t::tick()
               //m_adaptive_sko_calc.add();
               //m_eth_data.prepare_pause = m_prepare_current_time;
             } else {
+              m_adc.stop_continious();
+              /////////////////////////////////////////////////////
+              //m_adc_balance_param_data.cont_mode 
+                //= m_eth_data.adc_balance_cont_mode;
+              //m_adc.set_params(&m_adc_balance_param_data);
+              /////////////////////////////////////////////////////
               m_prepare_pause_completed = true;
               irs::mlog() << endl;
               //m_eth_data.prepare_pause = m_prepare_pause;
@@ -2615,6 +2737,9 @@ void hrm::app_t::tick()
         case bs_adc_prepare: {
           if (m_adc.status() == irs_st_ready) {
             if (m_adaptive_sko_calc.used()) {
+              //
+              m_adc_adaptive_balance_param_data.channel = 0;
+              //
               m_adc.set_params(&m_adc_adaptive_balance_param_data);
               irs::mlog() << 
               irsm("Параметры АЦП m_adc_adaptive_balance_param_data") << endl;
@@ -2647,19 +2772,30 @@ void hrm::app_t::tick()
             m_analog_point.coils_num_of_points = adc_result_data.current_point;
             m_analog_point.show_coils();
             m_balance_status = bs_analog_relay_switch_supply;
+//            m_analog_point.supply_voltage = adc_result_data.avg;
+//            m_analog_point.supply_sko = adc_result_data.sko;
+//            m_analog_point.supply_num_of_points = adc_result_data.current_point;
+//            m_analog_point.show_supply();
+//            m_balance_status = bs_analog_half_report;
           }
           break;
         }
         case bs_analog_relay_switch_supply: {
           if (bridge_relays_ready()) {
-            m_relay_adc_src = 1;
+          //if (m_adc.status() == irs_st_ready) {
+            //m_relay_adc_src = 1;
+            //m_adc_adaptive_balance_param_data.channel = 1;
+            //m_adc.set_params(&m_adc_adaptive_balance_param_data);
             m_balance_status = bs_analog_relay_wait_supply;
           }
           break;
         }
         case bs_analog_relay_wait_supply: {
           if (bridge_relays_ready()) {
-            m_bridge_voltage_dac.set_voltage(m_bridge_voltage);
+          //if (m_adc.status() == irs_st_ready) {
+            if (m_bridge_voltage_reduce_after_switching) {
+              m_bridge_voltage_dac.set_voltage(m_bridge_voltage);
+            }
             m_balance_status = bs_analog_wait_repeat_dac;
           }
           break;
@@ -2685,12 +2821,24 @@ void hrm::app_t::tick()
             m_analog_point.supply_sko = adc_result_data.sko;
             m_analog_point.supply_num_of_points = adc_result_data.current_point;
             m_analog_point.show_supply();
+            //
+            //m_adc_adaptive_balance_param_data.channel = 0;
+            //m_adc.set_params(&m_adc_adaptive_balance_param_data);
+            //
             m_balance_status = bs_analog_half_report;
           }
           break;
         }
         case bs_analog_half_report: {
-          m_analog_point.calc_ratio();
+          //m_analog_point.calc_ratio();
+          //m_analog_point.ratio = m_analog_point.coils_voltage / 4.096;
+          double k = 106.3617021;
+          double b = -215.780766;
+          double m_etalon_voltage = m_analog_point.coils_voltage * k + b;
+          double m_checked_voltage = m_analog_point.supply_voltage * k + b;
+          irs::mlog() << irsm("V1 = ") << m_etalon_voltage << irsm(" В")<< endl;
+          irs::mlog() << irsm("V2 = ") << m_checked_voltage << irsm(" В")<<endl;
+          m_analog_point.ratio = abs(m_etalon_voltage / m_checked_voltage);
           m_analog_vector.push_back(m_analog_point);
           m_analog_point.show_point();
           switch (m_balance_polarity) {
@@ -3249,8 +3397,8 @@ void hrm::app_t::tick()
 
               m_relay_bridge_pos = 0;
               m_relay_bridge_neg = 0;
-              m_relay_hv_pos = 0;
-              m_relay_hv_neg = 0;
+//              m_relay_hv_pos = 0;
+//              m_relay_hv_neg = 0;
               m_balance_status = bs_set_prot;
             } else {
               m_current_elab = 0;
@@ -3424,10 +3572,10 @@ void hrm::app_t::tick()
           if (m_relay_prot.status() == irs_st_ready) {
             m_relay_bridge_pos = 0;
             m_relay_bridge_neg = 0;
-            m_relay_hv_pos = 0;
-            m_relay_hv_neg = 0;
-            m_relay_adc_src = 0;
-            m_relay_hv_amps_gain = 0;
+//            m_relay_hv_pos = 0;
+//            m_relay_hv_neg = 0;
+//            m_relay_adc_src = 0;
+//            m_relay_hv_amps_gain = 0;
             m_balance_status = bs_wait_relays;
           }
           break;
@@ -3875,8 +4023,22 @@ void hrm::app_t::tick()
               exp.temperature_ext = m_eth_data.th_ext_1;
               exp.temperature_dac = m_eth_data.th_dac;
               exp.temperature_adc = m_eth_data.th_box_adc;
+              exp.coils_voltage_neg = m_analog_vector[0].coils_voltage;
+              exp.coils_sko_neg = m_analog_vector[0].coils_sko * 1.0e6;
+              exp.coils_n_neg = m_analog_vector[0].coils_num_of_points;
+              exp.coils_voltage_pos = m_analog_vector[1].coils_voltage;
+              exp.coils_sko_pos = m_analog_vector[1].coils_sko * 1.0e6;
+              exp.coils_n_pos = m_analog_vector[1].coils_num_of_points;
+              exp.source_voltage_neg = m_analog_vector[0].supply_voltage;
+              exp.source_sko_neg = m_analog_vector[0].supply_sko * 1.0e6;
+              exp.source_n_neg = m_analog_vector[0].supply_num_of_points;
+              exp.source_voltage_pos = m_analog_vector[1].supply_voltage;
+              exp.source_sko_pos = m_analog_vector[1].supply_sko * 1.0e6;
+              exp.source_n_pos = m_analog_vector[1].supply_num_of_points;
+              exp.errors_cnt = m_eth_data.adc_error_cnt;
 
               m_exp_vector.push_back(exp);
+              m_analog_vector.clear();
 
               m_eth_data.result = exp.result_old * m_eth_data.etalon;
               m_eth_data.ratio = m_result;
@@ -5512,6 +5674,21 @@ void hrm::app_t::show_last_result()
     irs::mlog() << irsm("D-   ");
     irs::mlog() << irsm("D+");
   }
+  if (m_elab_mode == em_analog) {
+    irs::mlog() << irsm("Vc-     ");
+    irs::mlog() << irsm("SKOc- ");
+    irs::mlog() << irsm("Nc- ");
+    irs::mlog() << irsm("Vs-     ");
+    irs::mlog() << irsm("SKOs- ");
+    irs::mlog() << irsm("Ns- ");
+    irs::mlog() << irsm("Vc+     ");
+    irs::mlog() << irsm("SKOc+ ");
+    irs::mlog() << irsm("Nc+ ");
+    irs::mlog() << irsm("Vs+     ");
+    irs::mlog() << irsm("SKOs+ ");
+    irs::mlog() << irsm("Ns+ ");
+    irs::mlog() << irsm("ERR");
+  }
   irs::mlog() << endl;
   
   for (size_t i = 0; i < m_exp_vector.size(); i++) {
@@ -5573,6 +5750,29 @@ void hrm::app_t::show_last_result()
     if (m_eth_data.show_codes) {
       irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].ch_code;
       irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].et_code;
+    }
+    if (m_elab_mode == em_analog) {
+      irs::mlog() << setprecision(7);
+      irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].coils_voltage_neg;
+      irs::mlog() << setprecision(2);
+      irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].coils_sko_neg;
+      irs::mlog() << irsm(" ") << setw(3) << m_exp_vector[i].coils_n_neg;
+      irs::mlog() << setprecision(7);
+      irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].source_voltage_neg;
+      irs::mlog() << setprecision(2);
+      irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].source_sko_neg;
+      irs::mlog() << irsm(" ") << setw(3) << m_exp_vector[i].source_n_neg;
+      irs::mlog() << setprecision(7);
+      irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].coils_voltage_pos;
+      irs::mlog() << setprecision(2);
+      irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].coils_sko_pos;
+      irs::mlog() << irsm(" ") << setw(3) << m_exp_vector[i].coils_n_pos;
+      irs::mlog() << setprecision(7);
+      irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].source_voltage_pos;
+      irs::mlog() << setprecision(2);
+      irs::mlog() << irsm(" ") << setw(5) << m_exp_vector[i].source_sko_pos;
+      irs::mlog() << irsm(" ") << setw(3) << m_exp_vector[i].source_n_pos;
+      irs::mlog() << irsm(" ") << setw(3) << m_exp_vector[i].errors_cnt;
     }
     irs::mlog() << endl;
   }

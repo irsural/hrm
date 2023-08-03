@@ -99,8 +99,10 @@ struct eth_data_t {
   //  manual
   irs::bit_data_t relay_hv_polarity;
   irs::bit_data_t relay_hv_amps_gain;
-  irs::bit_data_t relay_hv_pos;
-  irs::bit_data_t relay_hv_neg;
+//  irs::bit_data_t relay_hv_pos;
+//  irs::bit_data_t relay_hv_neg;
+  irs::bit_data_t relay_divp;
+  irs::bit_data_t relay_divn;
   irs::bit_data_t relay_adc_src;
   irs::bit_data_t relay_chon;
   irs::bit_data_t relay_eton;
@@ -158,6 +160,7 @@ struct eth_data_t {
   irs::bit_data_t meas_sensivity;
   irs::bit_data_t elab_mode_auto_select;
   irs::bit_data_t bridge_voltage_reduce_after_switching;
+  irs::bit_data_t adc_restart;
   irs::conn_data_t<irs_u8> balance_action;
   irs::conn_data_t<irs_u8> reserve_1;
   irs::conn_data_t<irs_u16> reserve_2;
@@ -383,6 +386,15 @@ struct eth_data_t {
   irs::conn_data_t<double> bridge_voltage_speed;              //  8
   irs::conn_data_t<double> bridge_voltage_current;            //  8
   irs::conn_data_t<double> bridge_voltage_after_pause_ms;     //  8
+  //  AD4630
+  irs::conn_data_t<double> voltage1;                          //  8
+  irs::conn_data_t<double> voltage2;                          //  8
+  irs::conn_data_t<double> voltage_ef1;                       //  8
+  irs::conn_data_t<double> voltage_ef2;                       //  8
+  irs::conn_data_t<double> ef_smooth;                         //  8
+  irs::conn_data_t<irs_u8>  n_avg;                             //  1
+  irs::conn_data_t<irs_u8>  ef_preset;                         //  1
+  irs::conn_data_t<irs_u16> t_adc;                             //  2
 
   eth_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
@@ -430,8 +442,10 @@ struct eth_data_t {
 
     relay_hv_polarity.connect(ap_data, index, 0);
     relay_hv_amps_gain.connect(ap_data, index, 1);
-    relay_hv_pos.connect(ap_data, index, 2);
-    relay_hv_neg.connect(ap_data, index, 3);
+//    relay_hv_pos.connect(ap_data, index, 2);
+//    relay_hv_neg.connect(ap_data, index, 3);
+    relay_divp.connect(ap_data, index, 2);
+    relay_divn.connect(ap_data, index, 3);
     relay_adc_src.connect(ap_data, index, 4);
     relay_chon.connect(ap_data, index, 5);
     relay_eton.connect(ap_data, index, 6);
@@ -495,6 +509,7 @@ struct eth_data_t {
     meas_sensivity.connect(ap_data,         index + 3, 3);
     elab_mode_auto_select.connect(ap_data,  index + 3, 4);
     bridge_voltage_reduce_after_switching.connect(ap_data, index + 3, 5);
+    adc_restart.connect(ap_data,  index + 3, 6);
     index = options.connect(ap_data,        index);
     
     index= balance_action.connect(ap_data, index);
@@ -726,6 +741,15 @@ struct eth_data_t {
     index = bridge_voltage_speed.connect(ap_data, index);
     index = bridge_voltage_current.connect(ap_data, index);
     index = bridge_voltage_after_pause_ms.connect(ap_data, index);
+    //  AD4630
+    index = voltage1.connect(ap_data, index);
+    index = voltage2.connect(ap_data, index);
+    index = voltage_ef1.connect(ap_data, index);
+    index = voltage_ef2.connect(ap_data, index);
+    index = ef_smooth.connect(ap_data, index);
+    index = n_avg.connect(ap_data, index);
+    index = ef_preset.connect(ap_data, index);
+    index = t_adc.connect(ap_data, index);
     
     return index;
   }
@@ -931,6 +955,11 @@ struct eeprom_data_t {
   irs::conn_data_t<double> bridge_voltage_reduced;           //  8
   irs::conn_data_t<double> bridge_voltage_speed;             //  8
   irs::conn_data_t<double> bridge_voltage_after_pause_ms;    //  8
+  //  AD4630
+  irs::conn_data_t<irs_u8>  n_avg;                             //  1
+  irs::conn_data_t<irs_u8>  ad4630_reserve1;                   //  1
+  irs::conn_data_t<irs_u16> t_adc;                             //  2
+  irs::conn_data_t<double> ef_smooth;                         //  8
   
   eeprom_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
@@ -1140,6 +1169,11 @@ struct eeprom_data_t {
     index = bridge_voltage_reduced.connect(ap_data, index);
     index = bridge_voltage_speed.connect(ap_data, index);
     index = bridge_voltage_after_pause_ms.connect(ap_data, index);
+    //  AD4630
+    index = n_avg.connect(ap_data, index);
+    index = ad4630_reserve1.connect(ap_data, index);
+    index = t_adc.connect(ap_data, index);
+    index = ef_smooth.connect(ap_data, index);
     irs::mlog() << irsm("EEPROM size = ") << index << endl;
     return index;
   }
@@ -1318,6 +1352,11 @@ struct eeprom_data_t {
     elab_mode_limit = 5.0e9;
     dac_hv_correction = 1.0;
     bridge_voltage = 12.0;
+    //
+    n_avg = 16;
+    ad4630_reserve1 = 0;
+    t_adc = 0;
+    ef_smooth = 1.0;
   }
 };
 

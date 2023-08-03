@@ -317,6 +317,19 @@ private:
     double target_sko_dac_pos;
     irs_u32 neg_n;
     irs_u32 pos_n;
+    double coils_voltage_neg;
+    double coils_sko_neg;
+    irs_u32 coils_n_neg;
+    double source_voltage_neg;
+    double source_sko_neg;
+    irs_u32 source_n_neg;
+    double coils_voltage_pos;
+    double coils_sko_pos;
+    irs_u32 coils_n_pos;
+    double source_voltage_pos;
+    double source_sko_pos;
+    irs_u32 source_n_pos;
+    irs_u32 errors_cnt;
   };
   struct elab_result_t {
     balance_polarity_t polarity;
@@ -440,6 +453,10 @@ private:
   irs::dac_ad5791_t m_raw_dac;
   dac_t m_dac;
   ad7799_cread_t m_adc;
+  ad4630_t m_adc_ad4630;
+  irs_u8 m_n_avg;
+  irs_u16 m_t_adc;
+  double m_ef_smooth;
   bridge_voltage_dac_t m_bridge_voltage_dac;
 
   irs::loop_timer_t m_eth_timer;
@@ -452,11 +469,14 @@ private:
   //mono_relay_t m_relay_bridge_neg;
   mono_relay_t m_relay_prot;
   //  HV Relays
-  mono_relay_t m_relay_hv_polarity;
-  mono_relay_t m_relay_hv_amps_gain;
-  bi_relay_t m_relay_hv_pos;
-  bi_relay_t m_relay_hv_neg;
-  bi_relay_t m_relay_adc_src;
+//  mono_relay_t m_relay_hv_polarity;
+//  mono_relay_t m_relay_hv_amps_gain;
+//  bi_relay_t m_relay_hv_pos;
+//  bi_relay_t m_relay_hv_neg;
+//  bi_relay_t m_relay_adc_src;
+  //  Relays AD4630
+  bi_relay_t m_relay_divp;
+  bi_relay_t m_relay_divn;
 
   mode_t m_mode;
 
@@ -671,9 +691,11 @@ private:
   {
     return (m_relay_bridge_pos.status() == irs_st_ready)
       && (m_relay_bridge_neg.status() == irs_st_ready)
-      && (m_relay_hv_pos.status() == irs_st_ready)
-      && (m_relay_hv_neg.status() == irs_st_ready)
-      && (m_relay_adc_src.status() == irs_st_ready);
+      && (m_relay_divp.status() == irs_st_ready)
+      && (m_relay_divn.status() == irs_st_ready);
+//      && (m_relay_hv_pos.status() == irs_st_ready)
+//      && (m_relay_hv_neg.status() == irs_st_ready)
+//      && (m_relay_adc_src.status() == irs_st_ready);
   }
   void print_voltage(adc_value_t a_value);
   void update_elab_pid_koefs(double a_td, double a_adc, 

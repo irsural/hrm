@@ -953,7 +953,7 @@ hrm::ad7799_cread_t::ad7799_cread_t(irs::spi_t *ap_spi,
   m_int_event(this, &ad7799_cread_t::event),
   m_status(st_reset_prepare),
   m_need_stop(false),
-  m_return_status(irs_st_ready),
+  m_return_status(irs_st_busy),
   m_index(0),
   m_cont_index(0),
   m_value_deque(),
@@ -964,19 +964,25 @@ hrm::ad7799_cread_t::ad7799_cread_t(irs::spi_t *ap_spi,
   m_cs_interval(irs::make_cnt_us(1)),
   m_reset_interval(irs::make_cnt_us(500)),
   m_timer(m_cs_interval),
+  m_overtime_timer(irs::make_cnt_ms(1000)), //  Чистый произвол
   m_show(false),
   m_need_prefilling(false),
   m_time_counter_prev(0),
   m_time_counter(0),
   m_point_time(0),
   m_need_reconfigure(false),
+  m_need_error_processing(false),
+  m_need_repeat_conversion(false),
   m_new_result(false),
   m_valid_frequency(false),
   m_show_points(false),
   m_adc_filter_ready(false),
   m_imp_filt(),
   m_max_value(1.0),
-  m_error_cnt(0)
+  m_error_cnt(0),
+  m_error_type(aet_none),
+  m_adc_raw_value(0),
+  m_muted(false)
 {
   mp_cs_pin->set();
   memset(mp_spi_buf, 0, spi_buf_size);
@@ -989,23 +995,33 @@ hrm::ad7799_cread_t::ad7799_cread_t(irs::spi_t *ap_spi,
 
 void hrm::ad7799_cread_t::start_conversion()
 {
-  if (m_status == st_free) {
+  if (m_status == st_free && m_muted == false) {
     m_status = st_reconfigure;
     m_return_status = irs_st_busy;
   }
 }
 
+void hrm::ad7799_cread_t::restart()
+{
+  m_need_reconfigure = true;
+  m_need_stop = true;
+}
+
 void hrm::ad7799_cread_t::event()
 {
-  m_time_counter_prev = m_time_counter;
-  m_time_counter = counter_get();
-  if (m_need_stop) {
-    mp_spi_buf[0] = instruction_stop;
-    mp_spi->write(mp_spi_buf, stop_buf_size);
-    m_status = st_spi_wait_stop;
-  } else {
-    mp_spi->read(mp_spi_buf, read_buf_size);
-    m_status = st_spi_point_processing;
+  if (m_muted == false) {
+    m_time_counter_prev = m_time_counter;
+    m_time_counter = counter_get();
+    if (m_need_stop) {
+      m_need_stop = false;
+      mp_spi_buf[0] = instruction_stop;
+      mp_spi->write(mp_spi_buf, stop_buf_size);
+      m_status = st_spi_wait_stop;
+    } else {
+      mp_spi->read(mp_spi_buf, read_buf_size);
+      m_overtime_timer.start();
+      m_status = st_validate_point;
+    }
   }
   mp_adc_exti->stop();
 }
@@ -1127,8 +1143,25 @@ counter_t hrm::ad7799_cread_t::get_settle_time(irs_u8 a_filter)
   return irs::make_cnt_ms(t_set);
 }
 
+bool hrm::ad7799_cread_t::valid_value(irs_i32 a_value)
+{
+  bool valid = true;
+  if (a_value == 0 || a_value >= 0xFFFFFF) {
+    valid = false;
+  }
+  return valid;
+}
+
+void hrm::ad7799_cread_t::mute()
+{
+  m_muted = true;
+  m_return_status = irs_st_ready;
+  irs::mlog() << irsm("ADC AD7799 MUTED") << endl;
+}
+
 void hrm::ad7799_cread_t::tick()
 {
+  if (m_muted) return;
   mp_spi->tick();
   switch(m_status) {
     case st_reset_prepare: {
@@ -1143,7 +1176,8 @@ void hrm::ad7799_cread_t::tick()
         mp_spi_buf[3] = instruction_reset;
         mp_cs_pin->clear();
         mp_spi->write(mp_spi_buf, write_reset_size);
-        m_status = st_cs_pause_cfg;
+        //m_status = st_cs_pause_cfg;
+        m_status = st_reset;
       }
       break;
     }
@@ -1159,7 +1193,13 @@ void hrm::ad7799_cread_t::tick()
     }
     case st_reset_wait: {
       if (m_timer.check()) {
-        m_status = st_free;
+        if (m_need_repeat_conversion) {
+          m_need_repeat_conversion = false;
+          m_status = st_reconfigure;
+        } else {
+          m_return_status = irs_st_ready;
+          m_status = st_free;
+        }
       }
       break;
     }
@@ -1273,10 +1313,16 @@ void hrm::ad7799_cread_t::tick()
     case st_verify_show: {
       if (mp_spi->get_status() == irs::spi_t::FREE) {
         mp_cs_pin->set();
-        show_verify_message(m_show, mp_spi_buf[0], m_param_data.channel);
-        m_timer.set(m_cs_interval + m_pause_interval);
-        m_timer.start();
-        m_status = st_start;
+        if (valid_verify_message(m_show, mp_spi_buf[0], m_param_data.channel)) {
+          m_timer.set(m_cs_interval + m_pause_interval);
+          m_timer.start();
+          m_status = st_start;
+        } else {
+          m_error_type = aet_verify;
+          m_need_error_processing = true;
+          m_new_result = false;
+          m_status = st_spi_wait_stop;
+        }
       }
     } break;
     case st_start: {
@@ -1292,14 +1338,25 @@ void hrm::ad7799_cread_t::tick()
       if (mp_spi->get_status() == irs::spi_t::FREE) {
         m_timer.set(2 * get_settle_time(m_param_data.filter));
         m_timer.start();
+        m_overtime_timer.start();
         mp_adc_exti->start();
         m_status = st_cread;
       }
     } break;
     case st_cread: {
+      if (m_overtime_timer.check()) {
+        mp_spi_buf[0] = instruction_stop;
+        mp_spi->write(mp_spi_buf, stop_buf_size);
+        m_need_stop = true;
+        m_error_type = aet_overtime;
+        m_need_error_processing = true;
+        m_new_result = false;
+        mp_adc_exti->stop();
+        m_status = st_spi_wait_stop;
+      }
       break;
     }
-    case st_spi_point_processing: {
+    case st_validate_point: {
       if (!m_adc_filter_ready) {
         if (m_timer.check()) {
           m_adc_filter_ready = true;
@@ -1307,210 +1364,245 @@ void hrm::ad7799_cread_t::tick()
       }
       if (mp_spi->get_status() == irs::spi_t::FREE) {
         m_point_time = counter_get();
-        irs_i32 adc_raw_value = reinterpret_adc_raw_value(mp_spi_buf);
-        adc_value_t adc_non_normalized_value = 
-          static_cast<adc_value_t>(adc_raw_value);
-        adc_value_t adc_value = convert_value(adc_raw_value);
-        m_result_data.raw = adc_raw_value;
-        //m_result_data.unfiltered_value = adc_value;
-        m_result_data.unfiltered_value = normalize_value(adc_raw_value);
-        
-        if (m_param_data.cont_mode == cont_mode_none) {
-          m_result_data.avg = adc_value;
-          m_result_data.sko = 0.0;
-          m_result_data.current_point = m_index + 1;
-          m_result_data.unnormalized_value = adc_non_normalized_value;
-          m_new_result = true;
+        m_adc_raw_value = reinterpret_adc_raw_value(mp_spi_buf);
+        if (valid_value(m_adc_raw_value)) {
+          m_status = st_spi_point_processing;
+        } else {
+          mp_spi_buf[0] = instruction_stop;
+          mp_spi->write(mp_spi_buf, stop_buf_size);
+          m_need_stop = true;
+          m_error_type = aet_invalid;
+          m_need_error_processing = true;
+          m_new_result = false;
+          mp_adc_exti->stop();
+          m_status = st_spi_wait_stop;
+        }
+      }
+    } break;
+    case st_spi_point_processing: {
+      adc_value_t adc_non_normalized_value = 
+        static_cast<adc_value_t>(m_adc_raw_value);
+      adc_value_t adc_value = convert_value(m_adc_raw_value);
+      m_result_data.raw = m_adc_raw_value;
+      m_result_data.unfiltered_value = normalize_value(m_adc_raw_value);
+      
+      if (m_param_data.cont_mode == cont_mode_none) {
+        m_result_data.avg = adc_value;
+        m_result_data.sko = 0.0;
+        m_result_data.current_point = m_index + 1;
+        m_result_data.unnormalized_value = adc_non_normalized_value;
+        m_new_result = true;
+        if (m_index > 0) {
+          m_valid_frequency = true;
+        }
+        m_index++;
+        if (abs(adc_value) > m_max_value) {
+          m_result_data.saturated = true;
+        } else {
+          m_result_data.saturated = false;
+        }
+        if (m_need_reconfigure) {
+          m_need_stop = true;
+          m_valid_frequency = false;
+        }
+      } else {
+        if (m_adc_filter_ready) {
+          if (m_param_data.impf_type != impf_none) {
+            if (m_value_deque.size() >= m_param_data.cnv_cnt) {
+              m_value_deque.pop_front();
+            }
+            m_value_deque.push_back(adc_non_normalized_value);
+          }
+          
+          if (m_index >= (m_param_data.cnv_cnt - 1)) {
+            m_need_prefilling = false;
+          }
+          
           if (m_index > 0) {
             m_valid_frequency = true;
           }
-          m_index++;
-          if (abs(adc_value) > m_max_value) {
-            m_result_data.saturated = true;
-          } else {
-            m_result_data.saturated = false;
-          }
-          if (m_need_reconfigure) {
-            m_need_stop = true;
-            m_valid_frequency = false;
-          }
-        } else {
-          if (m_adc_filter_ready) {
-            if (m_param_data.impf_type != impf_none) {
-              if (m_value_deque.size() >= m_param_data.cnv_cnt) {
-                m_value_deque.pop_front();
-              }
-              m_value_deque.push_back(adc_non_normalized_value);
+          
+          switch (m_param_data.impf_type) {
+            case impf_none: {
+              m_fast_sko.add(adc_non_normalized_value);
+              break;
             }
-            
-            if (m_index >= (m_param_data.cnv_cnt - 1)) {
-              m_need_prefilling = false;
-            }
-            
-            if (m_index > 0) {
-              m_valid_frequency = true;
-            }
-            
-            
-            switch (m_param_data.impf_type) {
-              case impf_none: {
+            case impf_mp: {
+              if (!m_need_prefilling) {
+                size_t iterations_cnt = m_param_data.impf_iterations_cnt;
+                size_t max_iterations_cnt = m_param_data.cnv_cnt / 2;
+                
+                if (iterations_cnt == 0 || iterations_cnt > max_iterations_cnt) {
+                  iterations_cnt = max_iterations_cnt;
+                }
+                adc_value_t impf = 0.0;
+                for (size_t i = 0; i < iterations_cnt; i++) {
+                  impf = calc_impf(&m_value_deque);
+                }
+                m_fast_sko.add(impf);
+                m_test_impf = false;
+              } else {
                 m_fast_sko.add(adc_non_normalized_value);
-                //m_static_sko.add(adc_raw_value);
-                break;
               }
-              case impf_mp: {
-                if (!m_need_prefilling) {
-                  size_t iterations_cnt = m_param_data.impf_iterations_cnt;
-                  size_t max_iterations_cnt = m_param_data.cnv_cnt / 2;
-                  
-                  if (iterations_cnt == 0 || iterations_cnt > max_iterations_cnt) {
-                    iterations_cnt = max_iterations_cnt;
-                  }
-                  adc_value_t impf = 0.0;
-                  for (size_t i = 0; i < iterations_cnt; i++) {
-                    impf = calc_impf(&m_value_deque/*, &impf_test_data*/);
-                    /*if (m_test_impf) {
-                      show_impf_test_data(&m_value_deque, &impf_test_data, i, 
-                        m_result_data.impf);
-                    }*/
-                  }
-                  m_fast_sko.add(impf);
-                  //m_static_sko.add(impf);
-                  m_test_impf = false;
-                } else {
-                  m_fast_sko.add(adc_non_normalized_value);
-                }
-                break;
-              }
-              case impf_mk: {
-                m_imp_filt.add(adc_non_normalized_value);
-                if (!m_need_prefilling) {
-                  m_fast_sko.add(m_imp_filt.get());
-                  //m_static_sko.add(m_imp_filt.get());
-                } else {
-                  m_fast_sko.add(adc_non_normalized_value);
-                  //m_static_sko.add(adc_non_normalized_value);
-                }
-                break;
-              }
+              break;
             }
-            
-            m_result_data.sko = m_fast_sko / pow(2.0, 24);//max_non_normolized_value();
-            m_result_data.avg = normalize_value(m_fast_sko.average());
-            //m_result_data.avg = normalize_value(m_static_sko.average());
-            //m_result_data.sko = m_static_sko.sko() / pow(2.0, 24);
-            
-            m_result_data.unnormalized_value = m_fast_sko.average() - pow(2.0, 23);
-            m_result_data.current_point = m_cont_index + 1;
-            //m_result_data.alternative_avg = normalize_value(m_static_sko.average());
-            //m_result_data.alternative_sko = m_static_sko.sko() / pow(2.0, 24);
-                        
-            if (abs(m_result_data.avg) > m_max_value) {
-              m_result_data.saturated = true;
+            case impf_mk: {
+              m_imp_filt.add(adc_non_normalized_value);
+              if (!m_need_prefilling) {
+                m_fast_sko.add(m_imp_filt.get());
+              } else {
+                m_fast_sko.add(adc_non_normalized_value);
+              }
+              break;
             }
-           
-            show_points(m_show_points, adc_value);
-            show_point_symbol(m_show);
-            
-            m_index++;
-            m_cont_index++;
-            
-            if (m_index >= m_param_data.cnv_cnt) {
-              //m_index = 0;
-              switch (m_param_data.cont_mode) {
-                case cont_mode_none: {
-                  m_need_stop = true;
-                  if (m_show) {
-                    irs::mlog() << irsm("Stop NONE cont index = ");
-                    irs::mlog() << m_cont_index << endl;
-                  }
-                  break;
-                }
-                case cont_mode_cnt: {
-                  if (m_cont_index >= m_param_data.cont_cnv_cnt) {
-                    if (m_show) {
-                      irs::mlog() << irsm("Stop CNT cont index = ");
-                      irs::mlog() << m_cont_index << endl;
-                    }
-                    m_need_stop = true;
-                  }
-                  break;
-                }
-                case cont_mode_sko: {
-                  if (m_result_data.sko <= m_param_data.cont_sko) {
-                    if (m_show) {
-                      irs::mlog() << irsm("Stop SKO cont index = ");
-                      irs::mlog() << m_cont_index;
-                      irs::mlog() << irsm(" sko = ") << m_result_data.sko << endl;
-                    }
-                    m_need_stop = true;
-                  }
-                  if (m_cont_index >= m_param_data.cont_cnv_cnt) {
-                    if (m_show) {
-                      irs::mlog() << irsm("Stop SKO cont index = ");
-                      irs::mlog() << m_cont_index << endl;
-                    }
-                    m_need_stop = true;
-                  }
-                  break;
-                }
-                case cont_mode_inf: {
-                  break;
-                }
-                default: {
-                  m_need_stop = true;
-                  if (m_show) {
-                    irs::mlog() << irsm("Stop DEFAULT cont index = ");
-                    irs::mlog() << m_cont_index << endl;
-                  }
-                }
-              }
-              if (m_need_reconfigure) {
-                m_need_stop = true;
-                m_valid_frequency = false;
-                if (m_show) {
-                  irs::mlog() << endl;
-                }
-              }
-            } else {
-              if (abs(m_result_data.avg) > m_max_value) {
-                if (m_show) {
-                  irs::mlog() << irsm("Stop Overvoltage") << endl;
-                }
-                m_result_data.saturated = true;
-                m_need_stop = true;
-              }
-            }
-            
-            m_new_result = true;
           }
+//          double out = adc_non_normalized_value;
+//          if (!m_need_prefilling) {
+//            out = m_imp_filt.get();
+//          }
+          
+          m_result_data.sko = m_fast_sko / pow(2.0, 24);
+          m_result_data.avg = normalize_value(m_fast_sko.average());
+          
+          m_result_data.unnormalized_value = m_fast_sko.average() - pow(2.0, 23);
+          m_result_data.current_point = m_cont_index + 1;
+                      
+          if (abs(m_result_data.avg) > m_max_value) {
+            m_result_data.saturated = true;
+          }
+         
+          show_points(m_show_points, adc_value);
+          show_point_symbol(m_show);
+          
+          m_index++;
+          m_cont_index++;
+          
+          if (m_index >= m_param_data.cnv_cnt) {
+            switch (m_param_data.cont_mode) {
+              case cont_mode_none: {
+                m_need_stop = true;
+                if (m_show) {
+                  irs::mlog() << irsm("Stop NONE cont index = ");
+                  irs::mlog() << m_cont_index << endl;
+                }
+                break;
+              }
+              case cont_mode_cnt: {
+                if (m_cont_index >= m_param_data.cont_cnv_cnt) {
+                  if (m_show) {
+                    irs::mlog() << irsm("Stop CNT cont index = ");
+                    irs::mlog() << m_cont_index << endl;
+                  }
+                  m_need_stop = true;
+                }
+                break;
+              }
+              case cont_mode_sko: {
+                if (m_result_data.sko <= m_param_data.cont_sko) {
+                  if (m_show) {
+                    irs::mlog() << irsm("Stop SKO cont index = ");
+                    irs::mlog() << m_cont_index;
+                    irs::mlog() << irsm(" sko = ") << m_result_data.sko << endl;
+                  }
+                  m_need_stop = true;
+                }
+                if (m_cont_index >= m_param_data.cont_cnv_cnt) {
+                  if (m_show) {
+                    irs::mlog() << irsm("Stop SKO cont index = ");
+                    irs::mlog() << m_cont_index << endl;
+                  }
+                  m_need_stop = true;
+                }
+                break;
+              }
+              case cont_mode_inf: {
+                break;
+              }
+              default: {
+                m_need_stop = true;
+                if (m_show) {
+                  irs::mlog() << irsm("Stop DEFAULT cont index = ");
+                  irs::mlog() << m_cont_index << endl;
+                }
+              }
+            }
+            if (m_need_reconfigure) {
+              m_need_stop = true;
+              m_valid_frequency = false;
+              if (m_show) {
+                irs::mlog() << endl;
+              }
+            }
+          } else {
+            if (abs(m_result_data.avg) > m_max_value) {
+              if (m_show) {
+                irs::mlog() << irsm("Stop Overvoltage") << endl;
+              }
+              m_result_data.saturated = true;
+              m_need_stop = true;
+            }
+          }
+          
+          m_new_result = true;
         }
-        m_status = st_cread;
-        
-        if (m_valid_frequency) {
-          m_result_data.measured_frequency = calc_frequency(m_time_counter_prev, 
-            m_time_counter, m_valid_frequency);
-        }
-        m_point_time = counter_get() - m_point_time;
-        m_result_data.point_time = CNT_TO_DBLTIME(m_point_time);
-        m_result_data.error_cnt = m_error_cnt;
-        mp_adc_exti->start();
       }
+      m_status = st_cread;
+      
+      if (m_valid_frequency) {
+        m_result_data.measured_frequency = calc_frequency(m_time_counter_prev, 
+          m_time_counter, m_valid_frequency);
+      }
+      m_point_time = counter_get() - m_point_time;
+      m_result_data.point_time = CNT_TO_DBLTIME(m_point_time);
+      m_result_data.error_cnt = m_error_cnt;
+      mp_adc_exti->start();
     } break;
     case st_spi_wait_stop: {
       if (mp_spi->get_status() == irs::spi_t::FREE) {
         mp_cs_pin->set();
         mp_spi->unlock();
-        if (/*m_need_reconfigure*/false) {
-          m_status = st_reconfigure;
+        if (m_need_error_processing) {
+          m_status = st_spi_error_processing;
         } else {
-          m_return_status = irs_st_ready;
-          if (m_show) {
-            irs::mlog() << endl;
+          if (m_need_reconfigure) {
+            m_status = st_reconfigure;
+          } else {
+            m_return_status = irs_st_ready;
+            m_status = st_free;
           }
-          m_status = st_free;
+        }
+        if (m_show) {
+          irs::mlog() << endl;
         }
       }
+    } break;
+    case st_spi_error_processing: {
+      m_need_error_processing = false;
+      m_need_repeat_conversion = true;
+      m_error_cnt++;
+      irs::mlog() << irsm("ADC ERROR: ");
+      switch (m_error_type) {
+        case aet_verify: {
+          irs::mlog() << irsm("VERIFY");
+          break;
+        }
+        case aet_invalid: {
+          irs::mlog() << irsm("INVALID (0x");
+          irs::mlog() << hex << uppercase << m_adc_raw_value;
+          irs::mlog() << irsm(") on ") << dec;
+          irs::mlog() << (m_cont_index + 1) << irsm(" point");
+          break;
+        }
+        case aet_overtime: {
+          irs::mlog() << irsm("OVERTIME");
+          irs::mlog() << irsm(" on ");
+          irs::mlog() << (m_cont_index + 1) << irsm(" point");
+          break;
+        }
+        default: {}
+      };
+      irs::mlog() << endl;
+      m_status = st_reset_prepare;
     } break;
   }
 }
@@ -1698,6 +1790,11 @@ void hrm::ad7799_cread_t::show_param_data(bool a_show,
   }
 }
 
+void hrm::ad7799_cread_t::show_current_param_data(bool a_show)
+{
+  show_param_data(a_show, &m_param_data);
+}
+
 bool hrm::ad7799_cread_t::new_data(bool* ap_new_data)
 {
   bool new_data = *ap_new_data;
@@ -1757,25 +1854,25 @@ void hrm::ad7799_cread_t::show_start_message(bool a_show,
   }
 }
 
-void hrm::ad7799_cread_t::show_verify_message(bool a_show, irs_u8 a_status_reg,
-  irs_u8 a_channel)
+bool hrm::ad7799_cread_t::valid_verify_message(bool a_show, 
+  irs_u8 a_status_reg, irs_u8 a_channel)
 {
   irs_u8 channel = (a_status_reg) & 0x07;
   irs_u8 err = (a_status_reg >> 6) & 0x01;
+  bool valid = true;
   if (channel != a_channel) {
     irs::mlog() << irsm("---------------------------------") << endl;
     irs::mlog() << irsm("ADC Invalid channel:") << endl;
     irs::mlog() << irsm("Write = ") << static_cast<irs_u32>(a_channel) << endl;
     irs::mlog() << irsm("Read =  ") << static_cast<irs_u32>(channel) << endl;
-    a_show = true;
+    valid = false;
   }
   if (err) {
     irs::mlog() << irsm("---------------------------------") << endl;
     irs::mlog() << irsm("ADC Error bit = 1") << endl;
-    a_show = true;
+    valid = false;
   }
-  if (a_show) {
-    m_error_cnt++;
+  if (!valid) {
     irs_u8 adc_type = (a_status_reg >> 3) & 0x01;
     irs_u8 no_ref = (a_status_reg >> 5) & 0x01;
     irs_u8 rdy = (a_status_reg >> 7) & 0x01;
@@ -1796,6 +1893,7 @@ void hrm::ad7799_cread_t::show_verify_message(bool a_show, irs_u8 a_status_reg,
     irs::mlog() << endl;
     irs::mlog() << irsm("---------------------------------") << endl;
   }
+  return valid;
 }
 
 void hrm::ad7799_cread_t::show_point_symbol(bool a_show)
@@ -1890,6 +1988,513 @@ irs_u8 hrm::convert_from_cont_mode(hrm::cont_mode_t a_value)
     default: cont_mode = 0;
   }
   return cont_mode;
+}
+
+//------------------------------------------------------------------------------
+
+hrm::ad4630_t::ad4630_t(irs::spi_t *ap_spi, 
+  irs::gpio_pin_t* ap_rst_pin,
+  irs::gpio_pin_t* ap_cs_pin,
+  irs::gpio_pin_t* ap_busy_pin,
+  irs::gpio_pin_t* ap_pwr_pin,
+  irs::gpio_pin_t* ap_point_control_pin,
+  pulse_gen_t* ap_pulse_gen,
+  adc_ad4630_ready_t* ap_adc_ready,
+  spi_dma_reader_t* ap_spi_dma_reader):
+  mp_spi(ap_spi),
+  mp_rst_pin(ap_rst_pin),
+  mp_cs_pin(ap_cs_pin),
+  mp_busy_pin(ap_busy_pin),
+  mp_pwr_pin(ap_pwr_pin),
+  mp_point_control_pin(ap_point_control_pin),
+  mp_pulse_gen(ap_pulse_gen),
+  mp_adc_ready(ap_adc_ready),
+  mp_spi_dma_reader(ap_spi_dma_reader),
+  m_pulse_event(this, &ad4630_t::pulse_event),
+  m_cnv_complete_event(this, &ad4630_t::cnv_complete_event),
+  m_read_complete_event(this, &ad4630_t::read_complete_event),
+  m_status(st_reset),
+  m_reset_interval(irs::make_cnt_ms(50)),
+  m_cs_wait_interval(irs::make_cnt_us(1)),
+  m_overtime_interval(irs::make_cnt_ms(1000)),
+  m_timer(m_reset_interval),
+  m_need_start_single(false),
+  m_need_start_continious(false),
+  m_need_stop(false),
+  m_new_data(false),
+  m_need_reconfigure(false),
+  m_raw_data1(0),
+  m_raw_data2(0),
+  m_trans_k(4.096 / pow(2, 31)),
+  m_voltage1(0.0),
+  m_voltage2(0.0),
+  m_return_status(irs_st_busy),
+  m_avg(0),
+  m_avg_buffer(m_avg),
+  m_t(max_t),
+  m_voltage_ef1(0.0),
+  m_voltage_ef2(0.0),
+  m_ef_smooth(1.0),
+  m_error_cnt(0)
+{
+  mp_point_control_pin->clear();
+  mp_rst_pin->clear();
+  mp_cs_pin->set();
+  mp_pulse_gen->add_event(&m_pulse_event);
+  mp_adc_ready->add_event(&m_cnv_complete_event);
+  mp_spi_dma_reader->add_event(&m_read_complete_event);
+  memset(mp_spi_write_buf, 0, spi_write_buf_size);
+  memset(mp_spi_read_buf, 0, spi_read_buf_size);
+  m_timer.start();
+}
+
+void hrm::ad4630_t::pulse_event()
+{
+  if (m_need_start_continious) {
+    mp_pulse_gen->clear_uif();
+  } else {
+    mp_pulse_gen->stop();
+  }
+  m_status = st_meas_busy_check;
+}
+
+void hrm::ad4630_t::cnv_complete_event()
+{
+  m_status = st_meas_read_prepare;
+  mp_cs_pin->clear();
+  if (m_avg_buffer > 0) {
+    mp_spi_dma_reader->start(mp_spi_write_buf, mp_spi_read_buf, 
+      interleaved_avg_read_size);
+  } else {
+    mp_spi_dma_reader->start(mp_spi_write_buf, mp_spi_read_buf, 
+      interleaved_read_size);
+  } 
+}
+
+void hrm::ad4630_t::read_complete_event()
+{
+  mp_spi_dma_reader->stop();
+  while (mp_spi_dma_reader->spi_busy());
+  mp_cs_pin->set();
+  m_status = st_point_processing;
+}
+
+bool hrm::ad4630_t::new_data()
+{
+  bool return_data = m_new_data;
+  m_new_data = false;
+  return return_data;
+}
+
+double hrm::ad4630_t::voltage1()
+{
+  return m_voltage1;
+}
+
+double hrm::ad4630_t::voltage2()
+{
+  return m_voltage2;
+}
+
+double hrm::ad4630_t::voltage_ef1()
+{
+  return m_voltage_ef1;
+}
+
+double hrm::ad4630_t::voltage_ef2()
+{
+  return m_voltage_ef2;
+}
+
+irs_u8 hrm::ad4630_t::set_avg(irs_u8 a_avg)
+{
+  m_avg = irs::bound<irs_u8>(a_avg, 0, max_avg);
+  m_need_reconfigure = true;
+  return m_avg;
+}
+
+irs_u16 hrm::ad4630_t::set_t(irs_u16 a_t)
+{
+  m_t = irs::bound<irs_u16>(a_t, min_t, max_t);
+  m_need_reconfigure = true;
+  return m_t;
+}
+
+double hrm::ad4630_t::set_ef_smooth(double a_ef_smooth)
+{
+  m_ef_smooth = irs::bound<double>(a_ef_smooth, 0.0, 1.0);
+  return m_ef_smooth;
+}
+
+void hrm::ad4630_t::ef_preset()
+{
+  m_voltage_ef1 = m_voltage1;
+  m_voltage_ef2 = m_voltage2;
+}
+
+void hrm::ad4630_t::tick()
+{
+  mp_spi->tick();
+  switch (m_status) {
+    case st_reset_prepare: {
+      mp_rst_pin->clear();
+      m_timer.set(m_reset_interval);
+      m_timer.start();
+      m_status = st_reset;
+    } break;
+    case st_reset: {
+      if (m_timer.check()) {
+        mp_rst_pin->set();
+        m_status = st_check_adc_cfg_mode_enter;
+      }
+      break;
+    }
+    case st_check_adc_cfg_mode_enter: {
+      if ((mp_spi->get_status() == irs::spi_t::FREE) && !mp_spi->get_lock()) {
+        mp_spi->set_order(irs::spi_t::MSB);
+        mp_spi->set_polarity(irs::spi_t::POSITIVE_POLARITY);
+        mp_spi->set_phase(irs::spi_t::TRAIL_EDGE);
+        mp_spi->lock();
+        mp_spi_write_buf[0] = command_configuration_mode;
+        mp_spi_write_buf[1] = 0;
+        mp_spi_write_buf[2] = 0;
+        mp_cs_pin->clear();
+        mp_spi->write(mp_spi_write_buf, write_reg_size);
+        m_status = st_check_adc_cfg_mode;
+      }
+      break;
+    }
+    case st_check_adc_cfg_mode: {
+      if (mp_spi->get_status() == irs::spi_t::FREE) {
+        mp_cs_pin->set();
+        mp_spi->unlock();
+        m_timer.set(m_cs_wait_interval);
+        m_timer.start();
+        m_status = st_check_adc_cfg_mode_wait;
+      }
+      break;
+    }
+    case st_check_adc_cfg_mode_wait: {
+      if (m_timer.check()) {
+        //m_status = st_check_adc_read_enter;
+        m_status = st_write_modes_register_enter;
+      }
+    } break;
+    case st_check_adc_read_enter: {
+      if ((mp_spi->get_status() == irs::spi_t::FREE) && !mp_spi->get_lock()) {
+        mp_spi->set_order(irs::spi_t::MSB);
+        mp_spi->set_polarity(irs::spi_t::POSITIVE_POLARITY);
+        mp_spi->set_phase(irs::spi_t::TRAIL_EDGE);
+        mp_spi->lock();
+        mp_spi_write_buf[0] = command_read;
+        mp_spi_write_buf[1] = address_spi_revision_register;
+        mp_spi_write_buf[2] = 0x00;
+        mp_cs_pin->clear();
+        mp_spi->read_write(mp_spi_read_buf, mp_spi_write_buf, 
+          read_cfg_mode_size);
+        m_status = st_check_adc_read;
+      }
+      break;
+    }
+    case st_check_adc_read: {
+      if (mp_spi->get_status() == irs::spi_t::FREE) {
+        mp_cs_pin->set();
+        mp_spi->unlock();
+        irs_u32 reg = mp_spi_read_buf[2];
+        irs::mlog() << irsm("AD4630 SPI revision register = 0x");
+        irs::mlog() << hex << uppercase << reg << endl;
+        irs::mlog() << dec;
+        m_status = st_write_modes_register_enter;
+      }
+      break;
+    }
+    case st_write_modes_register_enter: {
+      if ((mp_spi->get_status() == irs::spi_t::FREE) && !mp_spi->get_lock()) {
+        mp_spi->set_order(irs::spi_t::MSB);
+        mp_spi->set_polarity(irs::spi_t::POSITIVE_POLARITY);
+        mp_spi->set_phase(irs::spi_t::TRAIL_EDGE);
+        mp_spi->lock();
+        m_avg_buffer = m_avg;
+        irs_u8 modes_register = command_interleaved_lane_mode;
+        if (m_avg_buffer > 0) {
+          modes_register |= command_output_data_mode_avg;
+        }
+        mp_spi_write_buf[0] = command_write;
+        mp_spi_write_buf[1] = address_modes_register;
+        mp_spi_write_buf[2] = modes_register;
+        mp_cs_pin->clear();
+        mp_spi->write(mp_spi_write_buf, write_reg_size);
+        m_status = st_write_modes_register;
+      }
+      break;
+    }
+    case st_write_modes_register: {
+      if (mp_spi->get_status() == irs::spi_t::FREE) {
+        mp_cs_pin->set();
+        mp_spi->unlock();
+        if (m_avg_buffer > 0) {
+          m_status = st_write_avg_register_enter;
+        } else {
+          m_status = st_exit_cfg_mode_enter;
+        }
+      }
+      break;
+    }
+    case st_write_avg_register_enter: {
+      if ((mp_spi->get_status() == irs::spi_t::FREE) && !mp_spi->get_lock()) {
+        mp_spi->set_order(irs::spi_t::MSB);
+        mp_spi->set_polarity(irs::spi_t::POSITIVE_POLARITY);
+        mp_spi->set_phase(irs::spi_t::TRAIL_EDGE);
+        mp_spi->lock();
+        mp_spi_write_buf[0] = command_write;
+        mp_spi_write_buf[1] = address_avg_mode_register;
+        mp_spi_write_buf[2] = command_avg_sync | m_avg;
+        mp_cs_pin->clear();
+        mp_spi->write(mp_spi_write_buf, write_reg_size);
+        m_status = st_write_avg_register;
+      }
+      break;
+    }
+    case st_write_avg_register: {
+      if (mp_spi->get_status() == irs::spi_t::FREE) {
+        mp_cs_pin->set();
+        mp_spi->unlock();
+        //m_status = st_verify_avg_enter;
+        m_status = st_exit_cfg_mode_enter;
+      }
+      break;
+    }
+    case st_verify_avg_enter: {
+      if ((mp_spi->get_status() == irs::spi_t::FREE) && !mp_spi->get_lock()) {
+        mp_spi->set_order(irs::spi_t::MSB);
+        mp_spi->set_polarity(irs::spi_t::POSITIVE_POLARITY);
+        mp_spi->set_phase(irs::spi_t::TRAIL_EDGE);
+        mp_spi->lock();
+        mp_spi_write_buf[0] = command_read;
+        mp_spi_write_buf[1] = address_avg_mode_register;
+        mp_spi_write_buf[2] = 0x00;
+        mp_cs_pin->clear();
+        mp_spi->read_write(mp_spi_read_buf, mp_spi_write_buf, 
+          read_cfg_mode_size);
+        m_status = st_verify_avg;
+      }
+      break;
+    }
+    case st_verify_avg: {
+      if (mp_spi->get_status() == irs::spi_t::FREE) {
+        mp_cs_pin->set();
+        mp_spi->unlock();
+        irs_u32 reg = mp_spi_read_buf[2];
+        irs::mlog() << irsm("AD4630 SPI AVG register check = 0x");
+        irs::mlog() << hex << uppercase << reg << endl;
+        irs::mlog() << dec;
+        m_status = st_exit_cfg_mode_enter;
+      }
+      break;
+    }
+    case st_exit_cfg_mode_enter: {
+      if ((mp_spi->get_status() == irs::spi_t::FREE) && !mp_spi->get_lock()) {
+        mp_spi->set_order(irs::spi_t::MSB);
+        mp_spi->set_polarity(irs::spi_t::POSITIVE_POLARITY);
+        mp_spi->set_phase(irs::spi_t::TRAIL_EDGE);
+        mp_spi->lock();
+        mp_spi_write_buf[0] = command_write;
+        mp_spi_write_buf[1] = address_spi_exit_cfg_mode_register;
+        mp_spi_write_buf[2] = command_exit_cfg_mode;
+        mp_cs_pin->clear();
+        mp_spi->write(mp_spi_write_buf, write_reg_size);
+        m_status = st_exit_cfg_mode;
+      }
+      break;
+    }
+    case st_exit_cfg_mode: {
+      if (mp_spi->get_status() == irs::spi_t::FREE) {
+        mp_cs_pin->set();
+        mp_spi->unlock();
+        m_status = st_meas_prepare;
+      }
+      break;
+    }
+    case st_meas_prepare: {
+      if ((mp_spi->get_status() == irs::spi_t::FREE) && !mp_spi->get_lock()) {
+        memset(mp_spi_write_buf, 0, spi_write_buf_size);
+        memset(mp_spi_read_buf, 0, spi_read_buf_size);
+        mp_spi->set_order(irs::spi_t::MSB);
+        mp_spi->set_polarity(irs::spi_t::POSITIVE_POLARITY);
+        mp_spi->set_phase(irs::spi_t::TRAIL_EDGE);
+        mp_spi->lock();
+        m_return_status = irs_st_busy;
+        m_status = st_meas_cnv_set;
+      }
+    } break;
+    case st_meas_cnv_set: {
+      m_timer.set(m_overtime_interval);
+      m_timer.start();
+      m_status = st_meas_cnv_clear;
+      //  Order is important!
+      mp_pulse_gen->set_n(m_avg);
+      if (m_need_start_continious) {
+        mp_pulse_gen->start_continious(m_t);
+      } else {
+        mp_pulse_gen->start_single();
+      }
+      mp_adc_ready->start();
+    } break;
+    case st_meas_cnv_clear: {
+    // Wait Timer Interrupt
+      if (m_timer.check()) {
+        mp_pulse_gen->stop();
+        mp_spi->unlock();
+        m_error_cnt++;
+        irs::mlog() << irsm("AD4630 Interrupt Waiting Overtime (");
+        irs::mlog() << m_error_cnt << irsm(")") << endl;
+        m_error_cnt++;
+        m_status = st_reset_prepare;
+      }
+    } break;
+    case st_meas_busy_check: {
+      //  Wait BUSY pin falling edge interrupt (exti4)
+      if (m_timer.check()) {
+        mp_pulse_gen->stop();
+        mp_adc_ready->stop();
+        mp_spi->unlock();
+        m_error_cnt++;
+        irs::mlog() << irsm("AD4630 Busy Check Overtime (");
+        irs::mlog() << m_error_cnt << irsm(")") << endl;
+        mp_spi->unlock();
+        m_status = st_reset_prepare;
+      }
+    } break;
+    case st_meas_read_prepare: {
+      //  Wait SPI DMA read
+      if (m_timer.check()) {
+        mp_pulse_gen->stop();
+        mp_adc_ready->stop();
+        mp_spi_dma_reader->stop();
+        mp_spi->unlock();
+        m_error_cnt++;
+        irs::mlog() << irsm("AD4630 SPI DMA READ Waiting Overtime (");
+        irs::mlog() << m_error_cnt << irsm(")") << endl;
+        m_error_cnt++;
+        m_status = st_reset_prepare;
+      }
+    } break;
+    case st_point_processing: {
+      mp_point_control_pin->set();
+      mp_spi->unlock();
+      m_raw_data1 = 0;
+      m_raw_data2 = 0;
+      irs_u64 raw_data = 0;
+      if (m_avg_buffer > 0) { //  Using internal ADC average
+        for (irs_u8 i = 0; i < interleaved_avg_read_size; i++) {
+          reinterpret_cast<irs_u8*>(&raw_data)
+            [interleaved_avg_read_size - 1 - i] = mp_spi_read_buf[i];
+        }
+        irs_u64 raw_data_mask = (1 << 4); //  Ignore 4 LSB
+        for (irs_u8 i = 2; i < 32; i++) {
+          if (raw_data & raw_data_mask) {
+            m_raw_data2 |= (1 << i);
+          }
+          raw_data_mask <<= 1;
+          if (raw_data & raw_data_mask) {
+            m_raw_data1 |= (1 << i);
+          }
+          raw_data_mask <<= 1;
+        }
+        //  Process 4 LSB
+        irs_u32 error = 0;
+        bool or_bit1 = raw_data & (1 << or_bit1_pos);
+        if (or_bit1) {
+          irs::mlog() << irsm("AD4630 CH1 OVERRANGE") << endl;
+          error = 1;
+        }
+        bool sync_bit1 = raw_data & (1 << sync_bit1_pos);
+        if (!sync_bit1) {
+          irs::mlog() << irsm("AD4630 CH1 AVG NO SYNC") << endl;
+          error = 1;
+        }
+        bool or_bit2 = raw_data & (1 << or_bit2_pos);
+        if (or_bit2) {
+          irs::mlog() << irsm("AD4630 CH2 OVERRANGE") << endl;
+          error = 1;
+        }
+        bool sync_bit2 = raw_data & (1 << sync_bit2_pos);
+        if (!sync_bit2) {
+          irs::mlog() << irsm("AD4630 CH2 AVG NO SYNC") << endl;
+          error = 1;
+        }
+        m_error_cnt += error;
+        if (error != 0) {
+          mp_pulse_gen->stop();
+          mp_adc_ready->stop();
+          mp_spi_dma_reader->stop();
+          mp_spi->unlock();
+          m_status = st_reset_prepare;
+          irs::mlog() << irsm("(") << m_error_cnt << irsm(")") << endl;
+        }
+      } else {  //  Without internal ADC average
+        for (irs_u8 i = 0; i < interleaved_read_size; i++) {
+          reinterpret_cast<irs_u8*>(&raw_data)
+            [interleaved_read_size - 1 - i] = mp_spi_read_buf[i];
+        }
+        irs_u64 raw_data_mask = (1 << 0);
+        for (irs_u8 i = 8; i < 32; i++) {
+          if (raw_data & raw_data_mask) {
+            m_raw_data2 |= (1 << i);
+          }
+          raw_data_mask <<= 1;
+          if (raw_data & raw_data_mask) {
+            m_raw_data1 |= (1 << i);
+          }
+          raw_data_mask <<= 1;
+        }
+      }
+      m_voltage1 = m_trans_k * static_cast<double>(m_raw_data1);
+      m_voltage2 = m_trans_k * static_cast<double>(m_raw_data2);
+      m_voltage_ef1 
+        = m_voltage1 * m_ef_smooth + (1.0 - m_ef_smooth) * m_voltage_ef1;
+      m_voltage_ef2 
+        = m_voltage2 * m_ef_smooth + (1.0 - m_ef_smooth) * m_voltage_ef2;
+      m_new_data = true;
+      if (m_need_start_continious) {
+        if (m_need_stop) {
+          mp_pulse_gen->stop();
+          mp_adc_ready->stop();
+          m_return_status = irs_st_ready;
+          m_need_start_continious = false;
+          m_status = st_free;
+        } else {
+          if (m_need_reconfigure) {
+            m_need_reconfigure = false;
+            mp_pulse_gen->stop();
+            mp_adc_ready->stop();
+            m_status = st_reset_prepare;
+          } else {
+            m_timer.set(m_overtime_interval);
+            m_timer.start();
+            m_status = st_meas_cnv_clear;
+          }
+        }
+      } else {
+        m_return_status = irs_st_ready;
+        m_status = st_free;
+      }
+        mp_point_control_pin->clear();
+      break;
+    }
+    case st_free: {
+      if (m_need_start_single) {
+        m_need_start_single = false;
+        m_return_status = irs_st_busy;
+        if (m_need_reconfigure) {
+          m_need_reconfigure = false;
+          m_status = st_reset_prepare;
+        } else {
+          m_status = st_meas_prepare;
+        }
+      }
+    } break;
+  }
 }
 
 //------------------------------------------------------------------------------
