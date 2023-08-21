@@ -1,6 +1,3 @@
-//#define MEMP_NUM_TCP_PCB                5
-
-
 #include <irsdefs.h>
 
 #include <irsstrm.h>
@@ -18,7 +15,7 @@
 
 enum { 
   hardware_rev = 5,
-  software_rev = 111,
+  software_rev = 112,
   mxsrclib_rev = 1455,
   extern_libs_rev = 26
 };

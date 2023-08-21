@@ -182,6 +182,7 @@ void hrm::mono_relay_t::set_after_pause(counter_t a_after_pause)
 void hrm::mono_relay_t::set(const hrm::relay_t::bit_t a_value)
 {
   if (m_status != irs_st_error) {
+    irs::mlog() << irsm("Relay ") << m_caption << irsm(" ") << mp_pin->pin();
     if (a_value) {
       mp_pin->set();
       m_pin = true;
@@ -189,6 +190,7 @@ void hrm::mono_relay_t::set(const hrm::relay_t::bit_t a_value)
       mp_pin->clear();
       m_pin= false;
     }
+    irs::mlog() << irsm(" -> ") << mp_pin->pin() << endl;
     m_status = irs_st_busy;
     m_timer.set(m_after_pause);
     m_timer.start();
@@ -269,7 +271,9 @@ void hrm::bi_relay_t::set_after_pause(counter_t a_after_pause)
 void hrm::bi_relay_t::set(const hrm::relay_t::bit_t a_value)
 {
   if (m_status != st_error) {
+    irs::mlog() << irsm("Relay ") << m_caption << irsm(" ") << m_current_value;
     m_current_value = a_value;
+    irs::mlog() << irsm(" -> ") << m_current_value << endl;
     if (m_current_value) {
       mp_pin_1->set();
     } else {
@@ -2035,7 +2039,10 @@ hrm::ad4630_t::ad4630_t(irs::spi_t *ap_spi,
   m_voltage_ef1(0.0),
   m_voltage_ef2(0.0),
   m_ef_smooth(1.0),
-  m_error_cnt(0)
+  m_error_cnt(0),
+  m_current_point(0),
+  m_num_of_points(0),
+  m_need_ef_preset(false)
 {
   mp_point_control_pin->clear();
   mp_rst_pin->clear();
@@ -2077,6 +2084,14 @@ void hrm::ad4630_t::read_complete_event()
   while (mp_spi_dma_reader->spi_busy());
   mp_cs_pin->set();
   m_status = st_point_processing;
+}
+
+void hrm::ad4630_t::start_continious(irs_u32 a_num_of_points)
+{
+  m_need_start_continious = true;
+  m_need_ef_preset = true;
+  m_num_of_points = a_num_of_points;
+  m_current_point = 0;
 }
 
 bool hrm::ad4630_t::new_data()
@@ -2451,17 +2466,27 @@ void hrm::ad4630_t::tick()
       }
       m_voltage1 = m_trans_k * static_cast<double>(m_raw_data1);
       m_voltage2 = m_trans_k * static_cast<double>(m_raw_data2);
-      m_voltage_ef1 
-        = m_voltage1 * m_ef_smooth + (1.0 - m_ef_smooth) * m_voltage_ef1;
-      m_voltage_ef2 
-        = m_voltage2 * m_ef_smooth + (1.0 - m_ef_smooth) * m_voltage_ef2;
+      if (m_need_ef_preset) {
+        m_need_ef_preset = false;
+        ef_preset();
+      } else {
+        m_voltage_ef1 
+          = m_voltage1 * m_ef_smooth + (1.0 - m_ef_smooth) * m_voltage_ef1;
+        m_voltage_ef2 
+          = m_voltage2 * m_ef_smooth + (1.0 - m_ef_smooth) * m_voltage_ef2;
+      }
       m_new_data = true;
+      if (m_current_point >= m_num_of_points && m_num_of_points > 0) {
+        m_need_stop = true;
+      }
       if (m_need_start_continious) {
+        m_current_point++;
         if (m_need_stop) {
           mp_pulse_gen->stop();
           mp_adc_ready->stop();
           m_return_status = irs_st_ready;
           m_need_start_continious = false;
+          m_need_stop = false;
           m_status = st_free;
         } else {
           if (m_need_reconfigure) {
@@ -2483,7 +2508,7 @@ void hrm::ad4630_t::tick()
       break;
     }
     case st_free: {
-      if (m_need_start_single) {
+      if (m_need_start_single || m_need_start_continious) {
         m_need_start_single = false;
         m_return_status = irs_st_busy;
         if (m_need_reconfigure) {

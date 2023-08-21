@@ -21,8 +21,7 @@ struct version_t {
 enum mode_t {
   md_free = 0,
   md_manual = 1,
-  md_balance = 2,
-  md_scan = 3
+  md_balance = 2
 };
 enum adc_default_params_t {
   adc_default_gain = 0,

@@ -815,9 +815,11 @@ public:
   void cnv_complete_event();
   void read_complete_event();
   void start_single_conversion() { m_need_start_single = true; }
-  void start_continious() { m_need_start_continious = true; }
+  void start_continious(irs_u32 a_num_of_points = 0);
+  inline irs_u32 current_point() { return m_current_point; }
   inline void stop_continious() { m_need_stop = true; }
   inline irs_status_t status() { return m_return_status; }
+  inline bool ready() { return m_return_status == irs_st_ready; }
   bool new_data();
   double voltage1();
   double voltage2();
@@ -927,6 +929,9 @@ private:
   double m_voltage_ef2;
   double m_ef_smooth;
   irs_u32 m_error_cnt;
+  irs_u32 m_current_point;
+  irs_u32 m_num_of_points;
+  bool m_need_ef_preset;
 };
 
 class termostat_t
