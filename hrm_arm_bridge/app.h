@@ -145,6 +145,8 @@ private:
     double v2_pos_div1;
     double v1_pos_div2;
     double v2_pos_div2;
+    vector<double> v1;
+    vector<double> v2;
     void clear()
     {
       vcom1 = 0.0;
@@ -157,6 +159,8 @@ private:
       v2_pos_div1 = 0.0;
       v1_pos_div2 = 0.0;
       v2_pos_div2 = 0.0;
+      v1.clear();
+      v2.clear();
     }
   };
 //  struct analog_point_t {
@@ -326,6 +330,7 @@ private:
   irs_u8 m_n_avg;
   irs_u16 m_t_adc;
   double m_ef_smooth;
+  irs_u32 m_n_adc;
   bridge_voltage_dac_t m_bridge_voltage_dac;
 
   irs::loop_timer_t m_eth_timer;

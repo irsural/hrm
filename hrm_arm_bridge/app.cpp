@@ -44,6 +44,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   m_n_avg(0),
   m_t_adc(0),
   m_ef_smooth(0.0),
+  m_n_adc(2000),
   m_bridge_voltage_dac(&mp_cfg->spi_aux, &mp_cfg->bridge_voltage_dac_cs,
     min_bridge_voltage, max_bridge_voltage, bridge_voltage_trans_coef),
   m_eth_timer(irs::make_cnt_ms(100)),
@@ -373,6 +374,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   m_n_avg = m_eeprom_data.n_avg;
   m_t_adc = m_eeprom_data.t_adc;
   m_ef_smooth = m_eeprom_data.ef_smooth;
+  m_n_adc = m_eeprom_data.n_adc;
   m_eth_data.n_avg = m_n_avg;
   m_eth_data.t_adc = m_t_adc;
   m_eth_data.ef_smooth = m_ef_smooth;
@@ -464,10 +466,6 @@ void hrm::app_t::tick()
       m_eth_data.voltage2 = m_adc_ad4630.voltage2();
       m_eth_data.voltage_ef1 = m_adc_ad4630.voltage_ef1();
       m_eth_data.voltage_ef2 = m_adc_ad4630.voltage_ef2();
-//      if (m_eth_data.voltage_ef2 > 0.0) {
-//        m_eth_data.result = m_eth_data.voltage_ef1 / m_eth_data.voltage_ef2;
-//        m_eth_data.ratio = m_eth_data.voltage_ef1 - m_eth_data.voltage_ef2;
-//      }
       //m_adc_ad4630.start_single_conversion();
     }
     m_eth_data.adc_error_cnt = m_adc_ad4630.error_cnt();
@@ -476,19 +474,26 @@ void hrm::app_t::tick()
       m_eth_data.n_avg = m_n_avg;
       m_eeprom_data.n_avg = m_n_avg;
     }
-    if (m_eth_data.t_adc != m_t_adc) {
-      m_t_adc = m_adc_ad4630.set_t(m_eth_data.t_adc);
-      m_eth_data.t_adc = m_t_adc;
-      m_eeprom_data.t_adc = m_t_adc;
-    }
-    if (m_eth_data.ef_smooth != m_ef_smooth) {
-      m_ef_smooth = m_adc_ad4630.set_ef_smooth(m_eth_data.ef_smooth);
-      m_eth_data.ef_smooth = m_ef_smooth;
-      m_eeprom_data.ef_smooth = m_ef_smooth;
-    }
-    if (m_eth_data.ef_preset != 0) {
-      m_eth_data.ef_preset = 0;
-      m_adc_ad4630.ef_preset();
+    if (m_mode != md_balance) {
+      if (m_eth_data.t_adc != m_t_adc) {
+        m_t_adc = m_adc_ad4630.set_t(m_eth_data.t_adc);
+        m_eth_data.t_adc = m_t_adc;
+        m_eeprom_data.t_adc = m_t_adc;
+      }
+      if (m_eth_data.ef_smooth != m_ef_smooth) {
+        m_ef_smooth = m_adc_ad4630.set_ef_smooth(m_eth_data.ef_smooth);
+        m_eth_data.ef_smooth = m_ef_smooth;
+        m_eeprom_data.ef_smooth = m_ef_smooth;
+      }
+      if (m_eth_data.n_adc != m_n_adc) {
+        m_n_adc = m_adc_ad4630.correct_n_adc(m_eth_data.n_adc);
+        m_eth_data.n_adc = m_n_adc;
+        m_eeprom_data.n_adc = m_n_adc;
+      }
+      if (m_eth_data.ef_preset != 0) {
+        m_eth_data.ef_preset = 0;
+        m_adc_ad4630.ef_preset();
+      }
     }
     //
     if (m_eth_data.current_mode != m_mode) {
@@ -625,6 +630,11 @@ void hrm::app_t::tick()
           m_eth_data.apply = 0;
           m_eth_data.prepare_pause = m_prepare_pause;
           m_service_timer.start();
+          //
+          m_eth_data.n_avg = m_n_avg;
+          m_eth_data.t_adc = m_t_adc;
+          m_eth_data.ef_smooth = m_ef_smooth;
+          m_eth_data.n_adc = m_n_adc;
           //
           m_adc_ad4630.start_continious();
           
@@ -981,8 +991,7 @@ void hrm::app_t::tick()
         }
         case bs_meas_vcom_prepare: {
           if (bridge_relays_ready() && m_adc_ad4630.ready()) {
-            //m_adc_ad4630.start_single_conversion();
-            m_adc_ad4630.start_continious(2000);
+            m_adc_ad4630.start_continious(m_n_adc);
             m_balance_status = bs_meas_vcom;
           }
           break;
@@ -1027,8 +1036,7 @@ void hrm::app_t::tick()
         }
         case bs_neg_div1_adc_prepare: {
           if (bridge_relays_ready() && m_adc_ad4630.ready()) {
-            //m_adc_ad4630.start_single_conversion();
-            m_adc_ad4630.start_continious(2000);
+            m_adc_ad4630.start_continious(m_n_adc);
             m_balance_status = bs_neg_div1_adc_read;
           }
           break;
@@ -1056,8 +1064,7 @@ void hrm::app_t::tick()
         }
         case bs_neg_div2_adc_prepare: {
           if (bridge_relays_ready() && m_adc_ad4630.ready()) {
-            //m_adc_ad4630.start_single_conversion();
-            m_adc_ad4630.start_continious(2000);
+            m_adc_ad4630.start_continious(m_n_adc);
             m_balance_status = bs_neg_div2_adc_read;
           }
           break;
@@ -1109,8 +1116,7 @@ void hrm::app_t::tick()
         }
         case bs_pos_div2_adc_prepare: {
           if (bridge_relays_ready() && m_adc_ad4630.ready()) {
-            //m_adc_ad4630.start_single_conversion();
-            m_adc_ad4630.start_continious(2000);
+            m_adc_ad4630.start_continious(m_n_adc);
             m_balance_status = bs_pos_div2_adc_read;
           }
           break;
@@ -1138,8 +1144,7 @@ void hrm::app_t::tick()
         }
         case bs_pos_div1_adc_prepare: {
           if (bridge_relays_ready() && m_adc_ad4630.ready()) {
-            //m_adc_ad4630.start_single_conversion();
-            m_adc_ad4630.start_continious(2000);
+            m_adc_ad4630.start_continious(m_n_adc);
             m_balance_status = bs_pos_div1_adc_read;
           }
           break;

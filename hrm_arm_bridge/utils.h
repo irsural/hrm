@@ -829,6 +829,7 @@ public:
   void ef_preset();
   irs_u8 set_avg(irs_u8 a_avg);
   irs_u16 set_t(irs_u16 a_t);
+  irs_u32 correct_n_adc(irs_u32 a_n_adc);
   void set_cnv_freq(double a_cnv_freq);
   void set_continious_freq(double a_continious_freq);
   irs_u32 error_cnt() { return m_error_cnt; }
@@ -845,7 +846,9 @@ private:
     interleaved_avg_read_size = 8,
     max_avg = 16,
     min_t = 10,
-    max_t = 0xFFFF
+    max_t = 0xFFFF,
+    min_n_adc = 2,
+    max_n_adc = 1000000
   };
   enum {
     sync_bit1_pos = 0,

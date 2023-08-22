@@ -394,6 +394,7 @@ struct eth_data_t {
   irs::conn_data_t<irs_u8>  n_avg;                             //  1
   irs::conn_data_t<irs_u8>  ef_preset;                         //  1
   irs::conn_data_t<irs_u16> t_adc;                             //  2
+  irs::conn_data_t<irs_u32> n_adc;                             //  4
 
   eth_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
@@ -749,6 +750,7 @@ struct eth_data_t {
     index = n_avg.connect(ap_data, index);
     index = ef_preset.connect(ap_data, index);
     index = t_adc.connect(ap_data, index);
+    index = n_adc.connect(ap_data, index);
     
     return index;
   }
@@ -959,6 +961,7 @@ struct eeprom_data_t {
   irs::conn_data_t<irs_u8>  ad4630_reserve1;                   //  1
   irs::conn_data_t<irs_u16> t_adc;                             //  2
   irs::conn_data_t<double> ef_smooth;                         //  8
+  irs::conn_data_t<irs_u32> n_adc;                             //  8
   
   eeprom_data_t(irs::mxdata_t *ap_data = IRS_NULL, irs_uarc a_index = 0,
     irs_uarc* ap_size = IRS_NULL)
@@ -1173,6 +1176,7 @@ struct eeprom_data_t {
     index = ad4630_reserve1.connect(ap_data, index);
     index = t_adc.connect(ap_data, index);
     index = ef_smooth.connect(ap_data, index);
+    index = n_adc.connect(ap_data, index);
     irs::mlog() << irsm("EEPROM size = ") << index << endl;
     return index;
   }
@@ -1356,6 +1360,7 @@ struct eeprom_data_t {
     ad4630_reserve1 = 0;
     t_adc = 0;
     ef_smooth = 1.0;
+    n_adc = 2000;
   }
 };
 

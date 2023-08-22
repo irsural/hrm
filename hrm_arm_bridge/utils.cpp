@@ -2135,6 +2135,12 @@ irs_u16 hrm::ad4630_t::set_t(irs_u16 a_t)
   return m_t;
 }
 
+irs_u32 hrm::ad4630_t::correct_n_adc(irs_u32 a_n_adc)
+{
+  a_n_adc = irs::bound<irs_u32>(a_n_adc, min_n_adc, max_n_adc);
+  return a_n_adc;
+}
+
 double hrm::ad4630_t::set_ef_smooth(double a_ef_smooth)
 {
   m_ef_smooth = irs::bound<double>(a_ef_smooth, 0.0, 1.0);
