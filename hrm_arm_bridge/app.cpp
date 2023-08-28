@@ -45,6 +45,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   m_t_adc(0),
   m_ef_smooth(0.0),
   m_n_adc(2000),
+  m_current_div_relay(start_div_relay),
   m_bridge_voltage_dac(&mp_cfg->spi_aux, &mp_cfg->bridge_voltage_dac_cs,
     min_bridge_voltage, max_bridge_voltage, bridge_voltage_trans_coef),
   m_eth_timer(irs::make_cnt_ms(100)),
@@ -66,15 +67,17 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   m_relay_prot(&mp_cfg->relay_prot, irst("PROT"), 1),
   //  Relays AD4630
   m_relay_divp(
-    &mp_cfg->relay_bridge_divp_on,
     &mp_cfg->relay_bridge_divp_off,
+    &mp_cfg->relay_bridge_divp_on,
     irst("DIVP"),
-    0),
+    0,
+    irs::make_cnt_ms(100)),
   m_relay_divn(
-    &mp_cfg->relay_bridge_divn_on,
     &mp_cfg->relay_bridge_divn_off,
+    &mp_cfg->relay_bridge_divn_on,
     irst("DIVN"),
-    0),
+    0,
+    irs::make_cnt_ms(100)),
   m_mode(md_free),
   m_free_status(fs_prepare),
   m_balance_status(bs_prepare),
@@ -820,6 +823,8 @@ void hrm::app_t::tick()
 
           m_relay_pause_timer.set(m_relay_after_pause);
           
+          m_current_div_relay = 0;
+          
           m_exp_vector.clear();
           m_analog_point.clear();
           m_analog_vector.clear();
@@ -1005,163 +1010,200 @@ void hrm::app_t::tick()
             irs::mlog() << irsm(" В") << endl;
             irs::mlog() << irsm("vcom2: ") << m_analog_point.vcom2;
             irs::mlog() << irsm(" В") << endl;
-            m_balance_status = bs_meas_vcom_prot_on;
+            m_balance_status = bs_main_prot_on;
           }
           break;
         }
-        case bs_meas_vcom_prot_on: {
+        case bs_main_prot_on: {
           if (bridge_relays_ready()) {
             m_relay_prot = 1;
-            m_balance_status = bs_neg_div1_neg_on;
+            m_balance_status = bs_main_change_polarity;
           }
           break;
         }
-        case bs_neg_div1_neg_on: {
+        case bs_main_change_polarity: {
           if (bridge_relays_ready()) {
-            m_relay_bridge_neg = 1;
-            irs::mlog() << irsm("------------- (-) ---------------") <<endl;
-            m_balance_status = bs_neg_div1_set_prot;
+            switch (m_balance_polarity) {
+              case bp_neg: {
+                m_relay_bridge_neg = 1;
+                irs::mlog() << irsm("------------- (-) ---------------") <<endl;
+                break;
+              }
+              case bp_pos: {
+                m_relay_bridge_pos = 1;
+                irs::mlog() << irsm("------------- (+) ---------------") <<endl;
+                break;
+              }
+            }
+            m_current_div_relay = 0;
+            m_balance_status = bs_main_set_prot;
           }
           break;
         }
-        case bs_neg_div1_set_prot: {
+        case bs_main_set_prot: {
           if (bridge_relays_ready()) {
             //  Отключение защитного реле, если не нужно
             if (m_no_prot) {
               m_relay_prot = 0;
             }
-            m_balance_status = bs_neg_div1_adc_prepare;
+            m_balance_status = bs_main_set_div_relays;
           }
           break;
         }
-        case bs_neg_div1_adc_prepare: {
+        case bs_main_set_div_relays: {
+          if (bridge_relays_ready()) {
+            m_relay_divn = decode_relay_divn(m_current_div_relay);
+            m_relay_divp = decode_relay_divp(m_current_div_relay);
+            m_balance_status = bs_main_adc_prepare;
+          }
+          break;
+        }
+        case bs_main_adc_prepare: {
           if (bridge_relays_ready() && m_adc_ad4630.ready()) {
             m_adc_ad4630.start_continious(m_n_adc);
-            m_balance_status = bs_neg_div1_adc_read;
+            m_balance_status = bs_main_adc_read;
           }
           break;
         }
-        case bs_neg_div1_adc_read: {
+        case bs_main_adc_read: {
           if (m_adc_ad4630.ready()) {
-            m_analog_point.v1_neg_div1 = m_adc_ad4630.voltage1();
-            m_analog_point.v2_neg_div1 = m_adc_ad4630.voltage2();
-            irs::mlog() << irsm("Напряжения каналов АЦП:") << endl;
-            irs::mlog() << irsm("v1_neg_div1: ") << m_analog_point.v1_neg_div1;
-            irs::mlog() << irsm(" В") << endl;
-            irs::mlog() << irsm("v2_neg_div1: ") << m_analog_point.v2_neg_div1;
-            irs::mlog() << irsm(" В") << endl;
-            m_balance_status = bs_neg_div_change;
+            double v1 = m_adc_ad4630.voltage1();
+            double v2 = m_adc_ad4630.voltage2();
+            m_analog_point.v1.push_back(v1);
+            m_analog_point.v2.push_back(v2);
+            irs::mlog() << irsm("------------- -------------------") <<endl;
+            irs::mlog() << irsm("V1_");
+            irs::mlog() << decode_relay_divp(m_current_div_relay);
+            irs::mlog() << decode_relay_divn(m_current_div_relay);
+            irs::mlog() << irsm(" = ") << v1 << irsm(" В") << endl;
+            irs::mlog() << irsm("V2_");
+            irs::mlog() << decode_relay_divp(m_current_div_relay);
+            irs::mlog() << decode_relay_divn(m_current_div_relay);
+            irs::mlog() << irsm(" = ") << v2 << irsm(" В") << endl;
+            m_balance_status = bs_main_div_change;
           }
           break;
         }
-        case bs_neg_div_change: {
+        case bs_main_div_change: {
           if (bridge_relays_ready()) {
-            m_relay_divn = 1;
-            m_relay_divp = 1;
-            m_balance_status = bs_neg_div2_adc_prepare;
-          }
-          break;
-        }
-        case bs_neg_div2_adc_prepare: {
-          if (bridge_relays_ready() && m_adc_ad4630.ready()) {
-            m_adc_ad4630.start_continious(m_n_adc);
-            m_balance_status = bs_neg_div2_adc_read;
-          }
-          break;
-        }
-        case bs_neg_div2_adc_read: {
-          if (m_adc_ad4630.ready()) {
-            m_analog_point.v1_neg_div2 = m_adc_ad4630.voltage1();
-            m_analog_point.v2_neg_div2 = m_adc_ad4630.voltage2();
-            irs::mlog() << irsm("Напряжения каналов АЦП:") << endl;
-            irs::mlog() << irsm("v1_neg_div2: ") << m_analog_point.v1_neg_div2;
-            irs::mlog() << irsm(" В") << endl;
-            irs::mlog() << irsm("v2_neg_div2: ") << m_analog_point.v2_neg_div2;
-            irs::mlog() << irsm(" В") << endl;
-            m_balance_status = bs_change_prot_on;
-          }
-          break;
-        }
-        case bs_change_prot_on: {
-          if (bridge_relays_ready()) {
-            m_relay_prot = 1;
-            m_balance_status = bs_change_neg_off;
-          }
-          break;
-        }
-        case bs_change_neg_off: {
-          if (bridge_relays_ready()) {
-            m_relay_bridge_neg = 0;
-            m_balance_status = bs_change_pos_on;
-          }
-          break;
-        }
-        case bs_change_pos_on: {
-          if (bridge_relays_ready()) {
-            m_relay_bridge_pos = 1;
-            irs::mlog() << irsm("------------- (+) ---------------") <<endl;
-            m_balance_status = bs_change_set_prot;
-          }
-          break;
-        }
-        case bs_change_set_prot: {
-          if (bridge_relays_ready()) {
-            //  Отключение защитного реле, если не нужно
-            if (m_no_prot) {
-              m_relay_prot = 0;
+            if (m_current_div_relay <= stop_div_relay) {
+              //  Next DIV relays combination
+              m_current_div_relay++;
+              m_balance_status = bs_main_set_div_relays;
+            } else {
+              //  All DIV relays combinations ready, switch polarity or switch off
+              if (m_balance_polarity == bp_neg) {
+                //  Negative polarity ready, switch to positive bridge polarity
+                m_balance_polarity = bp_pos;
+                m_balance_status = bs_main_prot_on;
+              } else {
+                //  Positive polarity ready, switch off and report
+                m_balance_status = bs_ending_prot_on;
+              }
             }
-            m_balance_status = bs_pos_div2_adc_prepare;
           }
           break;
         }
-        case bs_pos_div2_adc_prepare: {
-          if (bridge_relays_ready() && m_adc_ad4630.ready()) {
-            m_adc_ad4630.start_continious(m_n_adc);
-            m_balance_status = bs_pos_div2_adc_read;
-          }
-          break;
-        }
-        case bs_pos_div2_adc_read: {
-          if (m_adc_ad4630.ready()) {
-            m_analog_point.v1_pos_div2 = m_adc_ad4630.voltage1();
-            m_analog_point.v2_pos_div2 = m_adc_ad4630.voltage2();
-            irs::mlog() << irsm("Напряжения каналов АЦП:") << endl;
-            irs::mlog() << irsm("v1_pos_div2: ") << m_analog_point.v1_pos_div2;
-            irs::mlog() << irsm(" В") << endl;
-            irs::mlog() << irsm("v2_pos_div2: ") << m_analog_point.v2_pos_div2;
-            irs::mlog() << irsm(" В") << endl;
-            m_balance_status = bs_pos_div_change;
-          }
-          break;
-        }
-        case bs_pos_div_change: {
-          if (bridge_relays_ready()) {
-            m_relay_divn = 0;
-            m_relay_divp = 0;
-            m_balance_status = bs_pos_div1_adc_prepare;
-          }
-          break;
-        }
-        case bs_pos_div1_adc_prepare: {
-          if (bridge_relays_ready() && m_adc_ad4630.ready()) {
-            m_adc_ad4630.start_continious(m_n_adc);
-            m_balance_status = bs_pos_div1_adc_read;
-          }
-          break;
-        }
-        case bs_pos_div1_adc_read: {
-          if (m_adc_ad4630.ready()) {
-            m_analog_point.v1_pos_div1 = m_adc_ad4630.voltage1();
-            m_analog_point.v2_pos_div1 = m_adc_ad4630.voltage2();
-            irs::mlog() << irsm("Напряжения каналов АЦП:") << endl;
-            irs::mlog() << irsm("v1_pos_div1: ") << m_analog_point.v1_pos_div1;
-            irs::mlog() << irsm(" В") << endl;
-            irs::mlog() << irsm("v2_pos_div1: ") << m_analog_point.v2_pos_div1;
-            irs::mlog() << irsm(" В") << endl;
-            m_balance_status = bs_ending_prot_on;
-          }
-          break;
-        }
+//        case bs_neg_div2_adc_prepare: {
+//          if (bridge_relays_ready() && m_adc_ad4630.ready()) {
+//            m_adc_ad4630.start_continious(m_n_adc);
+//            m_balance_status = bs_neg_div2_adc_read;
+//          }
+//          break;
+//        }
+//        case bs_neg_div2_adc_read: {
+//          if (m_adc_ad4630.ready()) {
+//            m_analog_point.v1_neg_div2 = m_adc_ad4630.voltage1();
+//            m_analog_point.v2_neg_div2 = m_adc_ad4630.voltage2();
+//            irs::mlog() << irsm("Напряжения каналов АЦП:") << endl;
+//            irs::mlog() << irsm("v1_neg_div2: ") << m_analog_point.v1_neg_div2;
+//            irs::mlog() << irsm(" В") << endl;
+//            irs::mlog() << irsm("v2_neg_div2: ") << m_analog_point.v2_neg_div2;
+//            irs::mlog() << irsm(" В") << endl;
+//            m_balance_status = bs_change_prot_on;
+//          }
+//          break;
+//        }
+//        case bs_change_prot_on: {
+//          if (bridge_relays_ready()) {
+//            m_relay_prot = 1;
+//            m_balance_status = bs_change_neg_off;
+//          }
+//          break;
+//        }
+//        case bs_change_neg_off: {
+//          if (bridge_relays_ready()) {
+//            m_relay_bridge_neg = 0;
+//            m_balance_status = bs_change_pos_on;
+//          }
+//          break;
+//        }
+//        case bs_change_pos_on: {
+//          if (bridge_relays_ready()) {
+//            m_relay_bridge_pos = 1;
+//            irs::mlog() << irsm("------------- (+) ---------------") <<endl;
+//            m_balance_status = bs_change_set_prot;
+//          }
+//          break;
+//        }
+//        case bs_change_set_prot: {
+//          if (bridge_relays_ready()) {
+//            //  Отключение защитного реле, если не нужно
+//            if (m_no_prot) {
+//              m_relay_prot = 0;
+//            }
+//            m_balance_status = bs_pos_div2_adc_prepare;
+//          }
+//          break;
+//        }
+//        case bs_pos_div2_adc_prepare: {
+//          if (bridge_relays_ready() && m_adc_ad4630.ready()) {
+//            m_adc_ad4630.start_continious(m_n_adc);
+//            m_balance_status = bs_pos_div2_adc_read;
+//          }
+//          break;
+//        }
+//        case bs_pos_div2_adc_read: {
+//          if (m_adc_ad4630.ready()) {
+//            m_analog_point.v1_pos_div2 = m_adc_ad4630.voltage1();
+//            m_analog_point.v2_pos_div2 = m_adc_ad4630.voltage2();
+//            irs::mlog() << irsm("Напряжения каналов АЦП:") << endl;
+//            irs::mlog() << irsm("v1_pos_div2: ") << m_analog_point.v1_pos_div2;
+//            irs::mlog() << irsm(" В") << endl;
+//            irs::mlog() << irsm("v2_pos_div2: ") << m_analog_point.v2_pos_div2;
+//            irs::mlog() << irsm(" В") << endl;
+//            m_balance_status = bs_pos_div_change;
+//          }
+//          break;
+//        }
+//        case bs_pos_div_change: {
+//          if (bridge_relays_ready()) {
+//            m_relay_divn = 0;
+//            m_relay_divp = 0;
+//            m_balance_status = bs_pos_div1_adc_prepare;
+//          }
+//          break;
+//        }
+//        case bs_pos_div1_adc_prepare: {
+//          if (bridge_relays_ready() && m_adc_ad4630.ready()) {
+//            m_adc_ad4630.start_continious(m_n_adc);
+//            m_balance_status = bs_pos_div1_adc_read;
+//          }
+//          break;
+//        }
+//        case bs_pos_div1_adc_read: {
+//          if (m_adc_ad4630.ready()) {
+//            m_analog_point.v1_pos_div1 = m_adc_ad4630.voltage1();
+//            m_analog_point.v2_pos_div1 = m_adc_ad4630.voltage2();
+//            irs::mlog() << irsm("Напряжения каналов АЦП:") << endl;
+//            irs::mlog() << irsm("v1_pos_div1: ") << m_analog_point.v1_pos_div1;
+//            irs::mlog() << irsm(" В") << endl;
+//            irs::mlog() << irsm("v2_pos_div1: ") << m_analog_point.v2_pos_div1;
+//            irs::mlog() << irsm(" В") << endl;
+//            m_balance_status = bs_ending_prot_on;
+//          }
+//          break;
+//        }
         case bs_ending_prot_on: {
           if (bridge_relays_ready()) {
             m_relay_prot = 1;
@@ -1183,7 +1225,7 @@ void hrm::app_t::tick()
           break;
         }
         case bs_report: {
-          irs::mlog() << irsm("---------------------------------") << endl;
+          irs::mlog() << irsm("------------ REPORT -------------") << endl;
           m_buzzer.bzz(2);
           m_prev_exp_time = m_exp_time;
           m_eth_data.prev_exp_time = m_prev_exp_time;
@@ -1198,44 +1240,51 @@ void hrm::app_t::tick()
           exp.temperature_dac = m_eth_data.th_box_ldo;
           exp.temperature_adc = m_eth_data.th_box_adc;
           //  --------------------------------------------------------------
-          irs::mlog() << irsm("vcom1       ") << m_analog_point.vcom1 << endl;
-          irs::mlog() << irsm("vcom2       ") << m_analog_point.vcom2 << endl;
-          irs::mlog() << irsm("v1_neg_div1 ") << m_analog_point.v1_neg_div1 << endl;
-          irs::mlog() << irsm("v2_neg_div1 ") << m_analog_point.v2_neg_div1 << endl;
-          irs::mlog() << irsm("v1_neg_div2 ") << m_analog_point.v1_neg_div2 << endl;
-          irs::mlog() << irsm("v2_neg_div2 ") << m_analog_point.v2_neg_div2 << endl;
-          irs::mlog() << irsm("v1_pos_div1 ") << m_analog_point.v1_pos_div1 << endl;
-          irs::mlog() << irsm("v2_pos_div1 ") << m_analog_point.v2_pos_div1 << endl;
-          irs::mlog() << irsm("v1_pos_div2 ") << m_analog_point.v1_pos_div2 << endl;
-          irs::mlog() << irsm("v2_pos_div2 ") << m_analog_point.v2_pos_div2 << endl;
+          irs::mlog() << irsm("vcom ") << m_analog_point.vcom1;
+          irs::mlog() << irsm(" ") << m_analog_point.vcom2 << endl;
+          for (irs_u8 i = start_div_relay; i <= stop_div_relay; i++) {
+            irs::mlog() << irsm("V_");
+            irs::mlog() << decode_relay_divp(i);
+            irs::mlog() << decode_relay_divn(i);
+            irs::mlog() << irsm(" ") << m_analog_point.v1[i];
+            irs::mlog() << irsm(" ") << m_analog_point.v2[i] << endl;
+          }
+//          irs::mlog() << irsm("v1_neg_div1 ") << m_analog_point.v1_neg_div1 << endl;
+//          irs::mlog() << irsm("v2_neg_div1 ") << m_analog_point.v2_neg_div1 << endl;
+//          irs::mlog() << irsm("v1_neg_div2 ") << m_analog_point.v1_neg_div2 << endl;
+//          irs::mlog() << irsm("v2_neg_div2 ") << m_analog_point.v2_neg_div2 << endl;
+//          irs::mlog() << irsm("v1_pos_div1 ") << m_analog_point.v1_pos_div1 << endl;
+//          irs::mlog() << irsm("v2_pos_div1 ") << m_analog_point.v2_pos_div1 << endl;
+//          irs::mlog() << irsm("v1_pos_div2 ") << m_analog_point.v1_pos_div2 << endl;
+//          irs::mlog() << irsm("v2_pos_div2 ") << m_analog_point.v2_pos_div2 << endl;
           
           //  --------------------------------------------------------------
-          double a1 = m_analog_point.v1_neg_div1 - m_analog_point.vcom1;
-          double b1 = m_analog_point.v1_neg_div2 - m_analog_point.vcom1;
-          double a2 = m_analog_point.v2_neg_div1 - m_analog_point.vcom2;
-          double b2 = m_analog_point.v2_neg_div2 - m_analog_point.vcom2;
-          double d = m_analog_point.vcom2 - m_analog_point.vcom1;
-          double k2 = d * (a1 - b1) / (b2 * b1 - a2 * a1);
-          double k1 = (d + k2 * b2) / a1;
-          double u1 = m_analog_point.vcom1 
-            + k1 * (m_analog_point.v1_neg_div1 - m_analog_point.vcom1);
-          double u2 = m_analog_point.vcom2
-            + k2 * (m_analog_point.v2_neg_div1 - m_analog_point.vcom2);
-          double Dn = u1 / u2;
-          a1 = m_analog_point.v1_pos_div1 - m_analog_point.vcom1;
-          b1 = m_analog_point.v1_pos_div2 - m_analog_point.vcom1;
-          a2 = m_analog_point.v2_pos_div1 - m_analog_point.vcom2;
-          b2 = m_analog_point.v2_pos_div2 - m_analog_point.vcom2;
-          k2 = d * (a1 - b1) / (b2 * b1 - a2 * a1);
-          k1 = (d + k2 * b2) / a1;
-          u1 = m_analog_point.vcom1 
-            + k1 * (m_analog_point.v1_pos_div1 - m_analog_point.vcom1);
-          u2 = m_analog_point.vcom2
-            + k2 * (m_analog_point.v2_pos_div1 - m_analog_point.vcom2);
-          double Dp = u1 / u2;
+//          double a1 = m_analog_point.v1_neg_div1 - m_analog_point.vcom1;
+//          double b1 = m_analog_point.v1_neg_div2 - m_analog_point.vcom1;
+//          double a2 = m_analog_point.v2_neg_div1 - m_analog_point.vcom2;
+//          double b2 = m_analog_point.v2_neg_div2 - m_analog_point.vcom2;
+//          double d = m_analog_point.vcom2 - m_analog_point.vcom1;
+//          double k2 = d * (a1 - b1) / (b2 * b1 - a2 * a1);
+//          double k1 = (d + k2 * b2) / a1;
+//          double u1 = m_analog_point.vcom1 
+//            + k1 * (m_analog_point.v1_neg_div1 - m_analog_point.vcom1);
+//          double u2 = m_analog_point.vcom2
+//            + k2 * (m_analog_point.v2_neg_div1 - m_analog_point.vcom2);
+//          double Dn = u1 / u2;
+//          a1 = m_analog_point.v1_pos_div1 - m_analog_point.vcom1;
+//          b1 = m_analog_point.v1_pos_div2 - m_analog_point.vcom1;
+//          a2 = m_analog_point.v2_pos_div1 - m_analog_point.vcom2;
+//          b2 = m_analog_point.v2_pos_div2 - m_analog_point.vcom2;
+//          k2 = d * (a1 - b1) / (b2 * b1 - a2 * a1);
+//          k1 = (d + k2 * b2) / a1;
+//          u1 = m_analog_point.vcom1 
+//            + k1 * (m_analog_point.v1_pos_div1 - m_analog_point.vcom1);
+//          u2 = m_analog_point.vcom2
+//            + k2 * (m_analog_point.v2_pos_div1 - m_analog_point.vcom2);
+//          double Dp = u1 / u2;
           //  ---------------  OLD FORMULA RESULT  -------------------------
-          m_result = (1.0 - Dn + Dp);
-          m_result /= (1.0 + Dn - Dp);
+//          m_result = (1.0 - Dn + Dp);
+          m_result = 1.0;//= (1.0 + Dn - Dp);
           //
           irs::mlog() << irsm("Результат") << endl;
           irs::mlog() << setw(14) << setprecision(14);

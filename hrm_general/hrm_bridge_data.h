@@ -66,7 +66,7 @@ const adc_value_t adc_ref = 4.096;
 const adc_value_t adc_default_cont_sko = 1.0e-6;
 const double min_bridge_voltage = 12.0;
 const double max_bridge_voltage = 200.0;
-const double bridge_voltage_trans_coef = 65536.0 / 220.22;
+const double bridge_voltage_trans_coef = 65536.0 / 203.044;
 
 struct eth_data_t {
   irs::conn_data_t<irs_u32> counter;        //  4 byte

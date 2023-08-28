@@ -47,39 +47,33 @@ private:
     bp_neg = 0,
     bp_pos = 1
   };
+  enum {
+    start_div_relay = 0,
+    stop_div_relay = 3
+  };
   enum free_status_t {
     fs_prepare,
     fs_wait,
     fs_idle
   };
-  enum balance_status_t {                    //  BRIDGE   DIVN  DIVP   PROT
-    bs_prepare,                               //  OFF     0     0       1
-    bs_prepare_set_relays,                    //  NEG     0     0       1
+  enum balance_status_t {                    //  BRIDGE   DIV   PROT
+    bs_prepare,                               //  OFF     0     1
+    bs_prepare_set_relays,                    //  NEG     0     1
     bs_prepare_set_pause,
     bs_prepare_pause,    
-    bs_meas_vcom_bridge_off,                  //  OFF     0     0       1
-    bs_meas_vcom_prot_off,                    //  OFF     0     0       0
+    bs_meas_vcom_bridge_off,                  //  OFF     0     1
+    bs_meas_vcom_prot_off,                    //  OFF     0     0
     bs_meas_vcom_prepare,
     bs_meas_vcom,
-    bs_meas_vcom_prot_on,                     //  OFF     0     0       1
-    bs_neg_div1_neg_on,                       //  NEG     0     0       1
-    bs_neg_div1_set_prot,                     //  NEG     0     0       ETH
-    bs_neg_div1_adc_prepare,
-    bs_neg_div1_adc_read,
-    bs_neg_div_change,                        //  NEG     1     1       ETH
-    bs_neg_div2_adc_prepare,
-    bs_neg_div2_adc_read,
-    bs_change_prot_on,                        //  NEG     1     1       1
-    bs_change_neg_off,                        //  OFF     1     1       1
-    bs_change_pos_on,                         //  POS     1     1       1
-    bs_change_set_prot,                       //  POS     1     1       ETH
-    bs_pos_div2_adc_prepare,
-    bs_pos_div2_adc_read,
-    bs_pos_div_change,                        //  POS     0     0       ETH
-    bs_pos_div1_adc_prepare,
-    bs_pos_div1_adc_read,
-    bs_ending_prot_on,                        //  POS     0     0       1
-    bs_ending_bridge_off,                     //  OFF     0     0       1
+    bs_main_prot_on,                          //  OFF     0     1
+    bs_main_change_polarity,                  //  ON      0     1
+    bs_main_set_prot,                         //  ON      0     ETH
+    bs_main_set_div_relays,                   //  ON      d     ETH
+    bs_main_adc_prepare,
+    bs_main_adc_read,
+    bs_main_div_change,                       //  ON      d'    ETH
+    bs_ending_prot_on,                        //  ON      d'    1
+    bs_ending_bridge_off,                     //  OFF     0     1
     bs_ending_ready,
     bs_report,
     bs_next_exp,
@@ -137,30 +131,29 @@ private:
   struct analog_point_t {
     double vcom1;
     double vcom2;
-    double v1_neg_div1;
-    double v2_neg_div1;
-    double v1_neg_div2;
-    double v2_neg_div2;
-    double v1_pos_div1;
-    double v2_pos_div1;
-    double v1_pos_div2;
-    double v2_pos_div2;
     vector<double> v1;
     vector<double> v2;
+//    double v2_neg_div1;
+//    double v1_neg_div2;
+//    double v2_neg_div2;
+//    double v1_pos_div1;
+//    double v2_pos_div1;
+//    double v1_pos_div2;
+//    double v2_pos_div2;
     void clear()
     {
       vcom1 = 0.0;
       vcom2 = 0.0;
-      v1_neg_div1 = 0.0;
-      v2_neg_div1 = 0.0;
-      v1_neg_div2 = 0.0;
-      v2_neg_div2 = 0.0;
-      v1_pos_div1 = 0.0;
-      v2_pos_div1 = 0.0;
-      v1_pos_div2 = 0.0;
-      v2_pos_div2 = 0.0;
       v1.clear();
       v2.clear();
+//      v1_neg_div1 = 0.0;
+//      v2_neg_div1 = 0.0;
+//      v1_neg_div2 = 0.0;
+//      v2_neg_div2 = 0.0;
+//      v1_pos_div1 = 0.0;
+//      v2_pos_div1 = 0.0;
+//      v1_pos_div2 = 0.0;
+//      v2_pos_div2 = 0.0;
     }
   };
 //  struct analog_point_t {
@@ -331,6 +324,7 @@ private:
   irs_u16 m_t_adc;
   double m_ef_smooth;
   irs_u32 m_n_adc;
+  irs_u8 m_current_div_relay;
   bridge_voltage_dac_t m_bridge_voltage_dac;
 
   irs::loop_timer_t m_eth_timer;
@@ -451,6 +445,14 @@ private:
           && (m_relay_divp.status() == irs_st_ready)
           && (m_relay_divn.status() == irs_st_ready)
           && (m_relay_prot.status() == irs_st_ready);
+  }
+  inline int decode_relay_divn(irs_u8 a_current_div_relay)
+  {
+    return (1 & (a_current_div_relay >> 0));
+  }
+  inline int decode_relay_divp(irs_u8 a_current_div_relay)
+  {
+    return (1 & (a_current_div_relay >> 1));
   }
   //  Вывод текущих параметров эксперимента
   void show_experiment_parameters();
