@@ -1091,119 +1091,11 @@ void hrm::app_t::tick()
               m_current_div_relay++;
               m_balance_status = bs_main_set_div_relays;
             } else {
-              //  All DIV relays combinations ready, switch polarity or switch off
-              if (m_balance_polarity == bp_neg) {
-                //  Negative polarity ready, switch to positive bridge polarity
-                m_balance_polarity = bp_pos;
-                m_balance_status = bs_main_prot_on;
-              } else {
-                //  Positive polarity ready, switch off and report
-                m_balance_status = bs_ending_prot_on;
-              }
+              m_balance_status = bs_ending_prot_on;
             }
           }
           break;
         }
-//        case bs_neg_div2_adc_prepare: {
-//          if (bridge_relays_ready() && m_adc_ad4630.ready()) {
-//            m_adc_ad4630.start_continious(m_n_adc);
-//            m_balance_status = bs_neg_div2_adc_read;
-//          }
-//          break;
-//        }
-//        case bs_neg_div2_adc_read: {
-//          if (m_adc_ad4630.ready()) {
-//            m_analog_point.v1_neg_div2 = m_adc_ad4630.voltage1();
-//            m_analog_point.v2_neg_div2 = m_adc_ad4630.voltage2();
-//            irs::mlog() << irsm("Напряжения каналов АЦП:") << endl;
-//            irs::mlog() << irsm("v1_neg_div2: ") << m_analog_point.v1_neg_div2;
-//            irs::mlog() << irsm(" В") << endl;
-//            irs::mlog() << irsm("v2_neg_div2: ") << m_analog_point.v2_neg_div2;
-//            irs::mlog() << irsm(" В") << endl;
-//            m_balance_status = bs_change_prot_on;
-//          }
-//          break;
-//        }
-//        case bs_change_prot_on: {
-//          if (bridge_relays_ready()) {
-//            m_relay_prot = 1;
-//            m_balance_status = bs_change_neg_off;
-//          }
-//          break;
-//        }
-//        case bs_change_neg_off: {
-//          if (bridge_relays_ready()) {
-//            m_relay_bridge_neg = 0;
-//            m_balance_status = bs_change_pos_on;
-//          }
-//          break;
-//        }
-//        case bs_change_pos_on: {
-//          if (bridge_relays_ready()) {
-//            m_relay_bridge_pos = 1;
-//            irs::mlog() << irsm("------------- (+) ---------------") <<endl;
-//            m_balance_status = bs_change_set_prot;
-//          }
-//          break;
-//        }
-//        case bs_change_set_prot: {
-//          if (bridge_relays_ready()) {
-//            //  Отключение защитного реле, если не нужно
-//            if (m_no_prot) {
-//              m_relay_prot = 0;
-//            }
-//            m_balance_status = bs_pos_div2_adc_prepare;
-//          }
-//          break;
-//        }
-//        case bs_pos_div2_adc_prepare: {
-//          if (bridge_relays_ready() && m_adc_ad4630.ready()) {
-//            m_adc_ad4630.start_continious(m_n_adc);
-//            m_balance_status = bs_pos_div2_adc_read;
-//          }
-//          break;
-//        }
-//        case bs_pos_div2_adc_read: {
-//          if (m_adc_ad4630.ready()) {
-//            m_analog_point.v1_pos_div2 = m_adc_ad4630.voltage1();
-//            m_analog_point.v2_pos_div2 = m_adc_ad4630.voltage2();
-//            irs::mlog() << irsm("Напряжения каналов АЦП:") << endl;
-//            irs::mlog() << irsm("v1_pos_div2: ") << m_analog_point.v1_pos_div2;
-//            irs::mlog() << irsm(" В") << endl;
-//            irs::mlog() << irsm("v2_pos_div2: ") << m_analog_point.v2_pos_div2;
-//            irs::mlog() << irsm(" В") << endl;
-//            m_balance_status = bs_pos_div_change;
-//          }
-//          break;
-//        }
-//        case bs_pos_div_change: {
-//          if (bridge_relays_ready()) {
-//            m_relay_divn = 0;
-//            m_relay_divp = 0;
-//            m_balance_status = bs_pos_div1_adc_prepare;
-//          }
-//          break;
-//        }
-//        case bs_pos_div1_adc_prepare: {
-//          if (bridge_relays_ready() && m_adc_ad4630.ready()) {
-//            m_adc_ad4630.start_continious(m_n_adc);
-//            m_balance_status = bs_pos_div1_adc_read;
-//          }
-//          break;
-//        }
-//        case bs_pos_div1_adc_read: {
-//          if (m_adc_ad4630.ready()) {
-//            m_analog_point.v1_pos_div1 = m_adc_ad4630.voltage1();
-//            m_analog_point.v2_pos_div1 = m_adc_ad4630.voltage2();
-//            irs::mlog() << irsm("Напряжения каналов АЦП:") << endl;
-//            irs::mlog() << irsm("v1_pos_div1: ") << m_analog_point.v1_pos_div1;
-//            irs::mlog() << irsm(" В") << endl;
-//            irs::mlog() << irsm("v2_pos_div1: ") << m_analog_point.v2_pos_div1;
-//            irs::mlog() << irsm(" В") << endl;
-//            m_balance_status = bs_ending_prot_on;
-//          }
-//          break;
-//        }
         case bs_ending_prot_on: {
           if (bridge_relays_ready()) {
             m_relay_prot = 1;
@@ -1213,8 +1105,19 @@ void hrm::app_t::tick()
         }
         case bs_ending_bridge_off: {
           if (bridge_relays_ready()) {
-            m_relay_bridge_pos = 0;
-            m_balance_status = bs_ending_ready;
+            switch (m_balance_polarity) {
+              case bp_neg: {
+                m_relay_bridge_neg = 0;
+                m_balance_polarity = bp_pos;
+                m_balance_status = bs_main_change_polarity;
+                break;
+              }
+              case bp_pos: {
+                m_relay_bridge_pos = 0;
+                m_balance_status = bs_ending_ready;
+                break;
+              }
+            }
           }
           break;
         }
