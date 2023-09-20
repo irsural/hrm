@@ -151,7 +151,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   //  treg adc
   m_treg_operating_duty_time_interval_s(1.0),
   m_treg_operating_duty_deviation(0.05),
-  m_treg_pwm_max_code_float(0.15),
+  m_treg_pwm_max_code_float(0.26),
   m_treg_polarity_map(peltier_t::default_polarity_map),
   m_treg_temperature_setpoint(25.0),
   m_treg_termosensor(&m_eth_data.th_box_adc, 15.0, 35.0),
@@ -203,7 +203,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   // treg dac
   m_treg_dac_operating_duty_time_interval_s(1.0),
   m_treg_dac_operating_duty_deviation(0.05),
-  m_treg_dac_pwm_max_code_float(0.18),
+  m_treg_dac_pwm_max_code_float(0.26),
   m_treg_dac_polarity_map(peltier_t::default_polarity_map),
   m_treg_dac_temperature_setpoint(25.0),
   m_treg_dac_termosensor(&m_eth_data./*th_dac*/th_box_ldo, 15.0, 45.0),
@@ -469,6 +469,7 @@ void hrm::app_t::tick()
       m_eth_data.voltage2 = m_adc_ad4630.voltage2();
       m_eth_data.voltage_ef1 = m_adc_ad4630.voltage_ef1();
       m_eth_data.voltage_ef2 = m_adc_ad4630.voltage_ef2();
+      m_eth_data.result = m_adc_ad4630.voltage_ef1() - m_adc_ad4630.voltage_ef2();
       //m_adc_ad4630.start_single_conversion();
     }
     m_eth_data.adc_error_cnt = m_adc_ad4630.error_cnt();
@@ -1071,7 +1072,9 @@ void hrm::app_t::tick()
             double v2 = m_adc_ad4630.voltage2();
             m_analog_point.v1.push_back(v1);
             m_analog_point.v2.push_back(v2);
-            irs::mlog() << irsm("------------- -------------------") <<endl;
+            int N = m_current_div_relay;
+            irs::mlog() << irsm("------------- (") <<  N;
+            irs::mlog() << irsm(") ---------------") <<endl;
             irs::mlog() << irsm("V1_");
             irs::mlog() << decode_relay_divp(m_current_div_relay);
             irs::mlog() << decode_relay_divn(m_current_div_relay);
@@ -1086,7 +1089,7 @@ void hrm::app_t::tick()
         }
         case bs_main_div_change: {
           if (bridge_relays_ready()) {
-            if (m_current_div_relay <= stop_div_relay) {
+            if (m_current_div_relay < stop_div_relay) {
               //  Next DIV relays combination
               m_current_div_relay++;
               m_balance_status = bs_main_set_div_relays;
@@ -1143,24 +1146,22 @@ void hrm::app_t::tick()
           exp.temperature_dac = m_eth_data.th_box_ldo;
           exp.temperature_adc = m_eth_data.th_box_adc;
           //  --------------------------------------------------------------
-          irs::mlog() << irsm("vcom ") << m_analog_point.vcom1;
+          const irs::string_t sign[] = {irsm("-"), irsm("+")};
+          irs_u8 L = stop_div_relay - start_div_relay + 1;
+          irs::mlog() << setprecision(8);
+          irs::mlog() << irsm("vcom  ") << m_analog_point.vcom1;
           irs::mlog() << irsm(" ") << m_analog_point.vcom2 << endl;
-          for (irs_u8 i = start_div_relay; i <= stop_div_relay; i++) {
-            irs::mlog() << irsm("V_");
-            irs::mlog() << decode_relay_divp(i);
-            irs::mlog() << decode_relay_divn(i);
-            irs::mlog() << irsm(" ") << m_analog_point.v1[i];
-            irs::mlog() << irsm(" ") << m_analog_point.v2[i] << endl;
+          for (irs_u8 j = 0; j <= 1; j++) {
+            for (irs_u8 i = start_div_relay; i <= stop_div_relay; i++) {
+              irs::mlog() << irsm("V_");
+              irs::mlog() << decode_relay_divp(i);
+              irs::mlog() << decode_relay_divn(i);
+              irs::mlog() << irsm(sign[j]);
+              irs::mlog() << irsm(" ") << m_analog_point.v1[i + j * L];
+              irs::mlog() << irsm(" ") << m_analog_point.v2[i + j * L] << endl;
+            }
           }
-//          irs::mlog() << irsm("v1_neg_div1 ") << m_analog_point.v1_neg_div1 << endl;
-//          irs::mlog() << irsm("v2_neg_div1 ") << m_analog_point.v2_neg_div1 << endl;
-//          irs::mlog() << irsm("v1_neg_div2 ") << m_analog_point.v1_neg_div2 << endl;
-//          irs::mlog() << irsm("v2_neg_div2 ") << m_analog_point.v2_neg_div2 << endl;
-//          irs::mlog() << irsm("v1_pos_div1 ") << m_analog_point.v1_pos_div1 << endl;
-//          irs::mlog() << irsm("v2_pos_div1 ") << m_analog_point.v2_pos_div1 << endl;
-//          irs::mlog() << irsm("v1_pos_div2 ") << m_analog_point.v1_pos_div2 << endl;
-//          irs::mlog() << irsm("v2_pos_div2 ") << m_analog_point.v2_pos_div2 << endl;
-          
+          irs::mlog() << endl; 
           //  --------------------------------------------------------------
 //          double a1 = m_analog_point.v1_neg_div1 - m_analog_point.vcom1;
 //          double b1 = m_analog_point.v1_neg_div2 - m_analog_point.vcom1;

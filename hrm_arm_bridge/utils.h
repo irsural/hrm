@@ -1016,7 +1016,7 @@ private:
     th_box_adc_ch = irs::arm::st_adc_t::ADC3_PF9_CH7,
     volt_box_neg_ch = irs::arm::st_adc_t::ADC123_PC0_CH10,
     volt_box_pos_ch = irs::arm::st_adc_t::ADC3_PF10_CH8,
-    th_mcu_ch = irs::arm::st_adc_t::ADC1_TEMPERATURE,
+    th_mcu_ch = 0,//irs::arm::st_adc_t::ADC1_TEMPERATURE,
     th_ext_1_ch = irs::arm::st_adc_t::ADC123_PA0_CH0,
     th_ext_2_ch = irs::arm::st_adc_t::ADC12_PA6_CH6,
     adc1_mask = th_dac_ch | th_box_ldo_ch | th_mcu_ch | th_ext_1_ch|th_ext_2_ch,
