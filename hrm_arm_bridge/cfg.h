@@ -361,17 +361,7 @@ public:
   irs::arm::io_pin_t lcd_e_pin;
   vector<irs::handle_t<irs::gpio_pin_t> > key_drv_horizontal_pins;
   vector<irs::handle_t<irs::gpio_pin_t> > key_drv_vertical_pins;
-//  gpio_channel_t enc_a;
-//  gpio_channel_t enc_b;
-//  size_t encoder_timer_address;
-//  irs::arm::io_pin_t enc_sw;
   irs::pwm_pin_t buzzer;
-  //  ADC
-  irs::arm::io_pin_t adc_cs;
-  irs::arm::io_pin_t adc_reset;
-  //irs::arm::io_pin_t adc_start;
-  irs::arm::io_pin_t adc_clk;
-  irs::arm::io_pin_t adc_en;
   //  AD4630
   irs::arm::io_pin_t ad4630_rst;
   irs::arm::io_pin_t ad4630_cs;
@@ -381,13 +371,6 @@ public:
   pulse_gen_t pulse_gen;
   adc_ad4630_ready_t adc_ready;
   spi_dma_reader_t spi_dma_reader;
-  //  DAC
-  irs::arm::io_pin_t dac_cs;
-  irs::arm::io_pin_t dac_ldac;
-  irs::arm::io_pin_t dac_clr;
-  irs::arm::io_pin_t dac_reset;
-  irs::arm::io_pin_t dac_en;
-  irs::arm::io_pin_t dac_enctrl;
   //  Bridge voltage DAC
   irs::arm::io_pin_t bridge_voltage_dac_cs;
   //  Relays
@@ -396,34 +379,24 @@ public:
   irs::arm::io_pin_t relay_bridge_neg_on;
   irs::arm::io_pin_t relay_bridge_neg_off;
   irs::arm::io_pin_t relay_prot;
-  //  Relays HV
-//  irs::arm::io_pin_t relay_hv_polarity;
-//  irs::arm::io_pin_t relay_hv_amps_gain;
-//  irs::arm::io_pin_t relay_hv_pos_on;
-//  irs::arm::io_pin_t relay_hv_pos_off;
-//  irs::arm::io_pin_t relay_hv_neg_on;
-//  irs::arm::io_pin_t relay_hv_neg_off;
-//  irs::arm::io_pin_t relay_adc_src_on;
-//  irs::arm::io_pin_t relay_adc_src_off;
   //  Relays AD4630
   irs::arm::io_pin_t relay_bridge_divp_on;
   irs::arm::io_pin_t relay_bridge_divp_off;
   irs::arm::io_pin_t relay_bridge_divn_on;
   irs::arm::io_pin_t relay_bridge_divn_off;
+  //  Relay DIVSW
+  irs::arm::io_pin_t relay_divsw_on;  //  ON = REF
+  irs::arm::io_pin_t relay_divsw_off; //  OFF = SENSE
+  irs::arm::io_pin_t led_divsw;       //  Debug led, yellow, on DIVSW board
   //  SPI
   irs_u32 m_spi_bitrate;
-  //irs::arm::arm_spi_t spi_adc;
   irs::arm::arm_spi_t spi_dac;
   irs::arm::arm_spi_t spi_aux;
-  //  External interrupt
-  adc_exti_t adc_exti;
   //  Climate
   static const gpio_channel_t peltier_pwm1_channel = PE6;
   irs::arm::st_pwm_gen_t peltier_pwm1_gen;
-  //irs::pwm_pin_t peltier_pwm1;
   static const gpio_channel_t peltier_pwm2_channel = PE5;
   irs::arm::st_pwm_gen_t peltier_pwm2_gen;
-  //irs::pwm_pin_t peltier_pwm2;
   irs::arm::io_pin_t peltier_pol1;
   irs::arm::io_pin_t peltier_pol2;
   irs::arm::io_pin_t fan_ac_on;

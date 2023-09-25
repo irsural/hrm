@@ -337,6 +337,8 @@ private:
   //  Relays AD4630
   bi_relay_t m_relay_divp;
   bi_relay_t m_relay_divn;
+  //  Relay DIVSW
+  bi_relay_t m_relay_divsw;
 
   mode_t m_mode;
 

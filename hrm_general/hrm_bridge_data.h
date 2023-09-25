@@ -102,7 +102,7 @@ struct eth_data_t {
 //  irs::bit_data_t relay_hv_neg;
   irs::bit_data_t relay_divp;
   irs::bit_data_t relay_divn;
-  irs::bit_data_t relay_adc_src;
+  irs::bit_data_t relay_divsw;
   irs::bit_data_t relay_chon;
   irs::bit_data_t relay_eton;
   irs::bit_data_t relay_prot;
@@ -446,7 +446,7 @@ struct eth_data_t {
 //    relay_hv_neg.connect(ap_data, index, 3);
     relay_divp.connect(ap_data, index, 2);
     relay_divn.connect(ap_data, index, 3);
-    relay_adc_src.connect(ap_data, index, 4);
+    relay_divsw.connect(ap_data, index, 4);
     relay_chon.connect(ap_data, index, 5);
     relay_eton.connect(ap_data, index, 6);
     relay_prot.connect(ap_data, index, 7);

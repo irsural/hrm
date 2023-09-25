@@ -78,6 +78,12 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
     irst("DIVN"),
     0,
     irs::make_cnt_ms(100)),
+  m_relay_divsw(
+    &mp_cfg->relay_divsw_off,
+    &mp_cfg->relay_divsw_on,
+    irst("DIVSW"),
+    0,
+    irs::make_cnt_ms(100)),
   m_mode(md_free),
   m_free_status(fs_prepare),
   m_balance_status(bs_prepare),
@@ -310,6 +316,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   m_relay_bridge_neg.set_wild(m_wild_relays);
   m_relay_divp.set_wild(m_wild_relays);
   m_relay_divn.set_wild(m_wild_relays);
+  m_relay_divsw.set_wild(m_wild_relays);
   
   m_eth_data.bridge_voltage = m_eeprom_data.bridge_voltage;
   m_bridge_voltage = m_eeprom_data.bridge_voltage;
@@ -350,6 +357,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   m_relay_prot.set_after_pause(m_min_after_pause);
   m_relay_divp.set_after_pause(m_min_after_pause);
   m_relay_divn.set_after_pause(m_min_after_pause);
+  m_relay_divsw.set_after_pause(m_min_after_pause);
 
   //  ЖКИ и клавиатура
   m_lcd_drv_service.connect(&m_lcd_drv);
@@ -426,6 +434,7 @@ void hrm::app_t::tick()
   m_relay_prot.tick();
   m_relay_divp.tick();
   m_relay_divn.tick();
+  m_relay_divsw.tick();
 
   m_buzzer.tick();
 
@@ -461,6 +470,9 @@ void hrm::app_t::tick()
       }
       if (m_eth_data.relay_divn != m_relay_divn) {
         m_eth_data.relay_divn = m_relay_divn;
+      }
+      if (m_eth_data.relay_divsw != m_relay_divsw) {
+        m_eth_data.relay_divsw = m_relay_divsw;
       }
     }
     if (m_adc_ad4630.new_data()) {
@@ -626,10 +638,12 @@ void hrm::app_t::tick()
           m_relay_prot = 1;
           m_relay_divp = 0;
           m_relay_divn = 0;
+          m_relay_divsw = 0;
           m_relay_bridge_pos.set_wild(false);
           m_relay_bridge_neg.set_wild(false);
           m_relay_divp.set_wild(false);
           m_relay_divn.set_wild(false);
+          m_relay_divsw.set_wild(false);
           //
           m_eth_data.apply = 0;
           m_eth_data.prepare_pause = m_prepare_pause;
@@ -694,6 +708,7 @@ void hrm::app_t::tick()
           m_relay_prot.set_after_pause(m_min_after_pause);
           m_relay_divp.set_after_pause(m_min_after_pause);
           m_relay_divn.set_after_pause(m_min_after_pause);
+          m_relay_divsw.set_after_pause(m_min_after_pause);
           m_manual_status = ms_check_user_changes;
           break;
         }
@@ -721,6 +736,9 @@ void hrm::app_t::tick()
             if (m_eth_data.relay_divn != m_relay_divn) {
               m_relay_divn = m_eth_data.relay_divn;
             }
+            if (m_eth_data.relay_divsw != m_relay_divsw) {
+              m_relay_divsw = m_eth_data.relay_divsw;
+            }
             //  Wild mode for bridge relays
             if (m_wild_relays != m_relay_bridge_pos.wild()) {
               m_relay_bridge_pos.set_wild(m_wild_relays);
@@ -734,6 +752,9 @@ void hrm::app_t::tick()
             }
             if (m_wild_relays != m_relay_divn.wild()) {
               m_relay_divn.set_wild(m_wild_relays);
+            }
+            if (m_wild_relays != m_relay_divsw.wild()) {
+              m_relay_divsw.set_wild(m_wild_relays);
             }
             //  Напряжение моста
             if (m_eth_data.bridge_voltage != m_bridge_voltage) {
@@ -812,6 +833,7 @@ void hrm::app_t::tick()
           m_relay_prot.set_after_pause(m_relay_after_pause);
           m_relay_divp.set_after_pause(m_relay_after_pause);
           m_relay_divn.set_after_pause(m_relay_after_pause);
+          m_relay_divsw.set_after_pause(m_relay_after_pause);
 
           m_wild_relays = m_eth_data.wild_relays;
           m_eeprom_data.wild_relays = m_wild_relays;
@@ -820,6 +842,7 @@ void hrm::app_t::tick()
             m_relay_bridge_neg.set_wild(true);
             m_relay_divp.set_wild(true);
             m_relay_divn.set_wild(true);
+            m_relay_divsw.set_wild(true);
           }
 
           m_relay_pause_timer.set(m_relay_after_pause);

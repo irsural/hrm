@@ -104,11 +104,6 @@ hrm::cfg_t::cfg_t():
   //  AUX
   led_blink(GPIO_PORTD, 8, irs::io_t::dir_out, irs::io_pin_off),
   ee_cs(GPIO_PORTE, 15, irs::io_t::dir_out, irs::io_pin_on),
-//  aux1(GPIO_PORTC, 9, irs::io_t::dir_out, irs::io_pin_off),
-//  aux2(GPIO_PORTA, 11, irs::io_t::dir_out, irs::io_pin_off),
-//  aux3(GPIO_PORTA, 12, irs::io_t::dir_out, irs::io_pin_off),
-//  mezzo1(GPIO_PORTF, 4, irs::io_t::dir_out, irs::io_pin_off),
-//  mezzo2(GPIO_PORTF, 5, irs::io_t::dir_out, irs::io_pin_off),
   mezzo3(GPIO_PORTB, 0, irs::io_t::dir_out, irs::io_pin_off),
   mezzo4(GPIO_PORTB, 1, irs::io_t::dir_out, irs::io_pin_off),
   //  UI
@@ -117,18 +112,8 @@ hrm::cfg_t::cfg_t():
   lcd_e_pin(GPIO_PORTG, 6, irs::io_t::dir_open_drain),
   key_drv_horizontal_pins(),
   key_drv_vertical_pins(),
-//  enc_a(PC6),
-//  enc_b(PC7),
-//  encoder_timer_address(IRS_TIM3_BASE),
-//  enc_sw(GPIO_PORTC, 8, irs::io_t::dir_in),
   buzzer(irs::handle_t<irs::pwm_gen_t>(
     new irs::arm::st_pwm_gen_t(PF6, IRS_TIM10_BASE, 4000, 0.05))),
-  //  ADC
-  adc_cs(GPIO_PORTF, 1, irs::io_t::dir_out, irs::io_pin_on),
-  adc_reset(GPIO_PORTC, 14, irs::io_t::dir_out, irs::io_pin_off),
-  //adc_start(GPIO_PORTC, 15, irs::io_t::dir_out, irs::io_pin_off),
-  adc_clk(GPIO_PORTF, 8, irs::io_t::dir_out, irs::io_pin_off),
-  adc_en(GPIO_PORTF, 2, irs::io_t::dir_out, irs::io_pin_on),
   //  AD4630
   ad4630_rst(GPIO_PORTC, 14, irs::io_t::dir_out, irs::io_pin_off),
   ad4630_cs(GPIO_PORTF, 5, irs::io_t::dir_out, irs::io_pin_on),
@@ -136,13 +121,6 @@ hrm::cfg_t::cfg_t():
   ad4630_pwr(GPIO_PORTC, 15, irs::io_t::dir_in),
   ad4630_point_control(GPIO_PORTC, 12, irs::io_t::dir_out),
   pulse_gen(),
-  //  DAC
-  dac_cs(GPIO_PORTB, 6, irs::io_t::dir_out, irs::io_pin_on),
-  dac_ldac(GPIO_PORTB, 9, irs::io_t::dir_out, irs::io_pin_off),
-  dac_clr(GPIO_PORTE, 0, irs::io_t::dir_out, irs::io_pin_off),
-  dac_reset(GPIO_PORTB, 8, irs::io_t::dir_out, irs::io_pin_off),
-  dac_en(GPIO_PORTE, 1, irs::io_t::dir_out, irs::io_pin_on),
-  dac_enctrl(GPIO_PORTB, 7, irs::io_t::dir_in),
   //  Bridge voltage DAC
   bridge_voltage_dac_cs(GPIO_PORTE, 2, irs::io_t::dir_out, irs::io_pin_on),
   //  Relays
@@ -151,37 +129,24 @@ hrm::cfg_t::cfg_t():
   relay_bridge_neg_on(GPIO_PORTD, 2, irs::io_t::dir_out, irs::io_pin_off),
   relay_bridge_neg_off(GPIO_PORTD, 1, irs::io_t::dir_out, irs::io_pin_off),
   relay_prot(GPIO_PORTF, 3, irs::io_t::dir_out, irs::io_pin_on),
-  //  Relays HV
-  //relay_hv_polarity(GPIO_PORTF, 4, irs::io_t::dir_out, irs::io_pin_off),  //mz1
-  //relay_hv_amps_gain(GPIO_PORTF, 5, irs::io_t::dir_out, irs::io_pin_off), //mz2
-  //relay_hv_pos_on(GPIO_PORTC, 9, irs::io_t::dir_out, irs::io_pin_off),    //au1
-  //relay_hv_pos_off(GPIO_PORTC, 6, irs::io_t::dir_out, irs::io_pin_off),   //enca
-  //relay_hv_neg_on(GPIO_PORTC, 8, irs::io_t::dir_out, irs::io_pin_off),    //encs
-  //relay_hv_neg_off(GPIO_PORTC, 7, irs::io_t::dir_out, irs::io_pin_off),   //encb
-  //relay_adc_src_on(GPIO_PORTA, 12, irs::io_t::dir_out, irs::io_pin_off),//au3
-  //relay_adc_src_off(GPIO_PORTA, 11, irs::io_t::dir_out, irs::io_pin_off),//a2
   //  Relays AD4630
   relay_bridge_divp_on(GPIO_PORTD, 4, irs::io_t::dir_out, irs::io_pin_off),
   relay_bridge_divp_off(GPIO_PORTD, 5, irs::io_t::dir_out, irs::io_pin_off),
   relay_bridge_divn_on(GPIO_PORTD, 6, irs::io_t::dir_out, irs::io_pin_off),
   relay_bridge_divn_off(GPIO_PORTD, 7, irs::io_t::dir_out, irs::io_pin_off),
+  //  Relay DIVSW
+  relay_divsw_on(GPIO_PORTF, 0, irs::io_t::dir_out, irs::io_pin_off),
+  relay_divsw_off(GPIO_PORTF, 1, irs::io_t::dir_out, irs::io_pin_off),
+  led_divsw(GPIO_PORTE, 1, irs::io_t::dir_out, irs::io_pin_off),
   //  SPI
   m_spi_bitrate(50000),
-  //spi_adc(IRS_SPI3_I2S3_BASE, m_spi_bitrate, PC10, PC11, PC12,
-    //irs::arm::arm_spi_t::gpio_speed_25mhz),
   spi_dac(IRS_SPI1_BASE, 37500000/*m_spi_bitrate*/, PA5, PB4, PB5,
     irs::arm::arm_spi_t::gpio_speed_100mhz),
   spi_aux(IRS_SPI2_I2S2_BASE, m_spi_bitrate, PB10, PC2, PC3,
     irs::arm::arm_spi_t::gpio_speed_25mhz),
-  //  External Interrupt
-  adc_exti(),
   //  Climate
   peltier_pwm1_gen(peltier_pwm1_channel, IRS_TIM9_BASE, 25000, 0.5),
-//  peltier_pwm1(irs::handle_t<irs::pwm_gen_t>(
-//    new irs::arm::st_pwm_gen_t(peltier_pwm1_channel, IRS_TIM9_BASE, 25000, 0.5))),
   peltier_pwm2_gen(peltier_pwm2_channel, IRS_TIM9_BASE, 25000, 0.5),
-//  peltier_pwm2(irs::handle_t<irs::pwm_gen_t>(
-//    new irs::arm::st_pwm_gen_t(PE5, IRS_TIM9_BASE, 25000, 0.5))),
   peltier_pol1(GPIO_PORTD, 10, irs::io_t::dir_out, irs::io_pin_off),
   peltier_pol2(GPIO_PORTB, 15, irs::io_t::dir_out, irs::io_pin_off),
   fan_ac_on(GPIO_PORTG, 5, irs::io_t::dir_out, irs::io_pin_off),
@@ -207,15 +172,6 @@ hrm::cfg_t::cfg_t():
   key_drv_vertical_pins.push_back(irs::handle_t<irs::gpio_pin_t>(
     new irs::arm::io_pin_t(GPIO_PORTG, 1, irs::io_t::dir_open_drain)));
   
-//  key_drv_vertical_pins.push_back(irs::handle_t<irs::gpio_pin_t>(
-//    new irs::arm::io_pin_t(GPIO_PORTG, 1, irs::io_t::dir_open_drain)));
-//  key_drv_vertical_pins.push_back(irs::handle_t<irs::gpio_pin_t>(
-//    new irs::arm::io_pin_t(GPIO_PORTE, 7, irs::io_t::dir_open_drain)));
-//  key_drv_vertical_pins.push_back(irs::handle_t<irs::gpio_pin_t>(
-//    new irs::arm::io_pin_t(GPIO_PORTE, 8, irs::io_t::dir_open_drain)));
-//  key_drv_vertical_pins.push_back(irs::handle_t<irs::gpio_pin_t>(
-//    new irs::arm::io_pin_t(GPIO_PORTE, 9, irs::io_t::dir_open_drain)));
-
   irs::pause(irs::make_cnt_ms(100));
 }
 
