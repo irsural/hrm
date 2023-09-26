@@ -1034,6 +1034,40 @@ void hrm::app_t::tick()
             irs::mlog() << irsm(" В") << endl;
             irs::mlog() << irsm("vcom2: ") << m_analog_point.vcom2;
             irs::mlog() << irsm(" В") << endl;
+            m_balance_status = bs_meas_vref_switch_on;
+          }
+          break;
+        }
+        case bs_meas_vref_switch_on: {
+          if (bridge_relays_ready()) {
+            m_relay_divsw = 1;
+            m_balance_status = bs_meas_vref_prepare;
+          }
+          break;
+        }
+        case bs_meas_vref_prepare: {
+          if (bridge_relays_ready() && m_adc_ad4630.ready()) {
+            m_adc_ad4630.start_continious(m_n_adc);
+            m_balance_status = bs_meas_vref;
+          }
+          break;
+        }
+        case bs_meas_vref: {
+          if (m_adc_ad4630.ready()) {
+            m_analog_point.vref1 = m_adc_ad4630.voltage1();
+            m_analog_point.vref2 = m_adc_ad4630.voltage2();
+            irs::mlog() << irsm("Напряжения ИОН каналов АЦП:") << endl;
+            irs::mlog() << irsm("vref1: ") << m_analog_point.vref1;
+            irs::mlog() << irsm(" В") << endl;
+            irs::mlog() << irsm("vref2: ") << m_analog_point.vref2;
+            irs::mlog() << irsm(" В") << endl;
+            m_balance_status = bs_meas_vref_switch_off;
+          }
+          break;
+        }
+        case bs_meas_vref_switch_off: {
+          if (bridge_relays_ready()) {
+            m_relay_divsw = 0;
             m_balance_status = bs_main_prot_on;
           }
           break;
@@ -1174,6 +1208,8 @@ void hrm::app_t::tick()
           irs::mlog() << setprecision(8);
           irs::mlog() << irsm("vcom  ") << m_analog_point.vcom1;
           irs::mlog() << irsm(" ") << m_analog_point.vcom2 << endl;
+          irs::mlog() << irsm("vref  ") << m_analog_point.vref1;
+          irs::mlog() << irsm(" ") << m_analog_point.vref2 << endl;
           for (irs_u8 j = 0; j <= 1; j++) {
             for (irs_u8 i = start_div_relay; i <= stop_div_relay; i++) {
               irs::mlog() << irsm("V_");

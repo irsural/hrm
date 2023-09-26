@@ -134,9 +134,9 @@ hrm::cfg_t::cfg_t():
   relay_bridge_divp_off(GPIO_PORTD, 5, irs::io_t::dir_out, irs::io_pin_off),
   relay_bridge_divn_on(GPIO_PORTD, 6, irs::io_t::dir_out, irs::io_pin_off),
   relay_bridge_divn_off(GPIO_PORTD, 7, irs::io_t::dir_out, irs::io_pin_off),
-  //  Relay DIVSW
-  relay_divsw_on(GPIO_PORTF, 0, irs::io_t::dir_out, irs::io_pin_off),
-  relay_divsw_off(GPIO_PORTF, 1, irs::io_t::dir_out, irs::io_pin_off),
+  //  Relay DIVSW, ON and OFF was swaped
+  relay_divsw_on(GPIO_PORTF, 1, irs::io_t::dir_out, irs::io_pin_off),
+  relay_divsw_off(GPIO_PORTF, 0, irs::io_t::dir_out, irs::io_pin_off),
   led_divsw(GPIO_PORTE, 1, irs::io_t::dir_out, irs::io_pin_off),
   //  SPI
   m_spi_bitrate(50000),

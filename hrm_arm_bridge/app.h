@@ -65,6 +65,10 @@ private:
     bs_meas_vcom_prot_off,                    //  OFF     0     0
     bs_meas_vcom_prepare,
     bs_meas_vcom,
+    bs_meas_vref_switch_on,
+    bs_meas_vref_prepare,
+    bs_meas_vref,
+    bs_meas_vref_switch_off,
     bs_main_prot_on,                          //  OFF     0     1
     bs_main_change_polarity,                  //  ON      0     1
     bs_main_set_prot,                         //  ON      0     ETH
@@ -131,6 +135,8 @@ private:
   struct analog_point_t {
     double vcom1;
     double vcom2;
+    double vref1;
+    double vref2;
     vector<double> v1;
     vector<double> v2;
 //    double v2_neg_div1;
@@ -144,6 +150,8 @@ private:
     {
       vcom1 = 0.0;
       vcom2 = 0.0;
+      vref1 = 0.0;
+      vref2 = 0.0;
       v1.clear();
       v2.clear();
 //      v1_neg_div1 = 0.0;
@@ -446,7 +454,8 @@ private:
           && (m_relay_bridge_neg.status() == irs_st_ready)
           && (m_relay_divp.status() == irs_st_ready)
           && (m_relay_divn.status() == irs_st_ready)
-          && (m_relay_prot.status() == irs_st_ready);
+          && (m_relay_prot.status() == irs_st_ready)
+          && (m_relay_divsw.status() == irs_st_ready);
   }
   inline int decode_relay_divn(irs_u8 a_current_div_relay)
   {
