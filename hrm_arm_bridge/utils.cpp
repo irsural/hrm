@@ -2158,6 +2158,8 @@ void hrm::ad4630_t::tick()
   mp_spi->tick();
   switch (m_status) {
     case st_reset_prepare: {
+      m_need_ef_preset = true;
+      m_current_point = 0;
       mp_rst_pin->clear();
       m_timer.set(m_reset_interval);
       m_timer.start();

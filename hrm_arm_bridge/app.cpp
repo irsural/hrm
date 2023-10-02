@@ -1148,7 +1148,8 @@ void hrm::app_t::tick()
           if (bridge_relays_ready()) {
             if (m_current_div_relay < stop_div_relay) {
               //  Next DIV relays combination
-              m_current_div_relay++;
+              //m_current_div_relay++;
+              m_current_div_relay = stop_div_relay; //  Use only "0" and "3"
               m_balance_status = bs_main_set_div_relays;
             } else {
               m_balance_status = bs_ending_prot_on;
@@ -1204,14 +1205,14 @@ void hrm::app_t::tick()
           exp.temperature_adc = m_eth_data.th_box_adc;
           //  --------------------------------------------------------------
           const irs::string_t sign[] = {irsm("-"), irsm("+")};
-          irs_u8 L = stop_div_relay - start_div_relay + 1;
+          size_t L = m_analog_point.v1.size() / 2;
           irs::mlog() << setprecision(8);
           irs::mlog() << irsm("vcom  ") << m_analog_point.vcom1;
           irs::mlog() << irsm(" ") << m_analog_point.vcom2 << endl;
           irs::mlog() << irsm("vref  ") << m_analog_point.vref1;
           irs::mlog() << irsm(" ") << m_analog_point.vref2 << endl;
           for (irs_u8 j = 0; j <= 1; j++) {
-            for (irs_u8 i = start_div_relay; i <= stop_div_relay; i++) {
+            for (irs_u8 i = 0; i < L; i++) {
               irs::mlog() << irsm("V_");
               irs::mlog() << decode_relay_divp(i);
               irs::mlog() << decode_relay_divn(i);
@@ -1221,6 +1222,7 @@ void hrm::app_t::tick()
             }
           }
           irs::mlog() << endl; 
+          //  --------------------------------------------------------------
           //  --------------------------------------------------------------
 //          double a1 = m_analog_point.v1_neg_div1 - m_analog_point.vcom1;
 //          double b1 = m_analog_point.v1_neg_div2 - m_analog_point.vcom1;
