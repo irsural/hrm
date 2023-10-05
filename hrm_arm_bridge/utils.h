@@ -783,7 +783,8 @@ private:
     th_mcu_ch = irs::arm::st_adc_t::ADC1_TEMPERATURE,
     th_ext_1_ch = irs::arm::st_adc_t::ADC123_PA0_CH0,
     th_ext_2_ch = irs::arm::st_adc_t::ADC12_PA6_CH6,
-    adc1_mask = th_dac_ch | th_box_ldo_ch | th_mcu_ch | th_ext_1_ch|th_ext_2_ch,
+    adc1_mask = th_dac_ch | th_box_ldo_ch | 
+      /*th_mcu_ch |*/ th_ext_1_ch | th_ext_2_ch,
     adc2_mask = th_box_adc_ch | volt_box_pos_ch,
     m_fan_ac_max_speed = 1,
     m_fan_dc_max_speed = 2
