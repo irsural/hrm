@@ -1223,6 +1223,28 @@ void hrm::app_t::tick()
           }
           irs::mlog() << endl; 
           //  --------------------------------------------------------------
+//          double b = m_analog_point.vcom1 - m_analog_point.vcom2;
+//          double k = m_analog_point.vref1 / (m_analog_point.vref2 - b);
+//          double K1 = (4.096 - m_analog_point.vcom1) 
+//            / (m_analog_point.vref1 - m_analog_point.vcom1);
+////          double K2 = (4.096 - m_analog_point.vcom2) 
+////            / (m_analog_point.vref2 - m_analog_point.vcom2);
+//          vector<double> u1v;
+//          vector<double> u2v;
+//          u1v.clear();
+//          u2v.clear();
+//          double u2 = 0.0;
+//          for (size_t i = 0; i < m_analog_point.v1.size(); i++) {
+//            u1v.push_back(m_analog_point.vcom1 
+//              + K1 * (m_analog_point.v1[i] - m_analog_point.vcom1));
+//            u2 = m_analog_point.v2[i] * k - b;
+//            u2v.push_back(m_analog_point.vcom1 
+//              + K1 * (u2c - m_analog_point.vcom1));
+//          }
+//          vector<double> Dv;
+//          Dv.clear();
+//          Dv.push_back(u1v[0] / );
+          
           //  --------------------------------------------------------------
 //          double a1 = m_analog_point.v1_neg_div1 - m_analog_point.vcom1;
 //          double b1 = m_analog_point.v1_neg_div2 - m_analog_point.vcom1;
