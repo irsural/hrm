@@ -833,6 +833,7 @@ public:
   void set_cnv_freq(double a_cnv_freq);
   void set_continious_freq(double a_continious_freq);
   irs_u32 error_cnt() { return m_error_cnt; }
+  inline double vref() { return m_vref; }
   void tick();
 private:
   enum {
@@ -921,6 +922,7 @@ private:
   bool m_need_reconfigure;
   irs_i32 m_raw_data1;
   irs_i32 m_raw_data2;
+  const double m_vref;
   const double m_trans_k;
   double m_voltage1;
   double m_voltage2;
