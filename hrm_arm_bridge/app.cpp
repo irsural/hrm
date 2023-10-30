@@ -157,7 +157,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   //  treg adc
   m_treg_operating_duty_time_interval_s(1.0),
   m_treg_operating_duty_deviation(0.05),
-  m_treg_pwm_max_code_float(0.26),
+  m_treg_pwm_max_code_float(0.15),
   m_treg_polarity_map(peltier_t::default_polarity_map),
   m_treg_temperature_setpoint(25.0),
   m_treg_termosensor(&m_eth_data.th_box_adc, 15.0, 35.0),
@@ -209,7 +209,7 @@ hrm::app_t::app_t(cfg_t* ap_cfg, version_t a_version, bool* ap_buf_ready):
   // treg dac
   m_treg_dac_operating_duty_time_interval_s(1.0),
   m_treg_dac_operating_duty_deviation(0.05),
-  m_treg_dac_pwm_max_code_float(0.26),
+  m_treg_dac_pwm_max_code_float(0.45),
   m_treg_dac_polarity_map(peltier_t::default_polarity_map),
   m_treg_dac_temperature_setpoint(25.0),
   m_treg_dac_termosensor(&m_eth_data./*th_dac*/th_box_ldo, 15.0, 45.0),
@@ -1254,23 +1254,28 @@ void hrm::app_t::tick()
           irs::mlog() << endl; 
           irs::mlog() << irsm("K1    ") << K1 << endl;
           
-          m_analog_point.clear();
-          
           //  -------------------------  RESULT  -------------------------
           irs::mlog() << irsm("Результат") << endl;
           irs::mlog() << setw(14) << setprecision(14);
           irs::mlog() << m_result << endl;
           
-          exp.result_old = m_result;
-          
-          exp.target_sko_adc_neg = 0;
-          exp.target_sko_adc_pos = 0;
-          exp.target_sko_dac_neg = 0;
-          exp.target_sko_dac_pos = 0;
-          exp.neg_n = 0;
-          exp.pos_n = 0;
-          
+          exp.result = m_result;
+          exp.Dn = Dn;
+          exp.Dp = Dp;
+          exp.K1 = K1;
+          exp.vcom1 = m_analog_point.vcom1;
+          exp.vcom2 = m_analog_point.vcom2;
+          exp.vref1 = m_analog_point.vref1;
+          exp.vref2 = m_analog_point.vref2;
           m_exp_vector.push_back(exp);
+          m_analog_point.clear();
+          
+          m_exp_param.ef_smooth = m_ef_smooth;
+          m_exp_param.n_avg = m_n_avg;
+          m_exp_param.t_adc = m_t_adc;
+          m_exp_param.n_adc = m_n_adc;
+          m_exp_param.bridge_voltage = m_bridge_voltage;
+          m_exp_param.prepare_pause = m_prepare_pause;
             
 //          m_eth_data.result = exp.result_old * m_eth_data.etalon;//  Result OLD
 //          m_eth_data.ratio = m_result;
@@ -2764,7 +2769,14 @@ void hrm::app_t::show_last_result()
   irs::mlog() << irsm(" -----------") << endl;
   irs::mlog() << irsm("№    ");
   
-  irs::mlog() << irsm("Result         ");
+  irs::mlog() << irsm("Result     ");
+  irs::mlog() << irsm("Dn         ");
+  irs::mlog() << irsm("Dp         ");
+  irs::mlog() << irsm("K1      ");
+  irs::mlog() << irsm("vcom1      ");
+  irs::mlog() << irsm("vcom2      ");
+  irs::mlog() << irsm("vref1      ");
+  irs::mlog() << irsm("vref2      ");
   
   if (m_eth_data.show_th_ext) {
     irs::mlog() << irsm("t°ext  ");
@@ -2854,8 +2866,17 @@ void hrm::app_t::show_last_result()
   for (size_t i = 0; i < m_exp_vector.size(); i++) {
     irs::mlog() << setprecision(10);
     irs::mlog() << setw(3) << i + 1;irs::mlog() << irsm(" ");
-    irs::mlog() << setprecision(12);
-    irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].result_old;
+    irs::mlog() << setprecision(8);
+    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].result;
+    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].Dn;
+    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].Dp;
+    irs::mlog() << setprecision(3);
+    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].K1;
+    irs::mlog() << setprecision(8);
+    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].vcom1;
+    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].vcom2;
+    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].vref1;
+    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].vref2;
     irs::mlog() << setprecision(1);
     if (m_eth_data.show_th_ext) {
       irs::mlog() << irsm(" ") << setw(3) << m_exp_vector[i].temperature_ext;
@@ -2868,7 +2889,7 @@ void hrm::app_t::show_last_result()
     }
     irs::mlog() << setprecision(0);
     if (m_eth_data.show_exp_time) {
-      irs::mlog() << irsm("   ") << setw(5) << m_exp_vector[i].exp_time;
+      irs::mlog() << irsm("   ") << setw(4) << m_exp_vector[i].exp_time;
     }
 //    if (m_eth_data.show_old_result) {
 //      irs::mlog() << irsm(" ") << setw(13) << m_exp_vector[i].result_old;
@@ -3003,6 +3024,17 @@ void hrm::app_t::show_last_result()
 //    case em_pid_linear: show_experiment_parameters_pid_linear(); break;
 //    default: show_experiment_parameters();
 //  };
+  irs::mlog() << irsm("----------- Параметры эксперимента -----------");
+  irs::mlog() << endl;
+  irs::mlog() << irsm("ef_smooth ");
+  irs::mlog().unsetf(std::ios_base::fixed);
+  irs::mlog() << m_exp_param.ef_smooth << endl;
+  irs::mlog() << irsm("n_avg     ") << m_exp_param.n_avg << endl;
+  irs::mlog() << irsm("t_adc     ") << m_exp_param.t_adc << endl;
+  irs::mlog() << irsm("n_adc     ") << m_exp_param.n_adc << endl;
+  irs::mlog() << irsm("voltage   ") << m_exp_param.bridge_voltage << endl;
+  irs::mlog() << irsm("pause     ") << m_exp_param.prepare_pause << endl;
+  irs::mlog() << endl;
 }
 
 hrm::app_t::elab_mode_t hrm::app_t::convert_u8_to_elab_mode(irs_u8 a_mode)

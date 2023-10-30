@@ -139,13 +139,6 @@ private:
     double vref2;
     vector<double> v1;
     vector<double> v2;
-//    double v2_neg_div1;
-//    double v1_neg_div2;
-//    double v2_neg_div2;
-//    double v1_pos_div1;
-//    double v2_pos_div1;
-//    double v1_pos_div2;
-//    double v2_pos_div2;
     void clear()
     {
       vcom1 = 0.0;
@@ -154,14 +147,6 @@ private:
       vref2 = 0.0;
       v1.clear();
       v2.clear();
-//      v1_neg_div1 = 0.0;
-//      v2_neg_div1 = 0.0;
-//      v1_neg_div2 = 0.0;
-//      v2_neg_div2 = 0.0;
-//      v1_pos_div1 = 0.0;
-//      v2_pos_div1 = 0.0;
-//      v1_pos_div2 = 0.0;
-//      v2_pos_div2 = 0.0;
     }
   };
 //  struct analog_point_t {
@@ -214,37 +199,27 @@ private:
 //    }
 //  };
   struct exp_t {
-    double result_old;
-    double et_code;
-    double ch_code;
-    double et_balanced_code;
-    double ch_balanced_code;
+    double result;
+    double Dn;
+    double Dp;
+    double K1;
+    double vcom1;
+    double vcom2;
+    double vref1;
+    double vref2;
     double temperature_ext;
     double temperature_dac;
     double temperature_adc;
     irs_u32 exp_time;
-    double target_sko;
-    double target_balance_sko;
-    double target_elab_sko;
-    double target_sko_adc_neg;
-    double target_sko_adc_pos;
-    double target_sko_dac_neg;
-    double target_sko_dac_pos;
-    irs_u32 neg_n;
-    irs_u32 pos_n;
-    double coils_voltage_neg;
-    double coils_sko_neg;
-    irs_u32 coils_n_neg;
-    double source_voltage_neg;
-    double source_sko_neg;
-    irs_u32 source_n_neg;
-    double coils_voltage_pos;
-    double coils_sko_pos;
-    irs_u32 coils_n_pos;
-    double source_voltage_pos;
-    double source_sko_pos;
-    irs_u32 source_n_pos;
     irs_u32 errors_cnt;
+  };
+  struct exp_param_t {
+    double ef_smooth;
+    irs_u32 n_avg;
+    irs_u32 t_adc;
+    irs_u32 n_adc;
+    double bridge_voltage;
+    irs_u32 prepare_pause;
   };
   enum elab_mode_t {
     em_linear = 0,
@@ -372,6 +347,7 @@ private:
   vector<analog_point_t> m_analog_vector;
   irs_u8 m_exp_cnt;
   vector<exp_t> m_exp_vector;
+  exp_param_t m_exp_param;
   bool m_no_prot;
   bool m_wild_relays;
   double m_balanced_sko;
