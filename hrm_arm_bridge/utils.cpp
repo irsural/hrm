@@ -3792,8 +3792,12 @@ void hrm::bridge_voltage_dac_t::tick()
       }
       m_dac_code = static_cast<irs_u16>(m_trans_coef * m_dac_voltage);
       mp_spi_buf[0] = 0;
+#ifdef BRIDGE_DAC_DPOT
+      mp_spi_buf[1] = IRS_LOBYTE(m_dac_code);
+#else   //  BRIDGE_DAC_DPOT
       mp_spi_buf[1] = IRS_HIBYTE(m_dac_code);
       mp_spi_buf[2] = IRS_LOBYTE(m_dac_code);
+#endif  //  BRIDGE_DAC_DPOT
       mp_cs_pin->clear();
       mp_spi->write(mp_spi_buf, write_buf_size);
       m_timer.start();

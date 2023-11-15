@@ -242,9 +242,15 @@ private:
     st_finish
   };
   enum {
+#ifdef BRIDGE_DAC_DPOT
+    dac_resolution = 8,
+    write_buf_size = 2,
+    dac_max_value = 0xFF
+#else //  BRIDGE_DAC_DPOT
     dac_resolution = 16,
     write_buf_size = 3,
     dac_max_value = 0xFFFF
+#endif  //  BRIDGE_DAC_DPOT
   };
   struct spline_t {
     double a;

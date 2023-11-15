@@ -481,7 +481,7 @@ void hrm::app_t::tick()
       m_eth_data.voltage2 = m_adc_ad4630.voltage2();
       m_eth_data.voltage_ef1 = m_adc_ad4630.voltage_ef1();
       m_eth_data.voltage_ef2 = m_adc_ad4630.voltage_ef2();
-      m_eth_data.result = m_adc_ad4630.voltage_ef1() - m_adc_ad4630.voltage_ef2();
+      m_eth_data.result = m_adc_ad4630.voltage_ef1() / m_adc_ad4630.voltage_ef2();
       //m_adc_ad4630.start_single_conversion();
     }
     m_eth_data.adc_error_cnt = m_adc_ad4630.error_cnt();
