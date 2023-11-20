@@ -58,6 +58,7 @@ private:
   };
   enum balance_status_t {                    //  BRIDGE   DIV   PROT
     bs_prepare,                               //  OFF     0     1
+    bs_prepare_set_div_relays,
     bs_prepare_set_relays,                    //  NEG     0     1
     bs_prepare_set_pause,
     bs_prepare_pause,    
@@ -135,16 +136,12 @@ private:
   struct analog_point_t {
     double vcom1;
     double vcom2;
-    double vref1;
-    double vref2;
     vector<double> v1;
     vector<double> v2;
     void clear()
     {
       vcom1 = 0.0;
       vcom2 = 0.0;
-      vref1 = 0.0;
-      vref2 = 0.0;
       v1.clear();
       v2.clear();
     }
@@ -202,11 +199,8 @@ private:
     double result;
     double Dn;
     double Dp;
-    double K1;
     double vcom1;
     double vcom2;
-    double vref1;
-    double vref2;
     double temperature_ext;
     double temperature_dac;
     double temperature_adc;
@@ -351,6 +345,11 @@ private:
   bool m_no_prot;
   bool m_wild_relays;
   double m_balanced_sko;
+  double m_vn1;
+  double m_vn2;
+  double m_vcom1;
+  double m_vcom2;
+  bool m_k_b_meas_ready;
 
   manual_status_t m_manual_status;
 
