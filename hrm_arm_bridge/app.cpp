@@ -960,7 +960,8 @@ void hrm::app_t::tick()
           
           m_k_b_meas_ready = false;
           
-          m_balance_status = bs_prepare_set_div_relays;
+          //m_balance_status = bs_prepare_set_div_relays;
+          m_balance_status = bs_prepare_set_relays;
           break;
         }
         case bs_prepare_set_div_relays: {
@@ -1023,7 +1024,8 @@ void hrm::app_t::tick()
               irs::mlog() << irsm(" В") << endl;
               irs::mlog() << irsm("vn2: ") << m_vn2;
               irs::mlog() << irsm(" В") << endl;
-              m_balance_status = bs_meas_vcom_bridge_off;
+              //m_balance_status = bs_meas_vcom_bridge_off;
+              m_balance_status = bs_main_change_polarity;
             }
           }
           break;
@@ -1171,7 +1173,7 @@ void hrm::app_t::tick()
             irs::mlog() << decode_relay_divn(m_current_div_relay);
             irs::mlog() << irsm(" = ") << v2 << irsm(" В") << endl;
             //  Только одна комбинация
-            m_current_div_relay = stop_div_relay;
+            //m_current_div_relay = stop_div_relay;
             //
             m_balance_status = bs_main_div_change;
           }
@@ -1241,8 +1243,8 @@ void hrm::app_t::tick()
           const irs::string_t sign[] = {irsm("-"), irsm("+")};
           size_t L = m_analog_point.v1.size() / 2;
           irs::mlog() << setprecision(8);
-          irs::mlog() << irsm("vcom  ") << m_analog_point.vcom1;
-          irs::mlog() << irsm(" ") << m_analog_point.vcom2 << endl;
+//          irs::mlog() << irsm("vcom  ") << m_analog_point.vcom1;
+//          irs::mlog() << irsm(" ") << m_analog_point.vcom2 << endl;
           for (irs_u8 j = 0; j <= 1; j++) {
             for (irs_u8 i = 0; i < L; i++) {
               irs::mlog() << irsm("V_");
@@ -1254,25 +1256,47 @@ void hrm::app_t::tick()
             }
           }
           //  --------------------------------------------------------------
-          double b = m_vcom1 - m_vcom2;
-          double k = m_vn1 / (m_vn2 - b);
+//          double k = (m_vn2 - m_vcom2) / (m_vn1 - m_vcom1);
+//          double b = m_vn2 - k * m_vn1;
           //
           irs::mlog() << endl;
-          irs::mlog() << irsm("k     ") << k << endl;
-          irs::mlog() << irsm("b     ") << b << endl;
+          irs::mlog() << irsm("vn1   ") << m_vn1 << endl;
+          irs::mlog() << irsm("vn2   ") << m_vn2 << endl;
+//          irs::mlog() << irsm("vcom1 ") << m_vcom1 << endl;
+//          irs::mlog() << irsm("vcom2 ") << m_vcom2 << endl;
+//          irs::mlog() << irsm("k     ") << k << endl;
+//          irs::mlog() << irsm("b     ") << b << endl;
           //
-          double v11 = m_analog_point.v1[0] - m_analog_point.vcom1;
-          double v21 = (m_analog_point.v2[0] - m_analog_point.vcom2) * k - b;
-          double v12 = m_analog_point.v1[1] - m_analog_point.vcom1;
-          double v22 = (m_analog_point.v2[1] - m_analog_point.vcom2) * k - b;
+//          double v11 = m_analog_point.v1[0] - m_analog_point.vcom1;
+//          double v21 = (m_analog_point.v2[0] - m_analog_point.vcom2) * k + b;
+//          double v12 = m_analog_point.v1[1] - m_analog_point.vcom1;
+//          double v22 = (m_analog_point.v2[1] - m_analog_point.vcom2) * k - b;
+          double v11n = m_analog_point.v1[0];
+          double v21n = m_analog_point.v2[0];
+          double v12n = m_analog_point.v1[1];
+          double v22n = m_analog_point.v2[1];
+          
+          double v11p = m_analog_point.v1[2];
+          double v21p = m_analog_point.v2[2];
+          double v12p = m_analog_point.v1[3];
+          double v22p = m_analog_point.v2[3];
+          double k11 = abs((v11n + v11p)/(v11n - v11p));
+          double k12 = abs((v12n + v12p)/(v12n - v12p));
+          double k21 = abs((v21n + v21p)/(v21n - v21p));
+          double k22 = abs((v22n + v22p)/(v22n - v22p));
           //
-          double Dn = v11 / v21;
-          double Dp = v12 / v22;
+          irs::mlog() << irsm("k11   ") << k11 << endl;
+          irs::mlog() << irsm("k12   ") << k12 << endl;
+          irs::mlog() << irsm("k21   ") << k21 << endl;
+          irs::mlog() << irsm("k22   ") << k22 << endl;
+          //
+          double Dn = (k11 / k21);
+          double Dp = (k12 / k22);
           //
           irs::mlog() << irsm("Dn    ") << Dn << endl;
           irs::mlog() << irsm("Dp    ") << Dp << endl;
           //
-          m_result = 0.5 * (Dn + Dp);
+          m_result = 0.5 * (Dn + 1.0 / Dp);
           //  -------------------------  RESULT  -------------------------
           irs::mlog() << irsm("Результат") << endl;
           irs::mlog() << setw(14) << setprecision(14);
@@ -1327,7 +1351,8 @@ void hrm::app_t::tick()
               m_bridge_voltage_dac.set_voltage(m_bridge_voltage_reduced);
             }
 
-            m_balance_status = bs_meas_vcom_bridge_off;
+            //m_balance_status = bs_meas_vcom_bridge_off;
+            m_balance_status = bs_main_change_polarity;
           }
           break;
         }
