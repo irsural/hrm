@@ -132,7 +132,9 @@ hrm::cfg_t::cfg_t():
   //  Relays AD4630
   relay_bridge_divp_on(GPIO_PORTD, 4, irs::io_t::dir_out, irs::io_pin_off),
   relay_bridge_divp_off(GPIO_PORTD, 5, irs::io_t::dir_out, irs::io_pin_off),
-  relay_bridge_divn_on(GPIO_PORTD, 6, irs::io_t::dir_out, irs::io_pin_off),
+  //relay_bridge_divn_on(GPIO_PORTD, 6, irs::io_t::dir_out, irs::io_pin_off),
+  // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  Из-за сожжённого PD6
+  relay_bridge_divn_on(GPIO_PORTA, 11, irs::io_t::dir_out, irs::io_pin_off),
   relay_bridge_divn_off(GPIO_PORTD, 7, irs::io_t::dir_out, irs::io_pin_off),
   //  Relay DIVSW, ON and OFF was swaped
   relay_divsw_on(GPIO_PORTF, 1, irs::io_t::dir_out, irs::io_pin_off),

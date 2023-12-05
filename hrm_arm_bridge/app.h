@@ -199,8 +199,14 @@ private:
     double result;
     double Dn;
     double Dp;
-    double vcom1;
-    double vcom2;
+    double v11n;
+    double v21n;
+    double v12n;
+    double v22n;
+    double v11p;
+    double v21p;
+    double v12p;
+    double v22p;
     double temperature_ext;
     double temperature_dac;
     double temperature_adc;

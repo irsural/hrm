@@ -486,7 +486,7 @@ void hrm::app_t::tick()
       m_eth_data.voltage2 = m_adc_ad4630.voltage2();
       m_eth_data.voltage_ef1 = m_adc_ad4630.voltage_ef1();
       m_eth_data.voltage_ef2 = m_adc_ad4630.voltage_ef2();
-      m_eth_data.result = m_adc_ad4630.voltage_ef1() / m_adc_ad4630.voltage_ef2();
+//      m_eth_data.result = m_adc_ad4630.voltage_ef1() / m_adc_ad4630.voltage_ef2();
       //m_adc_ad4630.start_single_conversion();
     }
     m_eth_data.adc_error_cnt = m_adc_ad4630.error_cnt();
@@ -1243,8 +1243,6 @@ void hrm::app_t::tick()
           const irs::string_t sign[] = {irsm("-"), irsm("+")};
           size_t L = m_analog_point.v1.size() / 2;
           irs::mlog() << setprecision(8);
-//          irs::mlog() << irsm("vcom  ") << m_analog_point.vcom1;
-//          irs::mlog() << irsm(" ") << m_analog_point.vcom2 << endl;
           for (irs_u8 j = 0; j <= 1; j++) {
             for (irs_u8 i = 0; i < L; i++) {
               irs::mlog() << irsm("V_");
@@ -1255,22 +1253,10 @@ void hrm::app_t::tick()
               irs::mlog() << irsm(" ") << m_analog_point.v2[i + j * L] << endl;
             }
           }
-          //  --------------------------------------------------------------
-//          double k = (m_vn2 - m_vcom2) / (m_vn1 - m_vcom1);
-//          double b = m_vn2 - k * m_vn1;
-          //
           irs::mlog() << endl;
           irs::mlog() << irsm("vn1   ") << m_vn1 << endl;
           irs::mlog() << irsm("vn2   ") << m_vn2 << endl;
-//          irs::mlog() << irsm("vcom1 ") << m_vcom1 << endl;
-//          irs::mlog() << irsm("vcom2 ") << m_vcom2 << endl;
-//          irs::mlog() << irsm("k     ") << k << endl;
-//          irs::mlog() << irsm("b     ") << b << endl;
-          //
-//          double v11 = m_analog_point.v1[0] - m_analog_point.vcom1;
-//          double v21 = (m_analog_point.v2[0] - m_analog_point.vcom2) * k + b;
-//          double v12 = m_analog_point.v1[1] - m_analog_point.vcom1;
-//          double v22 = (m_analog_point.v2[1] - m_analog_point.vcom2) * k - b;
+          
           double v11n = m_analog_point.v1[0];
           double v21n = m_analog_point.v2[0];
           double v12n = m_analog_point.v1[1];
@@ -1280,6 +1266,7 @@ void hrm::app_t::tick()
           double v21p = m_analog_point.v2[2];
           double v12p = m_analog_point.v1[3];
           double v22p = m_analog_point.v2[3];
+          
           double k11 = abs((v11n + v11p)/(v11n - v11p));
           double k12 = abs((v12n + v12p)/(v12n - v12p));
           double k21 = abs((v21n + v21p)/(v21n - v21p));
@@ -1299,14 +1286,20 @@ void hrm::app_t::tick()
           m_result = 0.5 * (Dn + 1.0 / Dp);
           //  -------------------------  RESULT  -------------------------
           irs::mlog() << irsm("Результат") << endl;
-          irs::mlog() << setw(14) << setprecision(14);
+          irs::mlog() << setw(8) << setprecision(8);
           irs::mlog() << m_result << endl;
           
           exp.result = m_result;
           exp.Dn = Dn;
           exp.Dp = Dp;
-          exp.vcom1 = m_analog_point.vcom1;
-          exp.vcom2 = m_analog_point.vcom2;
+          exp.v11n = v11n;
+          exp.v21n = v21n;
+          exp.v12n = v12n;
+          exp.v22n = v22n;
+          exp.v11p = v11p;
+          exp.v21p = v21p;
+          exp.v12p = v12p;
+          exp.v22p = v22p;
           m_exp_vector.push_back(exp);
           m_analog_point.clear();
           
@@ -1317,17 +1310,17 @@ void hrm::app_t::tick()
           m_exp_param.bridge_voltage = m_bridge_voltage;
           m_exp_param.prepare_pause = m_prepare_pause;
             
-//          m_eth_data.result = exp.result_old * m_eth_data.etalon;//  Result OLD
-//          m_eth_data.ratio = m_result;
-//          m_result *= m_etalon;
-//          m_result_error = ((m_result - m_checked) / m_checked) * 100.;
-//          irs::mlog() << setprecision(7);
-//          irs::mlog() << irsm("Отношение ") << m_eth_data.ratio
-//            << endl;
-//          irs::mlog() << irsm("Результат ") << m_result
-//            << irsm(" Ом") << endl;
-//          irs::mlog() << irsm("Отклонение ") << m_result_error
-//            << irsm(" %") << endl;
+          m_eth_data.result = exp.result * m_eth_data.etalon;
+          m_eth_data.ratio = m_result;
+          m_result *= m_etalon;
+          m_result_error = ((m_result - m_checked) / m_checked) * 100.0;
+          irs::mlog() << setprecision(7);
+          irs::mlog() << irsm("Отношение ") << m_eth_data.ratio
+            << endl;
+          irs::mlog() << irsm("Результат ") << m_result
+            << irsm(" Ом") << endl;
+          irs::mlog() << irsm("Отклонение ") << m_result_error
+            << irsm(" %") << endl;
           m_buzzer.bzz(2);
           m_balance_status = bs_next_exp;
           break;
@@ -2811,10 +2804,19 @@ void hrm::app_t::show_last_result()
   irs::mlog() << irsm("№    ");
   
   irs::mlog() << irsm("Result     ");
-  irs::mlog() << irsm("Dn         ");
-  irs::mlog() << irsm("Dp         ");
-  irs::mlog() << irsm("vcom1      ");
-  irs::mlog() << irsm("vcom2      ");
+//  irs::mlog() << irsm("Dn         ");
+//  irs::mlog() << irsm("Dp         ");
+//  irs::mlog() << irsm("vcom1      ");
+//  irs::mlog() << irsm("vcom2      ");
+  
+  irs::mlog() << irsm("v11n       ");
+  irs::mlog() << irsm("v21n       ");
+  irs::mlog() << irsm("v12n       ");
+  irs::mlog() << irsm("v22n       ");
+  irs::mlog() << irsm("v11p       ");
+  irs::mlog() << irsm("v21p       ");
+  irs::mlog() << irsm("v12p       ");
+  irs::mlog() << irsm("v22p       ");
   
   if (m_eth_data.show_th_ext) {
     irs::mlog() << irsm("t°ext  ");
@@ -2906,10 +2908,18 @@ void hrm::app_t::show_last_result()
     irs::mlog() << setw(3) << i + 1;irs::mlog() << irsm(" ");
     irs::mlog() << setprecision(8);
     irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].result;
-    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].Dn;
-    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].Dp;
-    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].vcom1;
-    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].vcom2;
+//    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].Dn;
+//    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].Dp;
+//    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].vcom1;
+//    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].vcom2;
+    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].v11n;
+    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].v21n;
+    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].v12n;
+    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].v22n;
+    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].v11p;
+    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].v21p;
+    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].v12p;
+    irs::mlog() << irsm(" ") << setw(9) << m_exp_vector[i].v22p;
     irs::mlog() << setprecision(1);
     if (m_eth_data.show_th_ext) {
       irs::mlog() << irsm(" ") << setw(3) << m_exp_vector[i].temperature_ext;
