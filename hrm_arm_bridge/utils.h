@@ -203,6 +203,87 @@ private:
   bool m_show;
 };
 
+//  Здесь не использован готовый класс из irsadc dac_8531_t, 
+//  т.к. у него нет статуса готовности
+//  Реализована функция плавного изменения кода ЦАП по кривой 
+//  в виде кубического сплайна
+class bridge_voltage_dac_t
+{
+public:
+  bridge_voltage_dac_t(irs::spi_t *ap_spi, irs::gpio_pin_t* ap_cs_pin, 
+    double a_min_voltage, double a_max_voltage, double a_trans_coef);
+  ~bridge_voltage_dac_t() {};
+  //  Все функции set_** возвращают ограниченное bound-ом значение
+  double set_voltage(double a_voltage);
+  double get_voltage();
+  //  Пауза после полной установки напряжения в мс
+  double set_after_pause_ms(double a_after_pause_ms);
+  //  Интегральная скорость установки напряжения (всё напряжение / всё время)
+  //  Вольт в секунду
+  double set_speed(double a_speed);
+  //  Функции синхронизации, запускают соответствующие функции set_**,
+  //  только если входной параметр отличается от внутренней переменной,
+  //  возвращают результат функции set_**, если она вызвалась
+  double sync_voltage(double a_voltage);
+  double sync_speed(double a_speed);
+  double sync_after_pause_ms(double a_after_pause_ms);
+  irs_status_t ready();
+  inline void show() { m_show = true; }
+  inline void hide() { m_show = false; }
+  void tick();
+private:
+  enum status_t {
+    st_idle,
+    st_wait_spi,
+    st_calc_code_and_write,
+    st_wait_writing,
+    st_wait_dt,
+    st_wait_after_pause,
+    st_finish
+  };
+  enum {
+#ifdef BRIDGE_DAC_DPOT
+    dac_resolution = 8,
+    write_buf_size = 2,
+    dac_max_value = 0xFF
+#else //  BRIDGE_DAC_DPOT
+    dac_resolution = 16,
+    write_buf_size = 3,
+    dac_max_value = 0xFFFF
+#endif  //  BRIDGE_DAC_DPOT
+  };
+  struct spline_t {
+    double a;
+    double b;
+    double d;
+    double dt;
+    double dv;
+    size_t init(double a_v1, double a_v2, double a_S, double a_dt);
+    double calc(size_t a_n);
+  };
+  const double m_min_voltage;
+  const double m_max_voltage;
+  const double m_trans_coef;
+  irs::spi_t* mp_spi;
+  irs::gpio_pin_t* mp_cs_pin;
+  irs_u8 mp_spi_buf[write_buf_size];
+  status_t m_status;
+  counter_t m_after_pause;
+  double m_after_pause_ms;
+  const double m_dt;
+  const counter_t m_step_interval;
+  irs::timer_t m_timer;
+  irs_u16 m_dac_code;
+  double m_dac_voltage;
+  double m_target_voltage;
+  double m_speed;
+  size_t m_current_point;
+  size_t m_num_of_points;
+  bool m_need_set_voltage;
+  bool m_show;
+  spline_t m_spline;
+};
+
 class adc_t
 {
 public:
@@ -370,6 +451,7 @@ struct adc_result_data_t {
   adc_value_t alternative_avg;
   adc_value_t alternative_sko;
   bool saturated;
+  irs_u16 error_cnt;
 };
 
 struct adc_param_data_t {
@@ -520,6 +602,13 @@ bool static_sko_t<in_t, out_t, calc_t, max_size>::is_full()
 
 //------------------------------------------------------------------------------
 
+enum adc_error_type_t {
+  aet_none,
+  aet_verify,
+  aet_invalid,
+  aet_overtime
+};
+
 class ad7799_cread_t
 {
 public:
@@ -527,6 +616,7 @@ public:
     adc_exti_t* ap_adc_exti);
   ~ad7799_cread_t() {};
   void start_conversion();
+  void restart();
   inline void stop_continious() { m_need_stop = true; }
   inline irs_status_t status() { return m_return_status; }
   inline void continious_pause() { m_need_reconfigure = true; }
@@ -545,6 +635,7 @@ public:
   inline void test_impf() { m_test_impf = true; }
   inline void set_show_points(bool a_show) { m_show_points = a_show; }
   void show_param_data(bool a_show, adc_param_data_t* ap_param_data);
+  void show_current_param_data(bool a_show);
   //  Установка параметров
   void set_params(adc_param_data_t* ap_param_data);
   //  Частота преобразований АЦП
@@ -555,6 +646,7 @@ public:
   bool window_is_full();
   void set_max_value(adc_value_t a_max_value);
   bool in_infinity_mode(bool a_actual = true);
+  void mute();
   void tick();
 private:
   enum status_t {
@@ -573,8 +665,10 @@ private:
     st_verify_show,
     st_start,
     st_spi_first_wait,
+    st_validate_point,
     st_spi_point_processing,
     st_spi_wait_stop,
+    st_spi_error_processing,
     st_cread,
     st_free
   };
@@ -641,6 +735,7 @@ private:
   counter_t m_cs_interval;
   counter_t m_reset_interval;
   irs::timer_t m_timer;
+  irs::timer_t m_overtime_timer;
   bool m_show;
   bool m_test_impf;
   bool m_need_prefilling;
@@ -648,6 +743,8 @@ private:
   counter_t m_time_counter;
   counter_t m_point_time;
   bool m_need_reconfigure;
+  bool m_need_error_processing;
+  bool m_need_repeat_conversion;
   bool m_new_result;
   bool m_valid_frequency;
   bool m_show_points;
@@ -657,6 +754,10 @@ private:
   adc_param_data_t m_user_param_data;
   irs::filt_imp_noise_t m_imp_filt;
   adc_value_t m_max_value;
+  irs_u16 m_error_cnt;
+  adc_error_type_t m_error_type;
+  irs_i32 m_adc_raw_value;
+  bool m_muted;
   void event();
   inline adc_value_t convert_value(irs_i32 a_in_value)
   {
@@ -691,7 +792,8 @@ private:
   bool new_data(bool* ap_new_data);
   //  Вывод в консоль
   void show_start_message(bool a_show, adc_param_data_t* ap_param_data);
-  void show_verify_message(bool a_show, irs_u8 a_status_reg, irs_u8 a_channel);
+  bool valid_verify_message(bool a_show, irs_u8 a_status_reg, 
+    irs_u8 a_channel);
   void show_point_symbol(bool a_show);
   void show_points(bool a_show, adc_value_t a_value);
   //  Утилиты
@@ -699,6 +801,148 @@ private:
   double calc_frequency(counter_t a_prev_cnt, counter_t a_cnt, 
     bool a_valid_time);
   counter_t get_settle_time(irs_u8 a_filter);
+  bool valid_value(irs_i32 a_value);
+};
+
+class ad4630_t
+{
+public:
+  ad4630_t(irs::spi_t *ap_spi, 
+    irs::gpio_pin_t* ap_rst_pin,
+    irs::gpio_pin_t* ap_cs_pin,
+    irs::gpio_pin_t* ap_busy_pin,
+    irs::gpio_pin_t* ap_pwr_pin,
+    irs::gpio_pin_t* ap_point_control_pin,
+    pulse_gen_t* ap_pulse_gen,
+    adc_ad4630_ready_t* ap_adc_ready,
+    spi_dma_reader_t* ap_spi_dma_reader);
+  ~ad4630_t() {};
+  void pulse_event();
+  void cnv_complete_event();
+  void read_complete_event();
+  void start_single_conversion() { m_need_start_single = true; }
+  void start_continious(irs_u32 a_num_of_points = 0);
+  inline irs_u32 current_point() { return m_current_point; }
+  inline void stop_continious() { m_need_stop = true; }
+  inline irs_status_t status() { return m_return_status; }
+  inline bool ready() { return m_return_status == irs_st_ready; }
+  bool new_data();
+  double voltage1();
+  double voltage2();
+  double voltage_ef1();
+  double voltage_ef2();
+  double set_ef_smooth(double a_ef_smooth);
+  void ef_preset();
+  irs_u8 set_avg(irs_u8 a_avg);
+  irs_u16 set_t(irs_u16 a_t);
+  irs_u32 correct_n_adc(irs_u32 a_n_adc);
+  void set_cnv_freq(double a_cnv_freq);
+  void set_continious_freq(double a_continious_freq);
+  irs_u32 error_cnt() { return m_error_cnt; }
+  inline double vref() { return m_vref; }
+  void tick();
+private:
+  enum {
+    spi_write_buf_size = 16,
+    spi_read_buf_size = 16,
+    read_reg_size = 3,
+    write_cfg_mode_size = 1,
+    read_cfg_mode_size = 3,
+    write_reg_size = 3,
+    interleaved_read_size = 6,
+    interleaved_avg_read_size = 8,
+    max_avg = 16,
+    min_t = 10,
+    max_t = 0xFFFF,
+    min_n_adc = 2,
+    max_n_adc = 1000000
+  };
+  enum {
+    sync_bit1_pos = 0,
+    or_bit1_pos = 2,
+    sync_bit2_pos = 1,
+    or_bit2_pos = 3,
+  };
+  enum {
+    command_configuration_mode = 0xA0,
+    command_read = 0x80,
+    command_write = 0x00,
+    command_exit_cfg_mode = 0x01,
+    command_interleaved_lane_mode = 0xC0,
+    command_output_data_mode_avg = 0x03,
+    command_avg_sync = 0x80
+  };
+  enum {
+    address_spi_revision_register = 0x0B,
+    address_spi_exit_cfg_mode_register = 0x14,
+    address_modes_register = 0x20,
+    address_avg_mode_register = 0x15
+  };
+  enum status_t {
+    st_reset_prepare,
+    st_reset,
+    st_check_adc_cfg_mode_enter,
+    st_check_adc_cfg_mode,
+    st_check_adc_cfg_mode_wait,
+    st_check_adc_read_enter,
+    st_check_adc_read,
+    st_write_modes_register_enter,
+    st_write_modes_register,
+    st_exit_cfg_mode_enter,
+    st_exit_cfg_mode,
+    st_write_avg_register_enter,
+    st_write_avg_register,
+    st_verify_avg_enter,
+    st_verify_avg,
+    st_meas_prepare,
+    st_meas_cnv_set,
+    st_meas_cnv_clear,
+    st_meas_busy_check,
+    st_meas_read_prepare,
+    st_point_processing,
+    st_free
+  };
+  irs::spi_t *mp_spi;
+  irs::gpio_pin_t *mp_rst_pin;
+  irs::gpio_pin_t *mp_cs_pin;
+  irs::gpio_pin_t *mp_busy_pin;
+  irs::gpio_pin_t *mp_pwr_pin;
+  irs::gpio_pin_t *mp_point_control_pin;
+  pulse_gen_t* mp_pulse_gen;
+  adc_ad4630_ready_t* mp_adc_ready;
+  spi_dma_reader_t* mp_spi_dma_reader;
+  irs::event_connect_t<ad4630_t> m_pulse_event;
+  irs::event_connect_t<ad4630_t> m_cnv_complete_event;
+  irs::event_connect_t<ad4630_t> m_read_complete_event;
+  irs_u8 mp_spi_write_buf[spi_write_buf_size];
+  irs_u8 mp_spi_read_buf[spi_read_buf_size];
+  status_t m_status;
+  counter_t m_reset_interval;
+  counter_t m_cs_wait_interval;
+  counter_t m_overtime_interval;
+  irs::timer_t m_timer;
+  bool m_need_start_single;
+  bool m_need_start_continious;
+  bool m_need_stop;
+  bool m_new_data;
+  bool m_need_reconfigure;
+  irs_i32 m_raw_data1;
+  irs_i32 m_raw_data2;
+  const double m_vref;
+  const double m_trans_k;
+  double m_voltage1;
+  double m_voltage2;
+  irs_status_t m_return_status;
+  irs_u8 m_avg;
+  irs_u8 m_avg_buffer;
+  irs_u16 m_t;
+  double m_voltage_ef1;
+  double m_voltage_ef2;
+  double m_ef_smooth;
+  irs_u32 m_error_cnt;
+  irs_u32 m_current_point;
+  irs_u32 m_num_of_points;
+  bool m_need_ef_preset;
 };
 
 class termostat_t
@@ -780,7 +1024,7 @@ private:
     th_box_adc_ch = irs::arm::st_adc_t::ADC3_PF9_CH7,
     volt_box_neg_ch = irs::arm::st_adc_t::ADC123_PC0_CH10,
     volt_box_pos_ch = irs::arm::st_adc_t::ADC3_PF10_CH8,
-    th_mcu_ch = irs::arm::st_adc_t::ADC1_TEMPERATURE,
+    th_mcu_ch = 0,//irs::arm::st_adc_t::ADC1_TEMPERATURE,
     th_ext_1_ch = irs::arm::st_adc_t::ADC123_PA0_CH0,
     th_ext_2_ch = irs::arm::st_adc_t::ADC12_PA6_CH6,
     adc1_mask = th_dac_ch | th_box_ldo_ch | th_mcu_ch | th_ext_1_ch|th_ext_2_ch,

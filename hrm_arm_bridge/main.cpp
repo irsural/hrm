@@ -1,6 +1,3 @@
-//#define MEMP_NUM_TCP_PCB                5
-
-
 #include <irsdefs.h>
 
 #include <irsstrm.h>
@@ -17,8 +14,8 @@
 #include <irsfinal.h>
 
 enum { 
-  hardware_rev = 4,
-  software_rev = 107,
+  hardware_rev = 5,
+  software_rev = 129,
   mxsrclib_rev = 1455,
   extern_libs_rev = 26
 };
@@ -81,8 +78,9 @@ void app_start(hrm::cfg_t* ap_cfg, hrm::version_t a_version,
 { 
   static hrm::app_t app(ap_cfg, a_version);
 
-  static irs::lwipbuf log_buf;
-
+  //static irs::lwipbuf log_buf;
+  static irs::arm::com_buf log_buf(1, 10, 115200);
+  
   while(true) {
     #ifdef HRM_DEBUG
     static const counter_t period = irs::make_cnt_s(1);
@@ -95,7 +93,7 @@ void app_start(hrm::cfg_t* ap_cfg, hrm::version_t a_version,
     
     static bool lwipbuf_ready = false;
     if (!lwipbuf_ready)
-    if (log_buf.is_any_connected()) {
+    /*if (log_buf.is_any_connected())*/ {
       lwipbuf_ready = true;
       irs::mlog().rdbuf(&log_buf);
       irs::mlog() << a_buf.get_buf();
@@ -103,7 +101,7 @@ void app_start(hrm::cfg_t* ap_cfg, hrm::version_t a_version,
     }
       
     app.tick();
-    log_buf.tick();
+    //log_buf.tick();
     static irs::blink_t green_led_blink(GPIO_PORTD, 8, irs::make_cnt_ms(100));
     green_led_blink(); // Мигание зелёным светодиодом на плате arm
     #ifdef HRM_DEBUG
